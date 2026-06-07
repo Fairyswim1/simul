@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타원 접선-극선 기하학적 성질 증명</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #dc2626;
+            --accent: #fbbf24;
+            --bg: #f1f5f9;
+            --panel: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .app-container {
+            background: var(--panel);
+            max-width: 1000px;
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 20px;
+            background: var(--text);
+            color: white;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .main-layout {
+            display: flex;
+            flex-direction: row;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        @media (max-width: 850px) {
+            .main-layout { flex-direction: column; }
+        }
+
+        .canvas-area {
+            position: relative;
+            flex: 1;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        .sidebar {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        @media (max-width: 850px) {
+            .sidebar { width: 100%; }
+        }
+
+        .data-panel {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .data-panel h3 {
+            margin-top: 0;
+            font-size: 1rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            color: var(--primary);
+        }
+
+        .slope-box {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid var(--primary);
+            margin-top: 10px;
+        }
+
+        .control-panel {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-section {
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 15px;
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .control-section h4 {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .slider-group {
+            margin-bottom: 12px;
+        }
+
+        .slider-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .input-coords {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .coord-input-box label {
+            display: block;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+
+        .coord-input-box input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .footer-info {
+            padding: 20px;
+            background: #f1f5f9;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .math {
+            font-family: "Times New Roman", serif;
+            font-style: italic;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <h1>타원 외부의 점과 극선의 기하학적 성질</h1>
+    </div>
+
+    <div class="main-layout">
+        <div class="canvas-area">
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="sidebar">
+            <div class="data-panel">
+                <h3>실시간 수치 데이터</h3>
+                <div class="stat-row">
+                    <span>점 P(x₁, y₁):</span>
+                    <span id="coordP" class="stat-value">0, 0</span>
+                </div>
+                <div class="stat-row">
+                    <span>점 M(x_m, y_m):</span>
+                    <span id="coordM" style="color: #dc2626;">0, 0</span>
+                </div>
+                
+                <div class="slope-box">
+                    <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">원점(O) 기준 기울기 (y/x)</div>
+                    <div class="stat-row">
+                        <span>기울기 OP:</span>
+                        <span id="slopeP" class="stat-value">0.0000</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>기울기 OM:</span>
+                        <span id="slopeM" style="color: #dc2626;">0.0000</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="control-section">
+                    <h4>타원 파라미터 <span style="font-size: 0.7rem; color: #ef4444;">(a > b 유지)</span></h4>
+                    <div class="slider-group">
+                        <label id="labelA">장축 반지름 (a): 180</label>
+                        <input type="range" id="inputA" min="80" max="250" value="180">
+                    </div>
+                    <div class="slider-group">
+                        <label id="labelB">단축 반지름 (b): 100</label>
+                        <input type="range" id="inputB" min="40" max="249" value="100">
+                    </div>
+                </div>
+
+                <div class="control-section">
+                    <h4>점 P 좌표 입력</h4>
+                    <div class="input-coords">
+                        <div class="coord-input-box">
+                            <label>x 좌표</label>
+                            <input type="number" id="inputPx" value="220" step="1">
+                        </div>
+                        <div class="coord-input-box">
+                            <label>y 좌표</label>
+                            <input type="number" id="inputPy" value="160" step="1">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item"><div class="dot" style="background: #2563eb;"></div> 점 P</div>
+                    <div class="legend-item"><div class="dot" style="background: #dc2626;"></div> 중점 M</div>
+                    <div class="legend-item"><div class="dot" style="background: #fbbf24; border: 1px solid #94a3b8;"></div> 원점 O</div>
+                    <div class="legend-item"><div class="dot" style="background: #000;"></div> 타원/축</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-info">
+        <strong>[증명 성질]</strong> 
+        타원 <span class="math">x²/a² + y²/b² = 1 (a > b > 0)</span> 외부의 점 <span class="math">P</span>에서 그은 두 접점 <span class="math">Q, R</span>의 중점 <span class="math">M</span>에 대하여, 
+        직선 <span class="math">PM</span>은 항상 타원의 중심(원점) <span class="math">O</span>를 지납니다. 즉, 세 점 <span class="math">O, M, P</span>는 공선점입니다.<br>
+        <strong>[조작 방법]</strong> 
+        파란색 점 <span class="math">P</span>를 드래그하거나 사이드바에서 좌표를 직접 입력하세요. 수치 데이터 패널에서 기울기가 항상 일치함을 확인할 수 있습니다.
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const inputA = document.getElementById('inputA');
+    const inputB = document.getElementById('inputB');
+    const labelA = document.getElementById('labelA');
+    const labelB = document.getElementById('labelB');
+    const inputPx = document.getElementById('inputPx');
+    const inputPy = document.getElementById('inputPy');
+    
+    const coordP = document.getElementById('coordP');
+    const coordM = document.getElementById('coordM');
+    const slopePDisp = document.getElementById('slopeP');
+    const slopeMDisp = document.getElementById('slopeM');
+
+    const COLORS = {
+        primary: '#2563eb',
+        secondary: '#dc2626',
+        accent: '#fbbf24',
+        text: '#1e293b'
+    };
+
+    let a = parseInt(inputA.value);
+    let b = parseInt(inputB.value);
+    let p = { x: 220, y: -160 }; // y는 캔버스 좌표계 (음수가 위쪽)
+    let isDragging = false;
+    let width, height, centerX, centerY;
+
+    function resize() {
+        width = canvas.parentElement.clientWidth;
+        height = 500;
+        canvas.width = width;
+        canvas.height = height;
+        centerX = width / 2;
+        centerY = height / 2;
+        draw();
+    }
+
+    function updatePFromInputs() {
+        const xVal = parseFloat(inputPx.value) || 0;
+        const yVal = parseFloat(inputPy.value) || 0;
+        p.x = xVal;
+        p.y = -yVal; // 카테시안 좌표를 캔버스 좌표로 변환
+        checkPBoundary();
+        draw();
+    }
+
+    function syncInputsFromP() {
+        inputPx.value = Math.round(p.x);
+        inputPy.value = Math.round(-p.y);
+    }
+
+    inputPx.addEventListener('input', updatePFromInputs);
+    inputPy.addEventListener('input', updatePFromInputs);
+
+    inputA.addEventListener('input', () => {
+        a = parseInt(inputA.value);
+        labelA.innerText = `장축 반지름 (a): ${a}`;
+        if (b >= a) {
+            b = a - 5;
+            inputB.value = b;
+            labelB.innerText = `단축 반지름 (b): ${b}`;
+        }
+        inputB.max = a - 1;
+        checkPBoundary();
+        syncInputsFromP();
+        draw();
+    });
+
+    inputB.addEventListener('input', () => {
+        b = parseInt(inputB.value);
+        if (b >= a) {
+            b = a - 5;
+            inputB.value = b;
+        }
+        labelB.innerText = `단축 반지름 (b): ${b}`;
+        checkPBoundary();
+        syncInputsFromP();
+        draw();
+    });
+
+    function isOutside(px, py) {
+        return (px*px)/(a*a) + (py*py)/(b*b) > 1.02;
+    }
+
+    function checkPBoundary() {
+        if (!isOutside(p.x, p.y)) {
+            const angle = Math.atan2(p.y, p.x);
+            p.x = (a + 10) * Math.cos(angle);
+            p.y = (b + 10) * Math.sin(angle);
+        }
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left - centerX;
+        const my = e.clientY - rect.top - centerY;
+        const dist = Math.sqrt((mx - p.x)**2 + (my - p.y)**2);
+        if (dist < 25) isDragging = true;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = canvas.getBoundingClientRect();
+        let mx = e.clientX - rect.left - centerX;
+        let my = e.clientY - rect.top - centerY;
+        p.x = mx; p.y = my;
+        checkPBoundary();
+        syncInputsFromP();
+        draw();
+    });
+
+    window.addEventListener('mouseup', () => isDragging = false);
+
+    function drawAxes() {
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for(let i = -width/2; i <= width/2; i += 50) {
+            ctx.moveTo(i, -height/2); ctx.lineTo(i, height/2);
+        }
+        for(let i = -height/2; i <= height/2; i += 50) {
+            ctx.moveTo(-width/2, i); ctx.lineTo(width/2, i);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-width/2 + 20, 0); ctx.lineTo(width/2 - 20, 0);
+        ctx.moveTo(0, -height/2 + 20); ctx.lineTo(0, height/2 - 20);
+        ctx.stroke();
+
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.moveTo(width/2 - 20, 0); ctx.lineTo(width/2 - 30, -5); ctx.lineTo(width/2 - 30, 5); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0, -height/2 + 20); ctx.lineTo(-5, -height/2 + 30); ctx.lineTo(5, -height/2 + 30); ctx.fill();
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText('x', width/2 - 15, 15);
+        ctx.fillText('y', 10, -height/2 + 35);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, width, height);
+        ctx.save();
+        ctx.translate(centerX, centerY);
+
+        drawAxes();
+
+        ctx.beginPath();
+        ctx.ellipse(0, 0, a, b, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        const R_sq = (p.x/a)**2 + (p.y/b)**2;
+        if (R_sq > 1) {
+            const phi = Math.atan2(p.y/b, p.x/a);
+            const delta = Math.acos(1 / Math.sqrt(R_sq));
+
+            const q = { x: a * Math.cos(phi + delta), y: b * Math.sin(phi + delta) };
+            const r = { x: a * Math.cos(phi - delta), y: b * Math.sin(phi - delta) };
+            const m = { x: (q.x + r.x)/2, y: (q.y + r.y)/2 };
+
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+            ctx.moveTo(p.x, p.y); ctx.lineTo(r.x, r.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(q.x, q.y); ctx.lineTo(r.x, r.y);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#000';
+            ctx.setLineDash([2, 2]);
+            const angle = Math.atan2(p.y, p.x);
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(angle)*1000, Math.sin(angle)*1000);
+            ctx.lineTo(-Math.cos(angle)*1000, -Math.sin(angle)*1000);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#000';
+            [q, r].forEach(pt => {
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI*2); ctx.fill();
+            });
+
+            ctx.fillStyle = COLORS.secondary;
+            ctx.beginPath(); ctx.arc(m.x, m.y, 6, 0, Math.PI*2); ctx.fill();
+            ctx.fillText("M", m.x + 10, m.y - 10);
+
+            coordP.innerText = `${Math.round(p.x)}, ${Math.round(-p.y)}`;
+            coordM.innerText = `${Math.round(m.x)}, ${Math.round(-m.y)}`;
+            const sP = p.x !== 0 ? (-p.y / p.x).toFixed(4) : "∞";
+            const sM = m.x !== 0 ? (-m.y / m.x).toFixed(4) : "∞";
+            slopePDisp.innerText = sP;
+            slopeMDisp.innerText = sM;
+        }
+
+        ctx.fillStyle = COLORS.accent;
+        ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = '#000'; ctx.fillText("O(0,0)", 10, 20);
+
+        ctx.fillStyle = COLORS.primary;
+        ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(37, 99, 235, 0.5)';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillText("P", p.x + 12, p.y - 12);
+
+        ctx.restore();
+    }
+
+    window.onload = () => {
+        resize();
+        syncInputsFromP();
+    };
+</script>
+
+</body>
+</html>

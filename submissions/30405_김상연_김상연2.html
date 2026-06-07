@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2번</title>
+<style>
+body{margin:0;background:#f4f6fb;color:#222;font-family:Arial,'Malgun Gothic',sans-serif}.wrap{max-width:1150px;margin:auto;padding:24px}h1{text-align:center;font-size:34px;color:#1f2a44}.grid{display:grid;grid-template-columns:330px 1fr;gap:20px}.card{background:#fff;border-radius:18px;box-shadow:0 4px 18px #0001;padding:18px}.title{font-weight:bold;font-size:18px;color:#1f2a44;border-bottom:2px solid #edf0f7;padding-bottom:8px;margin:0 0 14px}.group{margin-bottom:16px}label{font-weight:bold;font-size:14px;display:block;margin-bottom:6px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}input[type=range]{width:100%}.val{background:#eef2ff;color:#263b83;border-radius:10px;padding:7px 10px;min-width:66px;text-align:center;font-weight:bold}button{border:0;background:#2f65d9;color:white;border-radius:10px;padding:10px 14px;font-weight:bold;cursor:pointer}button.gray{background:#697386}.info{background:#f8faff;border:1px solid #e2e7f3;border-radius:12px;padding:10px;margin-bottom:10px}.k{color:#657086;font-size:13px}.v{font-size:16px;font-weight:bold;color:#1f2a44;margin-top:4px}.small{font-size:13px;color:#657086;line-height:1.5}canvas{width:100%;height:auto;display:block;border-radius:14px;border:1px solid #e2e7f3;background:#fcfdff}@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap"><h1>2번</h1><div class="grid"><div class="card">
+<p class="title">조작</p>
+<div class="group"><label>p : 순위 차이 1</label><div class="row"><input id="p" type="range" min="0.50" max="0.99" step="0.01" value="0.60"><span class="val" id="pv">0.60</span></div></div>
+<div class="group"><label>q : 순위 차이 2</label><div class="row"><input id="q" type="range" min="0.51" max="0.99" step="0.01" value="0.70"><span class="val" id="qv">0.70</span></div></div>
+<div class="group"><label>r : 순위 차이 3</label><div class="row"><input id="r" type="range" min="0.52" max="1.00" step="0.01" value="0.80"><span class="val" id="rv">0.80</span></div></div>
+<div class="group"><label>모의 시행 횟수</label><div class="row"><input id="trial" type="range" min="1000" max="50000" step="1000" value="10000"><span class="val" id="tv">10000</span></div></div>
+<div class="group row"><button id="sim">시뮬레이션 실행</button><button id="cond" class="gray">q=5/6, r=1</button><button id="reset" class="gray">초기화</button></div>
+<p class="title">현재 상태</p>
+<div class="info"><div class="k">P1</div><div class="v" id="P1"></div></div>
+<div class="info"><div class="k">P2</div><div class="v" id="P2"></div></div>
+<div class="info"><div class="k">차이 P1 - P2</div><div class="v" id="D"></div></div>
+<div class="info"><div class="k">P1 시뮬레이션</div><div class="v" id="S1">아직 실행 전</div></div>
+<div class="info"><div class="k">P2 시뮬레이션</div><div class="v" id="S2">아직 실행 전</div></div>
+<div class="info"><div class="k">판정</div><div class="v" id="J"></div></div>
+<p class="small">p, q, r을 조절하면 두 대진표에서 예선 1위 팀이 우승할 확률이 어떻게 달라지는지 확인할 수 있습니다.</p>
+</div><div class="card"><canvas id="c" width="760" height="760"></canvas></div></div></div>
+<script>
+const $=id=>document.getElementById(id),c=$('c'),x=c.getContext('2d');let last1=null,last2=null;
+function vals(){let p=+$('p').value,q=+$('q').value,r=+$('r').value;if(q<=p)q=Math.min(.99,p+.01);if(r<=q)r=Math.min(1,q+.01);$('q').value=q.toFixed(2);$('r').value=r.toFixed(2);return{p,q,r,N:+$('trial').value}}
+function P1(p,q,r){return r*(p*p+(1-p)*q)}
+function P2(p,q,r){let a=p*p+(1-p)*q,b=p*(1-p),d=(1-p)*(1-q);return a*p+b*q+d*r}
+function dist(p,q){return[p*p+(1-p)*q,p*(1-p),(1-p)*(1-q)]}
+function wp(a,b,p,q,r){let d=Math.abs(a-b);return d==1?p:d==2?q:r}
+function match(a,b,p,q,r){let hi=Math.min(a,b),lo=Math.max(a,b);return Math.random()<wp(hi,lo,p,q,r)?hi:lo}
+function one1(p,q,r){let A=match(1,4,p,q,r),B=match(2,3,p,q,r);return match(A,B,p,q,r)==1}
+function one2(p,q,r){let X=match(3,4,p,q,r),Y=match(2,X,p,q,r);return match(1,Y,p,q,r)==1}
+function update(){let v=vals(),a=P1(v.p,v.q,v.r),b=P2(v.p,v.q,v.r),d=a-b;$('pv').textContent=v.p.toFixed(2);$('qv').textContent=v.q.toFixed(2);$('rv').textContent=v.r.toFixed(2);$('tv').textContent=v.N;$('P1').textContent=a.toFixed(6);$('P2').textContent=b.toFixed(6);$('D').textContent=d.toFixed(6);$('J').textContent=Math.abs(d)<.005?'P1과 P2가 거의 비슷함':d>0?'P1이 더 큼':'P2가 더 큼'}
+function rr(x0,y,w,h,r){x.beginPath();x.moveTo(x0+r,y);x.lineTo(x0+w-r,y);x.quadraticCurveTo(x0+w,y,x0+w,y+r);x.lineTo(x0+w,y+h-r);x.quadraticCurveTo(x0+w,y+h,x0+w-r,y+h);x.lineTo(x0+r,y+h);x.quadraticCurveTo(x0,y+h,x0,y+h-r);x.lineTo(x0,y+r);x.quadraticCurveTo(x0,y,x0+r,y);x.closePath()}
+function box(x0,y,t,fill='#f8faff',stroke='#d8deed'){x.fillStyle=fill;x.strokeStyle=stroke;x.lineWidth=1.5;rr(x0,y,80,36,9);x.fill();x.stroke();x.fillStyle='#1f2a44';x.font='bold 15px Arial';x.textAlign='center';x.textBaseline='middle';x.fillText(t,x0+40,y+18)}
+function line(a,b,c,d){x.strokeStyle='#9aa7c2';x.lineWidth=2;x.beginPath();x.moveTo(a,b);x.lineTo(c,d);x.stroke()}
+function bracket1(){x.fillStyle='#1f2a44';x.font='bold 20px Arial';x.textAlign='left';x.fillText('대진표 1',50,48);box(60,85,'1위');box(60,135,'4위');box(60,235,'2위');box(60,285,'3위');box(210,110,'A 승자','#eef2ff');box(210,260,'B 승자','#eef2ff');box(365,185,'우승','#fff4e8','#e4b066');line(140,103,210,128);line(140,153,210,128);line(140,253,210,278);line(140,303,210,278);line(290,128,365,203);line(290,278,365,203)}
+function bracket2(){x.fillStyle='#1f2a44';x.font='bold 20px Arial';x.textAlign='left';x.fillText('대진표 2',50,390);box(60,430,'3위');box(60,480,'4위');box(210,455,'X 승자','#eef2ff');box(60,560,'2위');box(365,505,'Y 승자','#eef2ff');box(60,650,'1위');box(520,575,'우승','#fff4e8','#e4b066');line(140,448,210,473);line(140,498,210,473);line(290,473,365,523);line(140,578,365,523);line(445,523,520,593);line(140,668,520,593)}
+function bar(x0,y,w,h,val,lab,col){x.fillStyle='#eef2f8';rr(x0,y,w,h,8);x.fill();x.fillStyle=col;rr(x0,y,w*val,h,8);x.fill();x.fillStyle='#1f2a44';x.font='14px Arial';x.textAlign='left';x.textBaseline='middle';x.fillText(lab+' '+(val*100).toFixed(1)+'%',x0,y-12)}
+function draw(){update();let v=vals(),a=P1(v.p,v.q,v.r),b=P2(v.p,v.q,v.r),di=dist(v.p,v.q);x.clearRect(0,0,760,760);x.fillStyle='#fcfdff';x.fillRect(0,0,760,760);bracket1();bracket2();x.fillStyle='#1f2a44';x.font='bold 20px Arial';x.textAlign='left';x.fillText('확률 비교',470,48);bar(470,90,230,24,a,'P1','#2f65d9');bar(470,150,230,24,b,'P2','#e67e22');x.font='bold 18px Arial';x.fillText('대진표 2 결승 상대 분포',470,240);bar(470,285,230,20,di[0],'2위','#7f8fa6');bar(470,340,230,20,di[1],'3위','#7f8fa6');bar(470,395,230,20,di[2],'4위','#7f8fa6');x.font='bold 18px Arial';x.fillText('시뮬레이션 결과',470,495);if(last1==null){x.fillStyle='#657086';x.font='15px Arial';x.fillText('왼쪽의 실행 버튼을 누르세요.',470,535)}else{bar(470,545,230,20,last1,'P1','#2f65d9');bar(470,600,230,20,last2,'P2','#e67e22')}}
+function clearSim(){last1=last2=null;$('S1').textContent='아직 실행 전';$('S2').textContent='아직 실행 전';draw()}
+['p','q','r'].forEach(id=>$(id).addEventListener('input',clearSim));$('trial').addEventListener('input',update);$('sim').onclick=()=>{let v=vals(),c1=0,c2=0;for(let i=0;i<v.N;i++){if(one1(v.p,v.q,v.r))c1++;if(one2(v.p,v.q,v.r))c2++}last1=c1/v.N;last2=c2/v.N;$('S1').textContent=last1.toFixed(4)+' ('+c1+'/'+v.N+')';$('S2').textContent=last2.toFixed(4)+' ('+c2+'/'+v.N+')';draw()};$('cond').onclick=()=>{$('p').value=.67;$('q').value=(5/6).toFixed(2);$('r').value=1;clearSim()};$('reset').onclick=()=>{$('p').value=.60;$('q').value=.70;$('r').value=.80;$('trial').value=10000;clearSim()};draw();
+</script></body></html>

@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인천과학예술영재학교 20번 문제 시뮬레이터</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #10b981;
+            --accent-color: #ef4444;
+            --bg-color: #f8fafc;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #0f172a;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            max-width: 1100px;
+            width: 100%;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+        }
+
+        .canvas-container {
+            position: relative;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            width: 600px;
+            height: 600px;
+            flex-shrink: 0;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 300px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e2e8f0;
+            gap: 10px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            background: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        .option-group {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .option-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-danger {
+            background-color: #edf2f7;
+            color: #4a5568;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-danger:hover {
+            background-color: #e2e8f0;
+        }
+        
+        .btn-success {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #059669;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--primary-color);
+            padding: 12px;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .result-box {
+            display: none;
+            background: #ecfdf5;
+            border-left: 4px solid var(--secondary-color);
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 10px;
+            font-weight: 600;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .coordinates-display {
+            font-family: monospace;
+            font-size: 0.9rem;
+            background: #1e293b;
+            color: #38bdf8;
+            padding: 10px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>포물선의 두 접선 성질 시뮬레이터 (문항 20번)</h1>
+
+    <div class="container">
+        <!-- 캔버스 영역 -->
+        <div class="canvas-container">
+            <canvas id="mathCanvas" width="600" height="600"></canvas>
+        </div>
+
+        <!-- 컨트롤 패널 영역 -->
+        <div class="control-panel">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab(1)">문제 (1)</button>
+                <button class="tab" onclick="switchTab(2)">문제 (2)</button>
+            </div>
+
+            <!-- 실시간 좌표 출력 -->
+            <div class="coordinates-display">
+                <div>점 P(붉은색): <span id="valP">(0.00, -0.50)</span></div>
+                <div>점 Q, R(푸른색): <span id="valQR">계산 중...</span></div>
+                <div>중점 M(초록색): <span id="valM">(0.00, -0.50)</span></div>
+                <div>△PQR의 넓이: <span id="valArea" style="color:#ff7878">0.00</span></div>
+            </div>
+
+            <!-- 문제 (1) 탭 내용 -->
+            <div id="tab1-content" class="tab-content active">
+                <div class="info-box">
+                    <strong>[문제 1]</strong> 점 P가 세 부등식 영역 내부에서 움직일 때, <strong>선분 QR의 중점 M</strong>이 움직이는 범위를 구합니다.
+                </div>
+                <div class="option-group">
+                    <label class="option-item">
+                        <input type="checkbox" id="chkRange1" onchange="toggleRange1(this.checked)">
+                        P의 이동 범위 제한 (부등식 영역)
+                    </label>
+                    <label class="option-item">
+                        <input type="checkbox" id="chkTrace1" checked>
+                        중점 M의 자취 표시
+                    </label>
+                    <button class="btn btn-success" onclick="drawFullTrace1()">M의 자취 전체 확인하기</button>
+                    <button class="btn btn-danger" onclick="clearTraces()">자취 초기화</button>
+                </div>
+                <div class="info-box" style="background:#f0fdf4; border-left-color: var(--secondary-color);">
+                    💡 <strong>가이드:</strong> 체크박스를 켜고 마우스로 점 P를 드래그해보세요! 세 개의 포물선 호로 둘러싸인 중점 M의 영역이 나타납니다.
+                </div>
+            </div>
+
+            <!-- 문제 (2) 탭 내용 -->
+            <div id="tab2-content" class="tab-content">
+                <div class="info-box">
+                    <strong>[문제 2]</strong> △PQR의 넓이가 항상 <strong>2</strong>가 되는 점 P의 궤적과 곡선의 방정식을 찾습니다.
+                </div>
+                <div class="option-group">
+                    <label class="option-item">
+                        <input type="checkbox" id="chkAuto2" onchange="toggleAuto2(this.checked)">
+                        곡선 그리기 (자동 애니메이션 및 자취)
+                    </label>
+                </div>
+                <div id="result2" class="result-box">
+                    🎉 분석 결과:<br>
+                    점 P가 그리는 곡선의 방정식은 <br>
+                    <span style="color:var(--accent-color); font-size:1.2rem;">y = x² - 2^(2/3)</span> 입니다!<br>
+                    <span style="font-size:0.85rem; font-weight:normal; color:#475569;">
+                    (P가 이 곡선 위에 있을 때 △PQR의 넓이는 항상 2로 일정하게 유지됩니다.)
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mathCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 상태 변수들
+        let currentTab = 1;
+        let pX = 0.5, pY = -0.5;
+        let isDragging = false;
+        let limitRange1 = false;
+        let autoAnimate2 = false;
+        let animDirection = 1;
+        let showFullTrace1 = false; // M의 자취 전체 표시 여부
+
+        // 자취 기록용 배열
+        let traceMPoints = [];
+        let tracePPoints = [];
+        
+        // 상수 계산 (넓이 = 2 일 때, (x^2 - y)^(3/2) = 2  => x^2 - y = 2^(2/3) => y = x^2 - 2^(2/3) )
+        const AREA_CONSTANT = 2;
+        const K_VALUE = Math.pow(AREA_CONSTANT, 2/3);
+
+        // 좌표 변환 설정 (수학 좌표계 <-> 캔버스 픽셀 좌표계)
+        // 캔버스 크기 600x600, scale 65로 변경하여 더 넓은 범위를 보여줌 (약 x: [-4.6, 4.6], y: [-3.6, 5.6])
+        const scale = 65; 
+        const originX = canvas.width / 2;
+        const originY = canvas.height * 0.6; // 원점을 살짝 아래로
+
+        function toScreen(x, y) {
+            return {
+                x: originX + x * scale,
+                y: originY - y * scale
+            };
+        }
+
+        function toMath(screenX, screenY) {
+            return {
+                x: (screenX - originX) / scale,
+                y: (originY - screenY) / scale
+            };
+        }
+
+        // 문제 1의 부등식 영역 (삼각형 내부) 체크
+        // y <= x-1, y <= -x+1, y >= -1
+        function constrainToTriangle(x, y) {
+            let resX = x;
+            let resY = y;
+            
+            if (resY < -1) resY = -1;
+            if (resY > 0) resY = 0;
+
+            if (resX < resY + 1) resX = resY + 1;
+            if (resX > -resY + 1) resX = -resY + 1;
+
+            return { x: resX, y: resY };
+        }
+
+        function switchTab(tabNum) {
+            currentTab = tabNum;
+            document.querySelectorAll('.tab').forEach((t, idx) => {
+                t.classList.toggle('active', idx + 1 === tabNum);
+            });
+            document.querySelectorAll('.tab-content').forEach((c, idx) => {
+                c.classList.toggle('active', idx + 1 === tabNum);
+            });
+
+            if (autoAnimate2) {
+                document.getElementById('chkAuto2').checked = false;
+                autoAnimate2 = false;
+            }
+            showFullTrace1 = false;
+            
+            if (tabNum === 1) {
+                pX = 0.5; pY = -0.5;
+                document.getElementById('result2').style.display = 'none';
+            } else {
+                pX = 0; pY = pX*pX - K_VALUE; // 자동 시작 위치를 x=0으로 설정
+                tracePPoints = [];
+            }
+            
+            clearTraces();
+        }
+
+        function toggleRange1(checked) {
+            limitRange1 = checked;
+            showFullTrace1 = false; // 수동으로 돌릴 땐 전체 표시 끄기
+            if (limitRange1) {
+                let fixed = constrainToTriangle(pX, pY);
+                pX = fixed.x; pY = fixed.y;
+            }
+        }
+
+        function toggleAuto2(checked) {
+            autoAnimate2 = checked;
+            if (checked) {
+                pX = 0; // 애니메이션 시작 지점을 x=0으로 설정
+                tracePPoints = [];
+                document.getElementById('result2').style.display = 'block';
+            }
+        }
+
+        function clearTraces() {
+            traceMPoints = [];
+            tracePPoints = [];
+            showFullTrace1 = false;
+        }
+        
+        function drawFullTrace1() {
+            showFullTrace1 = true;
+            limitRange1 = true;
+            document.getElementById('chkRange1').checked = true;
+            // 즉시 렌더링을 위해 트리거만 켬
+        }
+
+        function getEventPos(e) {
+            let rect = canvas.getBoundingClientRect();
+            let clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            let clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return toMath(clientX - rect.left, clientY - rect.top);
+        }
+
+        function handleStart(e) {
+            if (autoAnimate2) return;
+            let mathPos = getEventPos(e);
+            let dist = Math.hypot(mathPos.x - pX, mathPos.y - pY);
+            if (dist < 0.4) { // 터치 편의를 위해 히트박스 조금 키움
+                isDragging = true;
+                e.preventDefault();
+            }
+        }
+
+        function handleMove(e) {
+            if (!isDragging) return;
+            let mathPos = getEventPos(e);
+            
+            let targetX = mathPos.x;
+            let targetY = mathPos.y;
+
+            // 포물선 y = x^2 위쪽으로는 가지 못하도록 제한
+            if (targetY >= targetX * targetX - 0.02) {
+                targetY = targetX * targetX - 0.02;
+            }
+
+            if (currentTab === 1 && limitRange1) {
+                let fixed = constrainToTriangle(targetX, targetY);
+                pX = fixed.x;
+                pY = fixed.y;
+            } else {
+                pX = targetX;
+                pY = targetY;
+            }
+            e.preventDefault();
+        }
+
+        function handleEnd() {
+            isDragging = false;
+        }
+
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+
+        canvas.addEventListener('touchstart', handleStart, {passive: false});
+        canvas.addEventListener('touchmove', handleMove, {passive: false});
+        window.addEventListener('touchend', handleEnd);
+
+
+        function draw() {
+            // 1. 문제 2 자동 애니메이션 연산
+            if (currentTab === 2 && autoAnimate2) {
+                pX += 0.03 * animDirection; // 속도 약간 조절
+                if (pX > 4.5) { pX = 4.5; animDirection = -1; } // 화면 오른쪽 끝
+                if (pX < -4.5) { pX = -4.5; animDirection = 1; } // 화면 왼쪽 끝
+                pY = pX * pX - K_VALUE;
+                
+                if (tracePPoints.length === 0 || Math.hypot(pX - tracePPoints[tracePPoints.length-1].x, pY - tracePPoints[tracePPoints.length-1].y) > 0.05) {
+                    tracePPoints.push({x: pX, y: pY});
+                }
+            }
+
+            // 2. 접점 Q, R 및 기하학 연산
+            let discriminant = pX * pX - pY;
+            let qX = 0, qY = 0, rX = 0, rY = 0;
+            let mX = 0, mY = 0;
+            let area = 0;
+            let hasTangents = discriminant >= 0;
+
+            if (hasTangents) {
+                let t1 = pX - Math.sqrt(discriminant);
+                let t2 = pX + Math.sqrt(discriminant);
+                
+                qX = t1; qY = t1 * t1;
+                rX = t2; rY = t2 * t2;
+
+                mX = (qX + rX) / 2; // pX
+                mY = (qY + rY) / 2; // pX^2 + (pX^2 - pY) = 2pX^2 - pY. M의 자취
+
+                area = Math.pow(discriminant, 1.5);
+
+                if (currentTab === 1 && document.getElementById('chkTrace1').checked) {
+                    if (traceMPoints.length === 0 || Math.hypot(mX - traceMPoints[traceMPoints.length-1].x, mY - traceMPoints[traceMPoints.length-1].y) > 0.01) {
+                        traceMPoints.push({x: mX, y: mY});
+                    }
+                }
+            }
+
+            // 텍스트 업데이트
+            document.getElementById('valP').innerText = `(${pX.toFixed(2)}, ${pY.toFixed(2)})`;
+            if (hasTangents) {
+                document.getElementById('valQR').innerText = `Q(${qX.toFixed(2)}, ${qY.toFixed(2)}), R(${rX.toFixed(2)}, ${rY.toFixed(2)})`;
+                document.getElementById('valM').innerText = `(${mX.toFixed(2)}, ${mY.toFixed(2)})`;
+                document.getElementById('valArea').innerText = area.toFixed(3);
+            } else {
+                document.getElementById('valQR').innerText = `접선 없음`;
+                document.getElementById('valM').innerText = `계산 불가`;
+                document.getElementById('valArea').innerText = "0.000";
+            }
+
+            // 3. 렌더링 시작
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 격자선(Grid) 그리기 - 화면 끝까지
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1;
+            for (let i = -10; i <= 10; i += 1) {
+                // 세로 격자
+                ctx.beginPath();
+                let p1 = toScreen(i, -10); let p2 = toScreen(i, 10);
+                ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+                // 가로 격자
+                ctx.beginPath();
+                let p3 = toScreen(-10, i); let p4 = toScreen(10, i);
+                ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
+                ctx.stroke();
+            }
+
+            // 메인 X축, Y축 선명하게 (좌표축 표시 추가)
+            ctx.strokeStyle = '#94a3b8'; // 조금 더 진하게
+            ctx.lineWidth = 2;
+            
+            // X축
+            ctx.beginPath(); 
+            ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY);
+            ctx.stroke();
+            // X축 눈금 및 숫자
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'center';
+            for(let i = -5; i <= 5; i++) {
+                if(i === 0) continue;
+                let px = toScreen(i, 0).x;
+                ctx.beginPath(); ctx.moveTo(px, originY - 3); ctx.lineTo(px, originY + 3); ctx.stroke();
+                ctx.fillText(i, px, originY + 15);
+            }
+
+            // Y축
+            ctx.beginPath(); 
+            ctx.moveTo(originX, 0); ctx.lineTo(originX, canvas.height);
+            ctx.stroke();
+            // Y축 눈금 및 숫자
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for(let i = -5; i <= 5; i++) {
+                if(i === 0) continue;
+                let py = toScreen(0, i).y;
+                ctx.beginPath(); ctx.moveTo(originX - 3, py); ctx.lineTo(originX + 3, py); ctx.stroke();
+                ctx.fillText(i, originX - 8, py);
+            }
+
+            // 원점 및 축 라벨
+            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 14px Pretendard';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('O', originX + 5, originY - 5);
+            ctx.fillText('x', canvas.width - 15, originY - 10);
+            ctx.fillText('y', originX + 10, 15);
+
+            // 문제 (1) 부등식 영역
+            if (currentTab === 1 && limitRange1) {
+                ctx.fillStyle = 'rgba(37, 99, 235, 0.15)';
+                ctx.strokeStyle = 'rgba(37, 99, 235, 0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                let ptA = toScreen(0, -1);
+                let ptB = toScreen(2, -1);
+                let ptC = toScreen(1, 0);
+                ctx.moveTo(ptA.x, ptA.y);
+                ctx.lineTo(ptB.x, ptB.y);
+                ctx.lineTo(ptC.x, ptC.y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.fillStyle = '#2563eb';
+                ctx.font = 'bold 11px Pretendard';
+                ctx.fillText('P 이동영역', ptC.x - 30, ptC.y + 20);
+            }
+
+            // 문제 (1) - M의 자취 전체 영역 렌더링 (showFullTrace1 == true)
+            if (currentTab === 1 && showFullTrace1) {
+                // P의 영역 내부를 조밀하게 스캔하여 M의 위치를 찍음
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.3)'; // 반투명 초록색 영역
+                
+                // P의 x범위: 0 ~ 2. y범위는 각 x에 대해 다름
+                // M_x = x, M_y = 2x^2 - y.
+                // y의 범위는 -1 <= y <= -|x-1| (x=1일때 0, 양끝에서 -1)
+                // 따라서 M_y의 범위는 2x^2 + |x-1| <= M_y <= 2x^2 + 1
+                
+                // 위쪽 경계선: M_y = 2x^2 + 1  (y=-1 일 때)
+                // 아래쪽 경계선: M_y = 2x^2 - (x-1) = 2x^2 - x + 1 (0<=x<=1)
+                // 아래쪽 경계선: M_y = 2x^2 - (-x+1) = 2x^2 + x - 1 (1<=x<=2)
+                
+                ctx.beginPath();
+                // 1. 위쪽 경계 (왼쪽 -> 오른쪽) M_y = 2x^2 + 1
+                for (let x = 0; x <= 2.01; x += 0.05) {
+                    let my = 2 * x * x + 1;
+                    let scr = toScreen(x, my);
+                    if (x === 0) ctx.moveTo(scr.x, scr.y);
+                    else ctx.lineTo(scr.x, scr.y);
+                }
+                // 2. 아래쪽 경계 (오른쪽 -> 왼쪽, x=2 ~ 1) M_y = 2x^2 + x - 1
+                for (let x = 2; x >= 1; x -= 0.05) {
+                    let my = 2 * x * x + x - 1;
+                    let scr = toScreen(x, my);
+                    ctx.lineTo(scr.x, scr.y);
+                }
+                // 3. 아래쪽 경계 (오른쪽 -> 왼쪽, x=1 ~ 0) M_y = 2x^2 - x + 1
+                for (let x = 1; x >= 0; x -= 0.05) {
+                    let my = 2 * x * x - x + 1;
+                    let scr = toScreen(x, my);
+                    ctx.lineTo(scr.x, scr.y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.strokeStyle = '#059669';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#059669';
+                ctx.font = 'bold 12px Pretendard';
+                let labelPos = toScreen(1, 3);
+                ctx.fillText('M의 전체 자취 영역', labelPos.x + 10, labelPos.y);
+            }
+
+            // 메인 포물선 y = x^2 화면 끝까지
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let x = -5; x <= 5; x += 0.05) {
+                let y = x * x;
+                let sPos = toScreen(x, y);
+                if (x === -5) ctx.moveTo(sPos.x, sPos.y);
+                else ctx.lineTo(sPos.x, sPos.y);
+            }
+            ctx.stroke();
+            ctx.fillStyle = '#334155';
+            ctx.font = 'bold 12px Pretendard';
+            ctx.fillText('y = x²', toScreen(2.5, 6.25).x + 10, toScreen(2.5, 6.25).y);
+
+            // 자취 그리기 - 수동
+            if (currentTab === 1 && traceMPoints.length > 0 && !showFullTrace1) {
+                ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                traceMPoints.forEach((pt, idx) => {
+                    let s = toScreen(pt.x, pt.y);
+                    if (idx === 0) ctx.moveTo(s.x, s.y);
+                    else ctx.lineTo(s.x, s.y);
+                });
+                ctx.stroke();
+            }
+
+            if (currentTab === 2 && tracePPoints.length > 0) {
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                tracePPoints.forEach((pt, idx) => {
+                    let s = toScreen(pt.x, pt.y);
+                    if (idx === 0) ctx.moveTo(s.x, s.y);
+                    else ctx.lineTo(s.x, s.y);
+                });
+                ctx.stroke();
+                
+                // 자취 함수식 표시
+                if(tracePPoints.length > 50) {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillText('y = x² - 2^(2/3)', toScreen(-3, 9 - K_VALUE).x, toScreen(-3, 9 - K_VALUE).y - 15);
+                }
+            }
+
+
+            // 기하 요소 렌더링
+            if (hasTangents) {
+                let sP = toScreen(pX, pY);
+                let sQ = toScreen(qX, qY);
+                let sR = toScreen(rX, rY);
+                let sM = toScreen(mX, mY);
+
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath(); ctx.moveTo(sP.x, sP.y); ctx.lineTo(sQ.x, sQ.y); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(sP.x, sP.y); ctx.lineTo(sR.x, sR.y); ctx.stroke();
+                ctx.setLineDash([]); 
+
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(sQ.x, sQ.y); ctx.lineTo(sR.x, sR.y); ctx.stroke();
+                
+                ctx.strokeStyle = '#9333ea';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(sP.x, sP.y); ctx.lineTo(sM.x, sM.y); ctx.stroke();
+
+                ctx.fillStyle = 'rgba(99, 102, 241, 0.15)';
+                ctx.beginPath();
+                ctx.moveTo(sP.x, sP.y); ctx.lineTo(sQ.x, sQ.y); ctx.lineTo(sR.x, sR.y);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = varColor('--primary-color');
+                circle(sQ.x, sQ.y, 5); circle(sR.x, sR.y, 5);
+                ctx.font = 'italic bold 13px Pretendard';
+                ctx.textAlign = 'right'; ctx.fillText('Q', sQ.x - 10, sQ.y - 5);
+                ctx.textAlign = 'left';  ctx.fillText('R', sR.x + 10, sR.y - 5);
+
+                if (currentTab === 1) {
+                    ctx.fillStyle = varColor('--secondary-color');
+                    circle(sM.x, sM.y, 6);
+                    ctx.fillText('M', sM.x + 10, sM.y + 5);
+                }
+            }
+
+            // P
+            let sP_final = toScreen(pX, pY);
+            ctx.fillStyle = varColor('--accent-color');
+            circle(sP_final.x, sP_final.y, 7);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(sP_final.x, sP_final.y, 7, 0, Math.PI*2); ctx.stroke();
+            
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'italic bold 14px Pretendard';
+            ctx.textAlign = 'left';
+            ctx.fillText('P', sP_final.x + 10, sP_final.y - 5);
+
+            requestAnimationFrame(draw);
+        }
+
+        function circle(x, y, r) {
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function varColor(varName) {
+            return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+        }
+
+        requestAnimationFrame(draw);
+    </script>
+</body>
+</html>

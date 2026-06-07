@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>연립 부등식 영역 시뮬레이터</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%);
+      color: #1f2937;
+    }
+    .wrap { max-width: 1260px; margin: 0 auto; padding: 28px 18px 44px; }
+    header {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      padding: 24px 26px;
+      box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0 0 10px; font-size: 30px; letter-spacing: -0.04em; }
+    .subtitle { margin: 0; color: #64748b; line-height: 1.65; font-size: 15px; }
+    .formula {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-weight: 800;
+      margin: 0 3px;
+    }
+    .tabs { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .tab-btn {
+      border: none;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 13px 22px;
+      font-weight: 950;
+      color: #334155;
+      background: #e2e8f0;
+      box-shadow: none;
+    }
+    .tab-btn.active { background: #2563eb; color: white; box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22); }
+    .grid { display: grid; grid-template-columns: minmax(620px, 1.35fr) minmax(350px, 0.95fr); gap: 18px; }
+    .card {
+      background: rgba(255,255,255,0.97);
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+    .canvas-card { padding: 18px; }
+    canvas { display: block; width: 100%; height: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 20px; }
+    .controls { margin-top: 14px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+    button {
+      border: none;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 12px 17px;
+      font-weight: 900;
+      color: #fff;
+      background: #2563eb;
+      box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+    }
+    input[type="range"] { width: 100%; accent-color: #2563eb; }
+    .value-pill {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 9px 13px;
+      font-weight: 900;
+      color: #334155;
+      white-space: nowrap;
+    }
+    .side { padding: 20px; }
+    .section { border-bottom: 1px solid #e5e7eb; padding: 0 0 18px; margin: 0 0 18px; }
+    .section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+    h2 { font-size: 18px; margin: 0 0 12px; letter-spacing: -0.02em; }
+    .result-box { border-radius: 18px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 14px; line-height: 1.75; font-size: 14px; }
+    .big-answer { margin-top: 10px; text-align: center; background: #dbeafe; color: #1d4ed8; font-weight: 950; border-radius: 14px; padding: 12px; font-size: 17px; line-height: 1.5; }
+    .range-box { margin-top: 10px; border-radius: 14px; padding: 11px 12px; border: 1px solid #e2e8f0; background: #fff; }
+    .range-box.active { border-color: #2563eb; background: #eff6ff; }
+    .coord { display: grid; grid-template-columns: 130px 1fr; gap: 8px; margin: 6px 0; }
+    .coord span:first-child { color:#64748b; font-weight:900; }
+    .note { font-size: 13px; color:#64748b; line-height: 1.6; margin-top: 10px; }
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 12px; font-size: 13px; color: #475569; }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+    .blue { background:#2563eb; } .orange { background:#f59e0b; } .pink { background:#ec4899; } .green { background:#10b981; } .purple { background:#8b5cf6; } .gray { background:#64748b; }
+    .hidden { display: none; }
+    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } .controls { grid-template-columns: 1fr; } h1 { font-size: 24px; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>연립 부등식 영역 시뮬레이터</h1>
+      <p class="subtitle">
+        (1)과 (2)를 따로 볼 수 있도록 나누었습니다. 핵심 곡선은
+        <span class="formula">f(x)=x ln2 / ln x</span>이고,
+        (2)는 풀이처럼 <span class="formula">a</span>의 범위를 네 구간으로 나누어 S(a)의 변화를 확인합니다.
+      </p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tab1" type="button">(1)번 시뮬레이터</button>
+      <button class="tab-btn" id="tab2" type="button">(2)번 시뮬레이터</button>
+    </div>
+
+    <main id="part1" class="grid">
+      <section class="card canvas-card">
+        <canvas id="canvas1" width="880" height="640"></canvas>
+        <div class="legend">
+          <span><i class="dot blue"></i>f(x)=x ln2/lnx</span>
+          <span><i class="dot orange"></i>y=2</span>
+          <span><i class="dot pink"></i>해 영역</span>
+        </div>
+      </section>
+      <aside class="card side">
+        <section class="section">
+          <h2>(1) 풀이 구조</h2>
+          <div class="result-box">
+            <b>2ˣ ≤ xʸ ≤ x²</b>이고, x ≥ 2이므로 밑 x는 1보다 큽니다.<br />
+            따라서 로그를 취하면 <b>x ln2 ≤ y lnx ≤ 2 lnx</b>입니다.
+            <div class="big-answer">x ln2 / lnx ≤ y ≤ 2</div>
+            여기서 <b>f(x)=x ln2/lnx</b>입니다.
+          </div>
+        </section>
+        <section class="section">
+          <h2>영역이 생기는 x범위</h2>
+          <div class="result-box">
+            해 영역이 존재하려면 <b>f(x) ≤ 2</b>여야 합니다.<br />
+            <b>f(2)=2</b>, <b>f(4)=2</b>이고, 그 사이에서 f(x)가 2보다 작습니다.
+            <div class="big-answer">2 ≤ x ≤ 4, &nbsp; f(x) ≤ y ≤ 2</div>
+            그래프의 분홍색 영역이 (1)번의 xy평면 해 영역입니다.
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <main id="part2" class="grid hidden">
+      <section class="card canvas-card">
+        <canvas id="canvas2" width="880" height="640"></canvas>
+        <div class="controls">
+          <button id="playBtn" type="button">▶ a 자동 변화</button>
+          <input id="aSlider" type="range" min="1000" max="2600" value="2000" />
+          <div class="value-pill">a = <span id="aValue">2.000</span></div>
+        </div>
+        <div class="legend">
+          <span><i class="dot blue"></i>f(x)</span>
+          <span><i class="dot green"></i>y=a</span>
+          <span><i class="dot purple"></i>S(a)</span>
+          <span><i class="dot gray"></i>교점/길이</span>
+        </div>
+      </section>
+      <aside class="card side">
+        <section class="section">
+          <h2>(2) S(a)의 해석</h2>
+          <div class="result-box">
+            <b>(xʸ-2ˣ)(xᵃ-xʸ) ≥ 0</b>은 xʸ가 <b>2ˣ</b>와 <b>xᵃ</b> 사이에 있다는 뜻입니다.<br />
+            로그를 취하면 y는 <b>f(x)</b>와 <b>a</b> 사이에 있습니다.
+            <div class="big-answer">S(a)=∫₂⁶ |a-f(x)| dx</div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>현재 a값</h2>
+          <div class="result-box">
+            <div class="coord"><span>a</span><b id="aNow">2.000</b></div>
+            <div class="coord"><span>S(a) 근사값</span><b id="areaNow">0.0000</b></div>
+            <div class="coord"><span>f(x)=a 교점</span><b id="rootsNow">x=2, x=4</b></div>
+            <div class="coord"><span>현재 구간</span><b id="caseNow">③ e ln2 ≤ a ≤ 2</b></div>
+            <div class="coord"><span>판단</span><b id="judgeNow">이 구간의 최소는 a=2</b></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>a 범위별 최소값</h2>
+          <div class="result-box">
+            <div class="range-box" id="case1"><b>① 0 &lt; a ≤ e ln2</b><br />S(a) 감소 → 이 구간 최소: <b>a=e ln2</b></div>
+            <div class="range-box" id="case3"><b>③ e ln2 ≤ a ≤ 2</b><br />S(a) 감소 → 이 구간 최소: <b>a=2</b></div>
+            <div class="range-box" id="case4"><b>④ 2 ≤ a ≤ 6ln2/ln6</b><br />S(a) 증가 → 이 구간 최소: <b>a=2</b></div>
+            <div class="range-box" id="case2"><b>② a ≥ 6ln2/ln6</b><br />S(a) 증가 → 이 구간 최소: <b>a=6ln2/ln6</b></div>
+            <div class="big-answer">전체 최소: a=2</div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      const canvas1 = document.getElementById('canvas1');
+      const canvas2 = document.getElementById('canvas2');
+      const g1 = canvas1.getContext('2d');
+      const g2 = canvas2.getContext('2d');
+
+      const tab1 = document.getElementById('tab1');
+      const tab2 = document.getElementById('tab2');
+      const part1 = document.getElementById('part1');
+      const part2 = document.getElementById('part2');
+
+      const aSlider = document.getElementById('aSlider');
+      const aValue = document.getElementById('aValue');
+      const aNow = document.getElementById('aNow');
+      const areaNow = document.getElementById('areaNow');
+      const rootsNow = document.getElementById('rootsNow');
+      const caseNow = document.getElementById('caseNow');
+      const judgeNow = document.getElementById('judgeNow');
+      const playBtn = document.getElementById('playBtn');
+
+      const caseEls = {
+        case1: document.getElementById('case1'),
+        case2: document.getElementById('case2'),
+        case3: document.getElementById('case3'),
+        case4: document.getElementById('case4')
+      };
+
+      const Eln2 = Math.E * Math.log(2);
+      const upper = 6 * Math.log(2) / Math.log(6);
+      const W = 880;
+      const H = 640;
+      const margin = { left: 76, right: 36, top: 36, bottom: 70 };
+      const xMin = 1.75;
+      const xMax = 6.25;
+      const yMin = 1.62;
+      const yMax = 2.66;
+
+      let playing = false;
+      let autoTargets = [1.35, Eln2, 2, upper, 2.55, upper, 2, Eln2];
+      let targetIndex = 0;
+      let pauseUntil = 0;
+
+      function f(x) {
+        return x * Math.log(2) / Math.log(x);
+      }
+
+      function X(x) {
+        return margin.left + (x - xMin) / (xMax - xMin) * (W - margin.left - margin.right);
+      }
+
+      function Y(y) {
+        return H - margin.bottom - (y - yMin) / (yMax - yMin) * (H - margin.top - margin.bottom);
+      }
+
+      function drawBase(g, title) {
+        g.clearRect(0, 0, W, H);
+        g.fillStyle = '#ffffff';
+        g.fillRect(0, 0, W, H);
+
+        g.strokeStyle = '#cbd5e1';
+        g.lineWidth = 1;
+        g.font = '12px Arial';
+        g.fillStyle = '#64748b';
+
+        for (let x = 2; x <= 6; x++) {
+          g.beginPath();
+          g.moveTo(X(x), Y(yMin));
+          g.lineTo(X(x), Y(yMax));
+          g.stroke();
+          g.fillText(String(x), X(x) - 4, H - margin.bottom + 24);
+        }
+
+        for (let y = 1.7; y <= 2.6; y += 0.1) {
+          g.beginPath();
+          g.moveTo(X(xMin), Y(y));
+          g.lineTo(X(xMax), Y(y));
+          g.stroke();
+          g.fillText(y.toFixed(1), margin.left - 42, Y(y) + 4);
+        }
+
+        g.strokeStyle = '#334155';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(X(xMin), Y(yMin));
+        g.lineTo(X(xMax), Y(yMin));
+        g.stroke();
+        g.beginPath();
+        g.moveTo(X(xMin), Y(yMin));
+        g.lineTo(X(xMin), Y(yMax));
+        g.stroke();
+
+        g.fillStyle = '#0f172a';
+        g.font = 'bold 15px Arial';
+        g.fillText('x', X(xMax) - 4, Y(yMin) + 40);
+        g.fillText('y', X(xMin) - 36, Y(yMax) + 6);
+        g.font = 'bold 18px Arial';
+        g.fillText(title, X(2.05), Y(2.61));
+      }
+
+      function drawCurve(g) {
+        g.beginPath();
+        for (let i = 0; i <= 600; i++) {
+          const x = 2 + 4 * i / 600;
+          const y = f(x);
+          if (i === 0) g.moveTo(X(x), Y(y));
+          else g.lineTo(X(x), Y(y));
+        }
+        g.strokeStyle = '#2563eb';
+        g.lineWidth = 4;
+        g.stroke();
+        g.fillStyle = '#1d4ed8';
+        g.font = 'bold 14px Arial';
+        g.fillText('f(x)=x ln2 / ln x', X(4.25), Y(f(4.25)) - 16);
+      }
+
+      function fillBetween(g, x1, x2, yA, yB, color, alpha) {
+        const n = 260;
+        g.beginPath();
+        for (let i = 0; i <= n; i++) {
+          const x = x1 + (x2 - x1) * i / n;
+          const y = typeof yA === 'function' ? yA(x) : yA;
+          if (i === 0) g.moveTo(X(x), Y(y));
+          else g.lineTo(X(x), Y(y));
+        }
+        for (let i = n; i >= 0; i--) {
+          const x = x1 + (x2 - x1) * i / n;
+          const y = typeof yB === 'function' ? yB(x) : yB;
+          g.lineTo(X(x), Y(y));
+        }
+        g.closePath();
+        g.fillStyle = color;
+        g.globalAlpha = alpha;
+        g.fill();
+        g.globalAlpha = 1;
+      }
+
+      function lineY(g, y, color, label, width) {
+        g.beginPath();
+        g.moveTo(X(2), Y(y));
+        g.lineTo(X(6), Y(y));
+        g.strokeStyle = color;
+        g.lineWidth = width || 2.5;
+        g.stroke();
+        g.fillStyle = color;
+        g.font = 'bold 14px Arial';
+        g.fillText(label, X(6.04), Y(y) + 5);
+      }
+
+      function vLine(g, x, color, label) {
+        g.beginPath();
+        g.moveTo(X(x), Y(yMin));
+        g.lineTo(X(x), Y(yMax));
+        g.strokeStyle = color;
+        g.lineWidth = 1.5;
+        g.setLineDash([5, 5]);
+        g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = color;
+        g.font = 'bold 12px Arial';
+        g.fillText(label, X(x) - 14, Y(yMax) + 18);
+      }
+
+      function drawPoints(g) {
+        const points = [
+          { x: 2, y: f(2), label: '(2,2)' },
+          { x: Math.E, y: Eln2, label: '(e, e ln2)' },
+          { x: 4, y: f(4), label: '(4,2)' },
+          { x: 6, y: upper, label: '(6, 6ln2/ln6)' }
+        ];
+
+        points.forEach(function (p) {
+          g.beginPath();
+          g.arc(X(p.x), Y(p.y), 5, 0, Math.PI * 2);
+          g.fillStyle = '#2563eb';
+          g.fill();
+          g.strokeStyle = '#ffffff';
+          g.lineWidth = 2;
+          g.stroke();
+          g.fillStyle = '#334155';
+          g.font = 'bold 12px Arial';
+          g.fillText(p.label, X(p.x) + 8, Y(p.y) - 8);
+        });
+      }
+
+      function drawPart1() {
+        drawBase(g1, '(1) 2ˣ ≤ xʸ ≤ x² 의 xy평면 해 영역');
+        fillBetween(g1, 2, 4, 2, function (x) { return f(x); }, '#ec4899', 0.24);
+        lineY(g1, 2, '#f59e0b', 'y=2', 2.5);
+        vLine(g1, 2, '#f59e0b', 'x=2');
+        vLine(g1, 4, '#f59e0b', 'x=4');
+        drawCurve(g1);
+        drawPoints(g1);
+        g1.fillStyle = '#be185d';
+        g1.font = 'bold 15px Arial';
+        g1.fillText('해 영역: 2≤x≤4, f(x)≤y≤2', X(2.35), Y(1.92));
+      }
+
+      function rootsForA(a) {
+        const roots = [];
+        let px = 2;
+        let pv = f(px) - a;
+        const n = 2500;
+
+        for (let i = 1; i <= n; i++) {
+          const x = 2 + 4 * i / n;
+          const v = f(x) - a;
+
+          if (Math.abs(v) < 0.00035) roots.push(x);
+
+          if (pv * v < 0) {
+            let lo = px;
+            let hi = x;
+            for (let k = 0; k < 36; k++) {
+              const m = (lo + hi) / 2;
+              if ((f(lo) - a) * (f(m) - a) <= 0) hi = m;
+              else lo = m;
+            }
+            roots.push((lo + hi) / 2);
+          }
+          px = x;
+          pv = v;
+        }
+
+        const dedup = [];
+        roots.forEach(function (r) {
+          if (r >= 2 - 0.0001 && r <= 6 + 0.0001 && !dedup.some(function (q) { return Math.abs(q - r) < 0.015; })) {
+            dedup.push(r);
+          }
+        });
+        return dedup;
+      }
+
+      function area(a) {
+        let sum = 0;
+        const n = 3000;
+        const dx = 4 / n;
+        for (let i = 0; i < n; i++) {
+          const x = 2 + (i + 0.5) * dx;
+          sum += Math.abs(a - f(x)) * dx;
+        }
+        return sum;
+      }
+
+      function getCase(a) {
+        if (a <= Eln2 + 0.002) return 'case1';
+        if (a < 2 - 0.002) return 'case3';
+        if (a <= upper + 0.002) return 'case4';
+        return 'case2';
+      }
+
+      function drawBracket(g, x1, x2, y, label) {
+        const yy = Y(y);
+        g.strokeStyle = '#64748b';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(X(x1), yy);
+        g.lineTo(X(x2), yy);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(X(x1), yy - 7);
+        g.lineTo(X(x1), yy + 7);
+        g.moveTo(X(x2), yy - 7);
+        g.lineTo(X(x2), yy + 7);
+        g.stroke();
+        g.fillStyle = '#334155';
+        g.font = 'bold 13px Arial';
+        g.fillText(label, (X(x1) + X(x2)) / 2 - 18, yy - 10);
+      }
+
+      function drawPart2() {
+        const a = Number(aSlider.value) / 1000;
+        drawBase(g2, '(2) S(a)=∫₂⁶ |a-f(x)|dx');
+        fillBetween(g2, 2, 6, a, function (x) { return f(x); }, '#8b5cf6', 0.24);
+        lineY(g2, a, '#10b981', 'y=a', 3);
+        drawCurve(g2);
+        drawPoints(g2);
+        vLine(g2, 2, '#94a3b8', '2');
+        vLine(g2, 6, '#94a3b8', '6');
+
+        const roots = rootsForA(a);
+        roots.forEach(function (r) { vLine(g2, r, '#64748b', '교점'); });
+
+        const c = getCase(a);
+        g2.fillStyle = '#0f766e';
+        g2.font = 'bold 15px Arial';
+        if (c === 'case1') g2.fillText('① 0<a≤e ln2: S(a)는 감소 → 이 구간 최소 a=e ln2', X(2.05), Y(2.56));
+        if (c === 'case3') g2.fillText('③ e ln2≤a≤2: S(a)는 감소 → 이 구간 최소 a=2', X(2.05), Y(2.56));
+        if (c === 'case4') g2.fillText('④ 2≤a≤6ln2/ln6: S(a)는 증가 → 이 구간 최소 a=2', X(2.05), Y(2.56));
+        if (c === 'case2') g2.fillText('② a≥6ln2/ln6: S(a)는 증가 → 이 구간 최소 a=6ln2/ln6', X(2.05), Y(2.56));
+
+        if (Math.abs(a - 2) < 0.012) {
+          drawBracket(g2, 2, 4, 1.72, '길이 2');
+          drawBracket(g2, 4, 6, 1.72, '길이 2');
+          g2.fillStyle = '#1d4ed8';
+          g2.font = 'bold 15px Arial';
+          g2.fillText('전체 최소: a=2', X(4.55), Y(2.47));
+        }
+
+        updatePanel(a, roots, c);
+      }
+
+      function updatePanel(a, roots, c) {
+        aValue.textContent = a.toFixed(3);
+        aNow.textContent = a.toFixed(3);
+        areaNow.textContent = area(a).toFixed(4);
+        rootsNow.textContent = roots.length ? roots.map(function (r) { return 'x≈' + r.toFixed(3); }).join(', ') : '없음';
+
+        Object.keys(caseEls).forEach(function (key) { caseEls[key].classList.remove('active'); });
+        caseEls[c].classList.add('active');
+
+        if (c === 'case1') { caseNow.textContent = '① 0<a≤e ln2'; judgeNow.textContent = '이 구간의 최소는 a=e ln2'; }
+        if (c === 'case2') { caseNow.textContent = '② a≥6ln2/ln6'; judgeNow.textContent = '이 구간의 최소는 a=6ln2/ln6'; }
+        if (c === 'case3') { caseNow.textContent = '③ e ln2≤a≤2'; judgeNow.textContent = '이 구간의 최소는 a=2'; }
+        if (c === 'case4') { caseNow.textContent = '④ 2≤a≤6ln2/ln6'; judgeNow.textContent = '이 구간의 최소는 a=2'; }
+      }
+
+      tab1.addEventListener('click', function () {
+        tab1.classList.add('active');
+        tab2.classList.remove('active');
+        part1.classList.remove('hidden');
+        part2.classList.add('hidden');
+        drawPart1();
+      });
+
+      tab2.addEventListener('click', function () {
+        tab2.classList.add('active');
+        tab1.classList.remove('active');
+        part2.classList.remove('hidden');
+        part1.classList.add('hidden');
+        drawPart2();
+      });
+
+      aSlider.addEventListener('input', drawPart2);
+
+      playBtn.addEventListener('click', function () {
+        playing = !playing;
+        playBtn.textContent = playing ? '⏸ 일시정지' : '▶ a 자동 변화';
+        targetIndex = 0;
+        pauseUntil = 0;
+      });
+
+      function animate() {
+        if (playing) {
+          const now = performance.now();
+          if (now >= pauseUntil) {
+            let cur = Number(aSlider.value) / 1000;
+            const target = autoTargets[targetIndex];
+            const step = 0.008 * Math.sign(target - cur || 1);
+
+            if (Math.abs(target - cur) < 0.01) {
+              cur = target;
+              aSlider.value = Math.round(cur * 1000);
+              drawPart2();
+
+              if (Math.abs(target - Eln2) < 0.02 || Math.abs(target - 2) < 0.02 || Math.abs(target - upper) < 0.02) {
+                pauseUntil = now + 1000;
+              }
+              targetIndex = (targetIndex + 1) % autoTargets.length;
+            } else {
+              cur += step;
+              aSlider.value = Math.round(cur * 1000);
+              drawPart2();
+            }
+          }
+        }
+        requestAnimationFrame(animate);
+      }
+
+      drawPart1();
+      drawPart2();
+      animate();
+    });
+  </script>
+</body>
+</html>

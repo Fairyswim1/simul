@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>S(k) 영역 시뮬레이션</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px;
+  }
+  h1 { font-size: 1.3rem; letter-spacing: 0.05em; color: #93c5fd; margin-bottom: 6px; font-weight: 700; }
+  .subtitle { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: #64748b; margin-bottom: 18px; }
+ 
+  /* 인사이트 토글 버튼 */
+  .insight-toggle {
+    display: flex; align-items: center; gap: 10px;
+    background: #1a1f2e; border: 1px solid #2d3a55;
+    border-radius: 10px; padding: 8px 16px;
+    cursor: pointer; margin-bottom: 20px;
+    transition: border-color 0.2s, background 0.2s;
+    user-select: none;
+  }
+  .insight-toggle:hover { border-color: #60a5fa; background: #1e2a45; }
+  .insight-toggle.active { border-color: #60a5fa; background: #1d3a6e; }
+  .toggle-icon { font-size: 1rem; }
+  .toggle-label { font-size: 0.82rem; font-weight: 700; color: #93c5fd; }
+  .toggle-pill {
+    width: 36px; height: 20px; border-radius: 10px;
+    background: #2d3a55; position: relative;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle-pill.on { background: #3b82f6; }
+  .toggle-pill::after {
+    content: ''; position: absolute;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: white; top: 3px; left: 3px;
+    transition: left 0.2s;
+  }
+  .toggle-pill.on::after { left: 19px; }
+ 
+  .main { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  canvas { border-radius: 12px; background: #1e2130; border: 1px solid #2d3a55; display: block; }
+  .panel { width: 280px; display: flex; flex-direction: column; gap: 16px; }
+  .card { background: #1a1f2e; border: 1px solid #2d3a55; border-radius: 12px; padding: 18px; }
+  .card h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 14px; }
+  .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .slider-label { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: #93c5fd; width: 16px; }
+  input[type=range] { flex: 1; accent-color: #3b82f6; height: 4px; }
+  .slider-val { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: #f1f5f9; width: 42px; text-align: right; }
+  .formula-box { background: #0f1117; border-radius: 8px; padding: 12px 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.85; border: 1px solid #1e293b; }
+  .hl { color: #60a5fa; } .hl2 { color: #34d399; } .hl3 { color: #fbbf24; } .hlp { color: #f472b6; }
+  .result-big { font-size: 2rem; font-weight: 700; color: #60a5fa; text-align: center; margin: 8px 0 4px; font-family: 'JetBrains Mono', monospace; }
+  .result-label { text-align: center; font-size: 0.75rem; color: #64748b; }
+  .case-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-bottom: 8px; }
+  .case1 { background: #1d3a6e; color: #93c5fd; } .case2 { background: #1a3a2a; color: #6ee7b7; }
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; margin-bottom: 6px; color: #94a3b8; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .divider { border: none; border-top: 1px solid #2d3a55; margin: 10px 0; }
+  .vec {
+    display: inline-block;
+    position: relative;
+    padding-top: 6px;
+  }
+  .vec::before {
+    content: '→';
+    position: absolute;
+    top: -4px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.65em;
+    line-height: 1;
+    color: inherit;
+  }
+ 
+  /* 인사이트 패널 */
+  #insightPanel {
+    width: 100%;
+    max-width: 820px;
+    margin-top: 24px;
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    animation: fadeIn 0.25s ease;
+  }
+  #insightPanel.visible { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+ 
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .insight-card {
+    background: #1a1f2e; border: 1px solid #2d3a55;
+    border-radius: 12px; padding: 16px;
+    border-left: 3px solid #3b82f6;
+  }
+  .insight-card.green { border-left-color: #34d399; }
+  .insight-card.yellow { border-left-color: #fbbf24; }
+  .insight-card.pink { border-left-color: #f472b6; }
+  .insight-card.purple { border-left-color: #a78bfa; }
+ 
+  .insight-title {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: #64748b; margin-bottom: 8px; font-weight: 700;
+  }
+  .insight-body {
+    font-size: 0.82rem; line-height: 1.7; color: #cbd5e1;
+  }
+  .insight-body code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #0f1117; padding: 1px 5px; border-radius: 4px;
+    font-size: 0.78rem;
+  }
+  .insight-body .em { color: #60a5fa; font-weight: 700; }
+  .insight-body .em2 { color: #34d399; font-weight: 700; }
+  .insight-body .em3 { color: #fbbf24; font-weight: 700; }
+  .insight-body .emp { color: #f472b6; font-weight: 700; }
+ 
+  .step-list { list-style: none; padding: 0; margin: 0; }
+  .step-list li {
+    display: flex; gap: 10px; margin-bottom: 8px; font-size: 0.82rem; line-height: 1.6; color: #cbd5e1;
+  }
+  .step-num {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+    background: #1d3a6e; color: #93c5fd;
+    font-size: 0.7rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+ 
+  .case-block {
+    background: #0f1117; border-radius: 8px; padding: 12px;
+    margin-top: 8px; font-size: 0.8rem; line-height: 1.8;
+  }
+  .case-block code { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+  .case-sep { border: none; border-top: 1px solid #1e293b; margin: 8px 0; }
+ 
+  .live-insight { background: #12181f; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 14px; margin-top: 8px; font-size: 0.8rem; line-height: 1.7; }
+  .live-insight .live-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<h1>S(k) 영역 시뮬레이션</h1>
+<div class="subtitle">포물선 y = x² 위의 점 P와 선분 OA 위의 점 Q로 결정되는 R의 궤적</div>
+ 
+<!-- 인사이트 토글 버튼 -->
+<div class="insight-toggle" id="insightToggle" onclick="toggleInsight()">
+  <span class="toggle-icon">💡</span>
+  <span class="toggle-label">풀이 인사이트 보기</span>
+  <div class="toggle-pill" id="togglePill"></div>
+</div>
+ 
+<div class="main">
+  <canvas id="canvas" width="500" height="500"></canvas>
+  <div class="panel">
+    <!-- 파라미터 -->
+    <div class="card">
+      <h3>파라미터 조정</h3>
+      <div class="slider-row">
+        <span class="slider-label">k</span>
+        <input type="range" id="kSlider" min="0.3" max="3.5" step="0.01" value="1.0">
+        <span class="slider-val" id="kVal">1.00</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" style="color:#ef4444">t</span>
+        <input type="range" id="pSlider" min="-1" max="1" step="0.01" value="0.6">
+        <span class="slider-val" id="pVal">0.60</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label" style="color:#22c55e">s</span>
+        <input type="range" id="qSlider" min="0" max="1" step="0.01" value="0.4">
+        <span class="slider-val" id="qVal">0.40</span>
+      </div>
+    </div>
+ 
+    <!-- S(k) 값 -->
+    <div class="card">
+      <h3>S(k) 계산값</h3>
+      <div id="caseBadge" class="case-badge case1">k ≤ √2</div>
+      <div class="result-big" id="skVal">—</div>
+      <div class="result-label">현재 S(k)</div>
+ 
+    </div>
+ 
+    <!-- 극한값 -->
+    <div class="card">
+      <h3>극한값</h3>
+      <div class="formula-box">
+        <div><span class="hl">lim</span><sub style="font-size:0.65rem"> k→0+</sub> S(k) = <span class="hl2">2</span></div>
+        <div style="margin-top:6px"><span class="hl">lim</span><sub style="font-size:0.65rem"> k→∞</sub> S(k) = <span class="hl3">1</span></div>
+        <div style="margin-top:8px; border-top:1px solid #1e293b; padding-top:8px">
+          합 = <span style="color:#f472b6; font-weight:700">3</span>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- 범례 -->
+    <div class="card">
+      <h3>범례</h3>
+      <div class="legend-row"><div class="legend-dot" style="background:#60a5fa"></div> 왼쪽 포물선 y=kx²</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#34d399"></div> 오른쪽 포물선 y=k(x−k)²</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#374151; border: 1px dashed #60a5fa"></div> 원래 포물선 y=x² (참고)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#ef4444"></div> 점 P (t, t²)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#22c55e"></div> 점 Q (s, 0)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:#f59e0b"></div> 점 R (t/k+ks, t²/k)</div>
+      <div class="legend-row"><div class="legend-dot" style="background:rgba(99,179,237,0.45); border-radius:3px"></div> 색칠 영역 S(k)</div>
+    </div>
+  </div>
+</div>
+ 
+<!-- ── 인사이트 패널 ── -->
+<div id="insightPanel">
+  <div class="insight-grid">
+ 
+    <!-- 1. 핵심 변환 -->
+    <div class="insight-card">
+      <div class="insight-title">① 핵심 변환: R의 좌표</div>
+      <ul class="step-list">
+        <li><span class="step-num">1</span>P = (t, t²), t∈[−1,1] / Q = (s, 0), s∈[0,1]</li>
+        <li><span class="step-num">2</span><span class="insight-body"><code><span class="vec">OR</span> = (1/k)<span class="vec">OP</span> + k·<span class="vec">OQ</span></code> 대입</span></li>
+        <li><span class="step-num">3</span>R = <span class="insight-body"><span class="em">(t/k + ks, t²/k)</span></span></li>
+        <li><span class="step-num">4</span><code>u = t/k</code>, <code>v = ks</code> 로 치환하면<br>R = (u+v, ku²)</li>
+      </ul>
+    </div>
+ 
+    <!-- 2. 경계 포물선 유도 -->
+    <div class="insight-card green">
+      <div class="insight-title">② 경계 포물선 유도</div>
+      <div class="insight-body">
+        <code>u ∈ [−1/k, 1/k]</code>, <code>v ∈ [0, k]</code><br><br>
+        고정 y에서 <code>u = ±√(y/k)</code><br>
+        x 범위: <code>[u, u+k]</code><br><br>
+        <span class="em2">왼쪽 경계</span>: x = −√(y/k)<br>
+        → <span class="em2">y = kx²</span> (x ≤ 0 쪽)<br><br>
+        <span class="em2">오른쪽 경계</span>: x = k+√(y/k)<br>
+        → <span class="em2">y = k(x−k)²</span> (x ≥ k 쪽)
+      </div>
+    </div>
+ 
+    <!-- 3. 두 케이스 분기 -->
+    <div class="insight-card yellow">
+      <div class="insight-title">③ 케이스 분기 조건</div>
+      <div class="insight-body">
+        두 구간 <code>[−√(y/k), k−√(y/k)]</code><br>
+        과 <code>[√(y/k), k+√(y/k)]</code> 의 겹침 여부:<br><br>
+        겹침 조건: <span class="em3">y ≤ k³/4</span><br>
+        최대 y값: <span class="em3">y_max = 1/k</span><br><br>
+        <code>k³/4 ≤ 1/k</code><br>
+        ↔ <code>k⁴ ≤ 4</code> ↔ <span class="em3">k ≤ √2</span>
+      </div>
+    </div>
+ 
+    <!-- 4. Case i -->
+    <div class="insight-card">
+      <div class="insight-title">④ Case i (k ≤ √2): 넓이 계산</div>
+      <div class="insight-body">
+        <span class="em">아래 (y∈[0, k³/4])</span>: 연속 구간<br>
+        <span class="em">위 (y∈[k³/4, 1/k])</span>: 좌우 두 조각<br>
+        <div class="case-block">
+          S(k) = 2·k·(1/k) − 2∫₀<sup>1/k</sup> kx² dx<br>
+          = 2 − 2·(k/3)·(1/k)³<br>
+          = <span class="em">2 − k⁴/12</span>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- 5. Case ii -->
+    <div class="insight-card green">
+      <div class="insight-title">⑤ Case ii (k > √2): 넓이 계산</div>
+      <div class="insight-body">
+        전 구간 y∈[0,1/k] 에서 단일 연속 구간<br>
+        (중앙 구멍 없음)<br>
+        <div class="case-block">
+          S(k) = k·(1/k) + 2·(1/k)·(1/k) − 2∫₀<sup>1/k</sup> kx² dx<br>
+          = 1 + 2/k² − (2/3)·k·(1/k)³<br>
+          = <span class="em2">1 + 4/(3k²)</span>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- 6. 극한 & 최종답 -->
+    <div class="insight-card pink">
+      <div class="insight-title">⑥ 극한값 & 최종 답</div>
+      <div class="insight-body">
+        <span class="emp">k→0+</span>: Case i 식 사용<br>
+        <code>lim S(k) = 2 − 0 = <b>2</b></code><br><br>
+        <span class="emp">k→∞</span>: Case ii 식 사용<br>
+        <code>lim S(k) = 1 + 0 = <b>1</b></code><br><br>
+        <div class="case-block" style="text-align:center; font-size:1rem;">
+          <b>2 + 1 = <span style="color:#f472b6; font-size:1.2rem;">3</span></b>
+        </div>
+      </div>
+    </div>
+ 
+  </div>
+ 
+  <!-- 현재 k값 실시간 인사이트 -->
+  <div class="card" style="border-color:#3b82f6;">
+    <h3>🔍 현재 k값 실시간 분석</h3>
+    <div class="live-insight" id="liveInsight">
+      <div class="live-label">분석 중…</div>
+    </div>
+  </div>
+ 
+</div><!-- /insightPanel -->
+ 
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+ 
+const XMIN = -1.7, XMAX = 2.9, YMIN = -0.22, YMAX = 1.9;
+function cx(x) { return (x - XMIN) / (XMAX - XMIN) * W; }
+function cy(y) { return H - (y - YMIN) / (YMAX - YMIN) * H; }
+ 
+const N = 800;
+function parabola_L(y, k)   { return -Math.sqrt(y / k); }
+function parabola_R(y, k)   { return k + Math.sqrt(y / k); }
+function parabola_M_L(y, k) { return k - Math.sqrt(y / k); }
+function parabola_M_R(y, k) { return Math.sqrt(y / k); }
+ 
+// ── 토글 ──────────────────────────────────────────────────────
+let insightVisible = false;
+function toggleInsight() {
+  insightVisible = !insightVisible;
+  const panel = document.getElementById('insightPanel');
+  const pill  = document.getElementById('togglePill');
+  const btn   = document.getElementById('insightToggle');
+  panel.classList.toggle('visible', insightVisible);
+  pill.classList.toggle('on', insightVisible);
+  btn.classList.toggle('active', insightVisible);
+  if (insightVisible) updateLiveInsight(parseFloat(document.getElementById('kSlider').value));
+}
+ 
+function updateLiveInsight(k) {
+  if (!insightVisible) return;
+  const isCase1 = k <= Math.SQRT2;
+  const yMax  = (1/k).toFixed(3);
+  const yJoin = (k*k*k/4).toFixed(3);
+  const sk    = isCase1 ? (2 - k**4/12) : (1 + 4/(3*k*k));
+ 
+  let html = '';
+  if (isCase1) {
+    html = `
+      <div class="live-label">Case i (k = ${k.toFixed(2)} ≤ √2 ≈ 1.414)</div>
+      <span style="color:#60a5fa">▸ y 범위</span>: 0 ~ <b>${yMax}</b> (= 1/k)<br>
+      <span style="color:#fbbf24">▸ 두 구간 겹치는 y 경계</span>: k³/4 = <b>${yJoin}</b><br>
+      &nbsp;&nbsp;y ∈ [0, ${yJoin}] → 연속 단일 구간 (아래 채움)<br>
+      &nbsp;&nbsp;y ∈ [${yJoin}, ${yMax}] → 좌우 두 조각 (중앙 비움)<br>
+      <span style="color:#34d399">▸ S(k)</span> = 2 − k⁴/12 = 2 − ${(k**4/12).toFixed(4)} = <b style="color:#f472b6">${sk.toFixed(4)}</b>
+    `;
+  } else {
+    html = `
+      <div class="live-label">Case ii (k = ${k.toFixed(2)} > √2 ≈ 1.414)</div>
+      <span style="color:#60a5fa">▸ y 범위</span>: 0 ~ <b>${yMax}</b> (= 1/k)<br>
+      <span style="color:#fbbf24">▸ 두 구간 겹침 경계</span>: k³/4 = ${yJoin} > 1/k = ${yMax}<br>
+      &nbsp;&nbsp;→ 전 구간에서 두 구간이 항상 겹침 (중앙 빔 없음)<br>
+      &nbsp;&nbsp;→ 하나의 연속 구간, 포물선 두 개로 둘러싸인 영역<br>
+      <span style="color:#34d399">▸ S(k)</span> = 1 + 4/(3k²) = 1 + ${(4/(3*k*k)).toFixed(4)} = <b style="color:#f472b6">${sk.toFixed(4)}</b>
+    `;
+  }
+  document.getElementById('liveInsight').innerHTML = html;
+}
+ 
+// ── 영역 채우기 ──────────────────────────────────────────────
+function fillRegion(k) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(99, 179, 237, 0.38)';
+  const yMax  = 1 / k;
+  const yJoin = k * k * k / 4;
+ 
+  if (k <= Math.SQRT2) {
+    // 파트 A: y∈[0, k³/4]
+    ctx.beginPath();
+    ctx.moveTo(cx(-k/2), cy(yJoin));
+    for (let i = 0; i <= N; i++) {
+      const y = yJoin * (1 - i / N);
+      ctx.lineTo(cx(parabola_L(y, k)), cy(y));
+    }
+    ctx.lineTo(cx(0), cy(0));
+    ctx.lineTo(cx(k), cy(0));
+    for (let i = 0; i <= N; i++) {
+      const y = yJoin * i / N;
+      ctx.lineTo(cx(parabola_R(y, k)), cy(y));
+    }
+    ctx.lineTo(cx(k + k/2), cy(yJoin));
+    ctx.closePath();
+    ctx.fill();
+ 
+    // 파트 B-왼쪽: y∈[k³/4, 1/k]
+    ctx.beginPath();
+    ctx.moveTo(cx(-k/2), cy(yJoin));
+    for (let i = 0; i <= N; i++) {
+      const y = yJoin + (yMax - yJoin) * i / N;
+      ctx.lineTo(cx(parabola_L(y, k)), cy(y));
+    }
+    ctx.lineTo(cx(-1/k), cy(yMax));
+    ctx.lineTo(cx(k - 1/k), cy(yMax));
+    for (let i = 0; i <= N; i++) {
+      const y = yMax - (yMax - yJoin) * i / N;
+      ctx.lineTo(cx(parabola_M_L(y, k)), cy(y));
+    }
+    ctx.lineTo(cx(k/2), cy(yJoin));
+    ctx.lineTo(cx(-k/2), cy(yJoin));
+    ctx.closePath();
+    ctx.fill();
+ 
+    // 파트 B-오른쪽: y∈[k³/4, 1/k]
+    ctx.beginPath();
+    ctx.moveTo(cx(k/2), cy(yJoin));
+    for (let i = 0; i <= N; i++) {
+      const y = yJoin + (yMax - yJoin) * i / N;
+      ctx.lineTo(cx(parabola_M_R(y, k)), cy(y));
+    }
+    ctx.lineTo(cx(1/k), cy(yMax));
+    ctx.lineTo(cx(k + 1/k), cy(yMax));
+    for (let i = 0; i <= N; i++) {
+      const y = yMax - (yMax - yJoin) * i / N;
+      ctx.lineTo(cx(parabola_R(y, k)), cy(y));
+    }
+    ctx.lineTo(cx(k + k/2), cy(yJoin));
+    ctx.lineTo(cx(k/2), cy(yJoin));
+    ctx.closePath();
+    ctx.fill();
+ 
+  } else {
+    // Case ii: 단일 연속 구간
+    ctx.beginPath();
+    ctx.moveTo(cx(-1/k), cy(yMax));
+    for (let i = 0; i <= N; i++) {
+      const y = yMax * (1 - i / N);
+      ctx.lineTo(cx(parabola_L(y, k)), cy(y));
+    }
+    ctx.lineTo(cx(0), cy(0));
+    ctx.lineTo(cx(k), cy(0));
+    for (let i = 0; i <= N; i++) {
+      const y = yMax * i / N;
+      ctx.lineTo(cx(parabola_R(y, k)), cy(y));
+    }
+    ctx.lineTo(cx(k + 1/k), cy(yMax));
+    ctx.lineTo(cx(-1/k), cy(yMax));
+    ctx.closePath();
+    ctx.fill();
+  }
+ 
+  ctx.restore();
+}
+ 
+function drawAxesAndGrid() {
+  ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+  for (let x = Math.ceil(XMIN); x <= XMAX; x++) {
+    ctx.beginPath(); ctx.moveTo(cx(x), 0); ctx.lineTo(cx(x), H); ctx.stroke();
+  }
+  for (let y = 0; y <= YMAX; y += 0.5) {
+    ctx.beginPath(); ctx.moveTo(0, cy(y)); ctx.lineTo(W, cy(y)); ctx.stroke();
+  }
+  ctx.strokeStyle = '#475569'; ctx.lineWidth = 1.8; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(cx(XMIN+0.1), cy(0)); ctx.lineTo(cx(XMAX-0.1), cy(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx(0), cy(YMIN+0.05)); ctx.lineTo(cx(0), cy(YMAX-0.1)); ctx.stroke();
+  ctx.fillStyle = '#64748b'; ctx.font = '11px JetBrains Mono';
+  ctx.textAlign = 'center';
+  for (let x = -1; x <= 2; x++) {
+    if (x === 0) continue;
+    ctx.fillText(x, cx(x), cy(-0.13));
+  }
+  ctx.textAlign = 'right';
+  for (let y = 0.5; y <= 1.5; y += 0.5) {
+    ctx.fillText(y.toFixed(1), cx(-0.08), cy(y) + 4);
+  }
+  ctx.fillStyle = '#22c55e'; ctx.textAlign = 'left';
+  ctx.fillText('A(1,0)', cx(1.04), cy(-0.13));
+  ctx.fillStyle = '#64748b';
+  ctx.fillText('O', cx(0.04), cy(-0.13));
+}
+ 
+function drawParabolas(k) {
+  ctx.beginPath();
+  ctx.strokeStyle = '#374151'; ctx.lineWidth = 1.2; ctx.setLineDash([4,4]);
+  for (let i = 0; i <= N; i++) {
+    const x = -1 + 2*i/N;
+    i===0 ? ctx.moveTo(cx(x), cy(x*x)) : ctx.lineTo(cx(x), cy(x*x));
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+ 
+  ctx.beginPath();
+  ctx.strokeStyle = '#60a5fa'; ctx.lineWidth = 2.4;
+  for (let i = 0; i <= N; i++) {
+    const x = -1/k + (2/k)*i/N;
+    i===0 ? ctx.moveTo(cx(x), cy(k*x*x)) : ctx.lineTo(cx(x), cy(k*x*x));
+  }
+  ctx.stroke();
+ 
+  ctx.beginPath();
+  ctx.strokeStyle = '#34d399'; ctx.lineWidth = 2.4;
+  for (let i = 0; i <= N; i++) {
+    const x = k - 1/k + (2/k)*i/N;
+    i===0 ? ctx.moveTo(cx(x), cy(k*(x-k)*(x-k))) : ctx.lineTo(cx(x), cy(k*(x-k)*(x-k)));
+  }
+  ctx.stroke();
+}
+ 
+function drawPoint(x, y, color, label) {
+  ctx.beginPath();
+  ctx.arc(cx(x), cy(y), 5.5, 0, 2*Math.PI);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.strokeStyle = '#0f1117'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = color; ctx.font = 'bold 13px Noto Sans KR';
+  ctx.textAlign = 'left';
+  ctx.fillText(label, cx(x)+8, cy(y)-6);
+}
+ 
+function updateUI(k) {
+  const isCase1 = k <= Math.SQRT2;
+  const sk = isCase1 ? (2 - k**4/12) : (1 + 4/(3*k*k));
+  document.getElementById('kVal').textContent = k.toFixed(2);
+  document.getElementById('pVal').textContent = parseFloat(document.getElementById('pSlider').value).toFixed(2);
+  document.getElementById('qVal').textContent = parseFloat(document.getElementById('qSlider').value).toFixed(2);
+  document.getElementById('skVal').textContent = sk.toFixed(4);
+  const badge = document.getElementById('caseBadge');
+  if (isCase1) {
+    badge.textContent = 'k ≤ √2  (Case i)';
+    badge.className = 'case-badge case1';
+  } else {
+    badge.textContent = 'k > √2  (Case ii)';
+    badge.className = 'case-badge case2';
+  }
+  updateLiveInsight(k);
+}
+ 
+function draw() {
+  const k = parseFloat(document.getElementById('kSlider').value);
+  const t = parseFloat(document.getElementById('pSlider').value);
+  const s = parseFloat(document.getElementById('qSlider').value);
+  ctx.clearRect(0, 0, W, H);
+  drawAxesAndGrid();
+  fillRegion(k);
+  drawParabolas(k);
+  ctx.beginPath();
+  ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+  ctx.moveTo(cx(0), cy(0)); ctx.lineTo(cx(1), cy(0));
+  ctx.stroke(); ctx.setLineDash([]);
+  drawPoint(t, t*t, '#ef4444', 'P');
+  drawPoint(s, 0, '#22c55e', 'Q');
+  drawPoint(t/k + k*s, t*t/k, '#f59e0b', 'R');
+  updateUI(k);
+}
+ 
+['kSlider','pSlider','qSlider'].forEach(id =>
+  document.getElementById(id).addEventListener('input', draw)
+);
+draw();
+</script>
+</body>
+</html>

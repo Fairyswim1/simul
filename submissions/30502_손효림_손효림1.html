@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>플러스 알파 45번 시뮬레이터</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #16a34a;
+            --success-hover: #15803d;
+            --danger: #dc2626;
+            --warning: #ea580c;
+            --highlight-line: #f97316;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --border: #cbd5e1;
+            --text: #0f172a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: #f1f5f9;
+            color: var(--text);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .master-container {
+            display: flex;
+            gap: 24px;
+            max-width: 1350px;
+            width: 100%;
+            background: var(--bg-card);
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+        }
+
+        .graph-wrapper {
+            flex: 1.3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+        }
+
+        canvas {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .panel-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-height: 750px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .card {
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 4px;
+        }
+
+        /* 추가된 고정 수식 뷰어 스타일 */
+        .fixed-formula-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .formula-box {
+            flex: 1;
+            background: #ffffff;
+            border: 1px dashed #94a3b8;
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+            font-size: 13px;
+        }
+        .formula-title {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        .formula-body {
+            font-family: 'Cambria', serif;
+            font-weight: bold;
+            color: #1e293b;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 13.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-blue { background: var(--primary); }
+        .btn-blue:hover { background: var(--primary-hover); }
+        .btn-green { background: var(--success); }
+        .btn-green:hover { background: var(--success-hover); }
+        .btn-orange { background: var(--warning); }
+        .btn-orange:hover { background: #c2410c; }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .badge-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+        .math-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background: #ffffff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            border-left: 4px solid var(--border);
+            font-size: 13px;
+        }
+        .math-label { font-size: 11.5px; color: #64748b; font-weight: bold; }
+        .math-value { font-family: 'Cambria', serif; font-weight: 600; color: #334155; line-height: 1.3; }
+
+        .angle-track {
+            position: relative;
+            width: 100%;
+            height: 14px;
+            background: #e2e8f0;
+            border-radius: 7px;
+            margin: 10px 0;
+        }
+        .angle-active-zone {
+            position: absolute;
+            height: 100%;
+            background: #bbf7d0;
+            border: 1px solid #86efac;
+        }
+        .angle-indicator {
+            position: absolute;
+            top: -4px;
+            width: 4px;
+            height: 22px;
+            background: var(--primary);
+            border-radius: 2px;
+            transform: translateX(-50%);
+        }
+
+        .bar-container {
+            width: 100%;
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f472b6, var(--highlight-line));
+            width: 0%;
+        }
+
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .step-item {
+            background: #ffffff;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 12.5px;
+            line-height: 1.4;
+            border-left: 3px solid var(--border);
+        }
+
+        .active-highlight-2 {
+            border-color: var(--success) !important;
+            background-color: #f0fdf4 !important;
+        }
+        .active-highlight-3 {
+            border-color: var(--warning) !important;
+            background-color: #fff7ed !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="master-container">
+    
+    <div class="graph-wrapper">
+        <canvas id="geometryCanvas" width="700" height="700"></canvas>
+    </div>
+
+    <div class="panel-wrapper">
+        
+        <div class="card" style="background: #eff6ff; border-color: #bfdbfe;">
+            <div class="card-title">
+                <span>회전각 제어 파라미터 (θ)</span>
+                <span id="lblThetaText" style="color: var(--primary); font-family: serif; font-size:14px;">0.00π (0.0°)</span>
+            </div>
+            
+            <div class="fixed-formula-container">
+                <div class="formula-box" style="border-color: #475569;">
+                    <div class="formula-title">원의 방정식</div>
+                    <div class="formula-body" style="color: #475569;">(x + √3)² + y² = 1</div>
+                </div>
+                <div class="formula-box" style="border-color: #475569;">
+                    <div class="formula-title">직선 l의 방정식</div>
+                    <div class="formula-body" style="color: #475569;">y = -√3x - 5/4</div>
+                </div>
+            </div>
+
+            <input type="range" id="inputTheta" min="-3.141592" max="3.141592" step="0.001" value="0" style="width: 100%; cursor: pointer;">
+            <button id="btnPlayToggle" class="btn btn-blue" style="margin-top: 8px;">자동 실행 / 일시정지</button>
+        </div>
+
+        <div class="card" id="cardStep1">
+            <div class="card-title">
+                <span>(1) 포물선과 직선의 교점 조건</span>
+                <span id="badgeStatus" class="badge badge-success">교점 존재</span>
+            </div>
+            
+            <div class="math-row">
+                <span class="math-label">원 위의 점 / 포물선 꼭짓점 P (매개변수 공식 연동)</span>
+                <span id="exprPCoord" class="math-value" style="font-size:12.5px; color:#1e3a8a;">P = (cosθ - √3, sinθ) = (-1.732, 0.000)</span>
+            </div>
+            <div class="math-row">
+                <span class="math-label">현재 포물선 C의 방정식</span>
+                <span id="exprParabola" class="math-value">y = -(x - Px)² + Py</span>
+            </div>
+
+            <div style="font-size: 11.5px; font-weight: bold; color: #475569; margin-top: 6px;">θ 조건 공간 대조 바 (-π 부터 π)</div>
+            <div class="angle-track">
+                <div id="barActiveZone" class="angle-active-zone"></div>
+                <div id="barPointer" class="angle-indicator"></div>
+            </div>
+            
+            <div style="font-size: 12px; color: #475569; line-height: 1.4; background: #fff; padding: 6px; border-radius: 4px;">
+                두 식을 연립한 2차 방정식의 실근 판별식 D ≥ 0 조건에 의해, 오직 <strong>초록색 영역 [ -π/6 ≤ θ ≤ π/2 ]</strong>에서만 교점이 실시간으로 생성됩니다.
+            </div>
+        </div>
+
+        <div class="card" id="cardStep2">
+            <div class="card-title">(2) 잘린 선분(현)의 길이 극대치</div>
+            <div class="math-row">
+                <span class="math-label">직선 l이 포물선에 의해 잘린 선분 길이</span>
+                <span id="exprChordLen" class="math-value">0.0000</span>
+            </div>
+            <div style="font-size: 11.5px; color: #64748b; font-weight: bold;">최대 길이(4.0) 대비 비율 상태</div>
+            <div class="bar-container">
+                <div id="gaugeChord" class="bar-fill"></div>
+            </div>
+
+            <button id="btnSnapMax" class="btn btn-green" style="margin-top: 10px;">선분 길이가 최대인 상태로 이동 (θ = π/6)</button>
+        </div>
+
+        <div class="card" id="cardStep3">
+            <div class="card-title">(3) 둘러싸인 도형의 정적분 넓이</div>
+            <button id="btnToggleArea" class="btn btn-orange">정적분 공식 및 영역 추적</button>
+            
+            <div class="step-list" id="integralFlow" style="display: none;">
+                <div class="step-item" id="flow1">
+                    <strong>1. 최대 상태의 포물선 식 도출:</strong><br>
+                    θ = π/6 일 때, 꼭짓점 P = (-√3/2, 1/2) 이므로<br>
+                    포물선 C: y = -(x + √3/2)² + 1/2 = -x² - √3x - 1/4
+                </div>
+                <div class="step-item" id="flow2">
+                    <strong>2. 직선 l과 포물선 연립:</strong><br>
+                    -x² - √3x - 1/4 = -√3x - 5/4
+                </div>
+                <div class="step-item" id="flow3">
+                    <strong>3. 교점의 정확한 x좌표 확정:</strong><br>
+                    x² - 1 = 0  →  양 끝 교점의 x좌표는 <strong>x = -1, x = 1</strong>
+                </div>
+                <div class="step-item" id="flow4">
+                    <strong>4. 두 함수의 차 식 정리:</strong><br>
+                    (위 식) - (아래 식) = (-x² - √3x - 1/4) - (-√3x - 5/4) = <strong>1 - x²</strong>
+                </div>
+                <div class="step-item" id="flow5">
+                    <strong>5. 정적분 수식 설계:</strong><br>
+                    넓이 S = ∫ [구간 -1 부터 1] (1 - x²) dx
+                </div>
+                <div class="step-item" id="flow6" style="border-left-color: var(--success); font-weight: bold; background: #f0fdf4;">
+                    6. 아르키메데스 공식 계산 결과:<br>
+                    S = [x - x³/3] (구간 -1~1) = 4/3
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('geometryCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const inputTheta = document.getElementById('inputTheta');
+    const lblThetaText = document.getElementById('lblThetaText');
+    const badgeStatus = document.getElementById('badgeStatus');
+    const exprPCoord = document.getElementById('exprPCoord');
+    const exprParabola = document.getElementById('exprParabola');
+    const exprChordLen = document.getElementById('exprChordLen');
+    const gaugeChord = document.getElementById('gaugeChord');
+    const barPointer = document.getElementById('barPointer');
+    const barActiveZone = document.getElementById('barActiveZone');
+    
+    const btnPlayToggle = document.getElementById('btnPlayToggle');
+    const btnSnapMax = document.getElementById('btnSnapMax');
+    const btnToggleArea = document.getElementById('btnToggleArea');
+    const integralFlow = document.getElementById('integralFlow');
+
+    const cardStep1 = document.getElementById('cardStep1');
+    const cardStep2 = document.getElementById('cardStep2');
+    const cardStep3 = document.getElementById('cardStep3');
+
+    const sqrt3 = Math.sqrt(3);
+    
+    const mathXMin = -4.5, mathXMax = 2.5;
+    const mathYMin = -4.5, mathYMax = 2.5;
+
+    let theta = 0;
+    let isPlaying = false;
+    let animationFrameId = null;
+    let viewAreaMode = false;      
+
+    function init() {
+        inputTheta.addEventListener('input', (e) => {
+            theta = parseFloat(e.target.value);
+            viewAreaMode = false; 
+            resetHighlights();
+            integralFlow.style.display = "none";
+            updateSimulator();
+        });
+
+        btnPlayToggle.addEventListener('click', toggleAnimation);
+        btnSnapMax.addEventListener('click', snapToMaxState);
+        
+        btnToggleArea.addEventListener('click', () => {
+            snapToMaxState();
+            viewAreaMode = true;
+            integralFlow.style.display = "flex";
+            cardStep3.classList.add('active-highlight-3');
+            updateSimulator();
+        });
+
+        const totalW = 2 * Math.PI;
+        const leftPercent = ((-Math.PI/6) - (-Math.PI)) / totalW * 100;
+        const widthPercent = ((Math.PI/2) - (-Math.PI/6)) / totalW * 100;
+        barActiveZone.style.left = leftPercent + '%';
+        barActiveZone.style.width = widthPercent + '%';
+
+        updateSimulator();
+    }
+
+    function resetHighlights() {
+        cardStep2.classList.remove('active-highlight-2');
+        cardStep3.classList.remove('active-highlight-3');
+    }
+
+    function toggleAnimation() {
+        isPlaying = !isPlaying;
+        if(isPlaying) {
+            btnPlayToggle.textContent = "일시정지";
+            btnPlayToggle.style.background = "var(--danger)";
+            viewAreaMode = false;
+            resetHighlights();
+            integralFlow.style.display = "none";
+            loopAnimation();
+        } else {
+            btnPlayToggle.textContent = "자동 실행 / 일시정지";
+            btnPlayToggle.style.background = "var(--primary)";
+            cancelAnimationFrame(animationFrameId);
+        }
+    }
+
+    function loopAnimation() {
+        if(!isPlaying) return;
+        theta += 0.010; 
+        if(theta > Math.PI) theta = -Math.PI;
+        inputTheta.value = theta;
+        updateSimulator();
+        animationFrameId = requestAnimationFrame(loopAnimation);
+    }
+
+    function snapToMaxState() {
+        isPlaying = false;
+        cancelAnimationFrame(animationFrameId);
+        btnPlayToggle.textContent = "자동 실행 / 일시정지";
+        btnPlayToggle.style.background = "var(--primary)";
+        
+        theta = Math.PI / 6; 
+        inputTheta.value = theta;
+        
+        resetHighlights();
+        cardStep2.classList.add('active-highlight-2');
+        updateSimulator();
+    }
+
+    function convertMathToPixel(mx, my) {
+        const xRatio = (mx - mathXMin) / (mathXMax - mathXMin);
+        const yRatio = (my - mathYMin) / (mathYMax - mathYMin);
+        
+        const px = xRatio * canvas.width;
+        const py = canvas.height - (yRatio * canvas.height); 
+        return { x: px, y: py };
+    }
+
+    function getFractionPiString(t) {
+        const ratio = t / Math.PI;
+        if (Math.abs(ratio - 1/6) < 0.002) return "π / 6";
+        if (Math.abs(ratio - 0.5) < 0.002) return "π / 2";
+        if (Math.abs(ratio - (-1/6)) < 0.002) return "-π / 6";
+        if (Math.abs(ratio) < 0.002) return "0";
+        return (ratio >= 0 ? "" : "-") + Math.abs(ratio).toFixed(2) + "π";
+    }
+
+    function updateSimulator() {
+        const degree = (theta * 180 / Math.PI).toFixed(1);
+        lblThetaText.textContent = `${getFractionPiString(theta)} (${degree}°)`;
+
+        const barPos = (theta - (-Math.PI)) / (2 * Math.PI) * 100;
+        barPointer.style.left = barPos + '%';
+
+        const Px = Math.cos(theta) - sqrt3;
+        const Py = Math.sin(theta);
+
+        if (Math.abs(theta - Math.PI/6) < 0.002) {
+            exprPCoord.textContent = "P = (cosθ - √3, sinθ) = (-√3/2, 1/2)";
+            exprParabola.textContent = "y = -(x + √3/2)² + 1/2";
+        } else {
+            exprPCoord.textContent = `P = (cosθ - √3, sinθ) = (${Px.toFixed(3)}, ${Py.toFixed(3)})`;
+            const xSign = Px >= 0 ? "-" : "+";
+            const ySign = Py >= 0 ? "+" : "-";
+            exprParabola.textContent = `y = -(x ${xSign} ${Math.abs(Px).toFixed(2)})² ${ySign} ${Math.abs(Py).toFixed(2)}`;
+        }
+
+        const B = -(2 * Px + sqrt3);
+        const C_const = Px * Px - Py - 1.25;
+        const D = B * B - 4 * C_const;
+
+        let intersectionPts = [];
+        let chordLen = 0;
+
+        if (theta >= -0.524 && theta <= 1.571) { 
+            if (D > 0) {
+                const x1 = (-B + Math.sqrt(D)) / 2;
+                const x2 = (-B - Math.sqrt(D)) / 2;
+                const y1 = -sqrt3 * x1 - 1.25;
+                const y2 = -sqrt3 * x2 - 1.25;
+                intersectionPts = [{x: x1, y: y1}, {x: x2, y: y2}];
+                chordLen = Math.sqrt((x1 - x2)**2 + (y1 - y2)**2);
+
+                badgeStatus.textContent = "교점 2개 존재";
+                badgeStatus.className = "badge badge-success";
+            } else if (Math.abs(D) < 0.002) {
+                const x0 = -B / 2;
+                const y0 = -sqrt3 * x0 - 1.25;
+                intersectionPts = [{x: x0, y: y0}];
+                chordLen = 0;
+
+                badgeStatus.textContent = "접함 (교점 1개)";
+                badgeStatus.className = "badge badge-success";
+            } else {
+                chordLen = 0;
+                badgeStatus.textContent = "교점 없음";
+                badgeStatus.className = "badge badge-danger";
+            }
+        } else {
+            chordLen = 0;
+            badgeStatus.textContent = "교점 없음";
+            badgeStatus.className = "badge badge-danger";
+        }
+
+        exprChordLen.textContent = chordLen.toFixed(4);
+        if(Math.abs(theta - Math.PI/6) < 0.002) {
+            exprChordLen.innerHTML = `<span style="color:var(--success); font-weight:bold;">4.0000 (최대 상태)</span>`;
+        }
+        gaugeChord.style.width = (Math.min(chordLen / 4.0, 1.0) * 100) + '%';
+
+        drawMasterGraph(Px, Py, intersectionPts);
+    }
+
+    function drawMasterGraph(Px, Py, inters) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 1. 그리드 격자 구성
+        ctx.strokeStyle = "#f1f5f9";
+        ctx.lineWidth = 1;
+        for (let x = -5; x <= 3; x += 0.5) {
+            let pTop = convertMathToPixel(x, mathYMax);
+            let pBottom = convertMathToPixel(x, mathYMin);
+            ctx.beginPath(); ctx.moveTo(pTop.x, pTop.y); ctx.lineTo(pBottom.x, pBottom.y); ctx.stroke();
+        }
+        for (let y = -5; y <= 3; y += 0.5) {
+            let pLeft = convertMathToPixel(mathXMin, y);
+            let pRight = convertMathToPixel(mathXMax, y);
+            ctx.beginPath(); ctx.moveTo(pLeft.x, pLeft.y); ctx.lineTo(pRight.x, pRight.y); ctx.stroke();
+        }
+
+        // 2. 메이저 좌표축
+        ctx.strokeStyle = "#64748b";
+        ctx.lineWidth = 2;
+        let xAxisS = convertMathToPixel(mathXMin, 0);
+        let xAxisE = convertMathToPixel(mathXMax, 0);
+        ctx.beginPath(); ctx.moveTo(xAxisS.x, xAxisS.y); ctx.lineTo(xAxisE.x, xAxisE.y); ctx.stroke();
+
+        let yAxisS = convertMathToPixel(0, mathYMin);
+        let yAxisE = convertMathToPixel(0, mathYMax);
+        ctx.beginPath(); ctx.moveTo(yAxisS.x, yAxisS.y); ctx.lineTo(yAxisE.x, yAxisE.y); ctx.stroke();
+
+        ctx.fillStyle = "#334155";
+        ctx.font = "12px sans-serif";
+        const xTicks = [-4, -3, -2, -1, 1, 2];
+        xTicks.forEach(val => {
+            let pTickX = convertMathToPixel(val, 0);
+            ctx.fillText(val, pTickX.x - 4, pTickX.y + 16);
+        });
+        const yTicks = [-4, -3, -2, -1, 1, 2];
+        yTicks.forEach(val => {
+            let pTickY = convertMathToPixel(0, val);
+            ctx.fillText(val, pTickY.x + 8, pTickY.y + 4);
+        });
+        let originPos = convertMathToPixel(-0.18, -0.25);
+        ctx.fillText("O", originPos.x, originPos.y);
+
+        // 3. 고정 원 도형
+        ctx.strokeStyle = "#475569";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        let circleCenter = convertMathToPixel(-sqrt3, 0);
+        let edgePoint = convertMathToPixel(1 - sqrt3, 0);
+        let radiusPx = edgePoint.x - circleCenter.x;
+        ctx.arc(circleCenter.x, circleCenter.y, radiusPx, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        ctx.beginPath(); ctx.arc(circleCenter.x, circleCenter.y, 4, 0, 2 * Math.PI);
+        ctx.fillStyle = "#64748b"; ctx.fill();
+
+        // 4. 고정 직선 l (순수한 직선 상태 유지)
+        ctx.strokeStyle = "#1d4ed8";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        let lineS = convertMathToPixel(mathXMin, -sqrt3 * mathXMin - 1.25);
+        let lineE = convertMathToPixel(mathXMax, -sqrt3 * mathXMax - 1.25);
+        ctx.moveTo(lineS.x, lineS.y); ctx.lineTo(lineE.x, lineE.y);
+        ctx.stroke();
+
+        // 5. 정적분 넓이 추적 음영
+        if (viewAreaMode && inters.length === 2) {
+            ctx.fillStyle = "rgba(234, 88, 12, 0.22)";
+            ctx.beginPath();
+            const leftLimit = -1.0;
+            const rightLimit = 1.0;
+            const scanStep = 0.01;
+
+            let startPt = convertMathToPixel(leftLimit, -Math.pow(leftLimit - Px, 2) + Py);
+            ctx.moveTo(startPt.x, startPt.y);
+            
+            for (let rx = leftLimit; rx <= rightLimit; rx += scanStep) {
+                let ry = -Math.pow(rx - Px, 2) + Py;
+                let pix = convertMathToPixel(rx, ry);
+                ctx.lineTo(pix.x, pix.y);
+            }
+            let endPt = convertMathToPixel(rightLimit, -sqrt3 * rightLimit - 1.25);
+            ctx.lineTo(endPt.x, endPt.y);
+            let returnPt = convertMathToPixel(leftLimit, -sqrt3 * leftLimit - 1.25);
+            ctx.lineTo(returnPt.x, returnPt.y);
+            
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = "var(--warning)";
+            ctx.font = "bold 13px sans-serif";
+            let txtPos = convertMathToPixel(-0.8, 0.8);
+            ctx.fillText("넓이 S = ∫(1 - x²)dx = 4/3", txtPos.x, txtPos.y);
+        }
+
+        // 6. 실시간 동적 포물선 C
+        ctx.strokeStyle = inters.length > 0 ? "var(--success)" : "var(--danger)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        let isFirstNode = true;
+        for (let mx = mathXMin; mx <= mathXMax; mx += 0.04) {
+            let my = -Math.pow(mx - Px, 2) + Py;
+            if (my < mathYMin - 1 || my > mathYMax + 1) continue;
+
+            let pix = convertMathToPixel(mx, my);
+            if (isFirstNode) {
+                ctx.moveTo(pix.x, pix.y);
+                isFirstNode = false;
+            } else {
+                ctx.lineTo(pix.x, pix.y);
+            }
+        }
+        ctx.stroke();
+
+        // 7. [버그 수정 완료] 직선 위에 덮어씌워지는 교점 사이의 잘린 선분(현) 렌더링 최우선 배치
+        if (inters.length === 2) {
+            ctx.save(); // 그리기 상태 저장
+            ctx.strokeStyle = "#d946ef";
+            ctx.lineWidth = 5.5; // 직선보다 두껍게 처리하여 완벽히 덮어씌움
+            ctx.beginPath();
+            let ip1 = convertMathToPixel(inters[0].x, inters[0].y);
+            let ip2 = convertMathToPixel(inters[1].x, inters[1].y);
+            ctx.moveTo(ip1.x, ip1.y);
+            ctx.lineTo(ip2.x, ip2.y);
+            ctx.stroke();
+            ctx.restore(); // 상태 복원
+
+            // 교점 도트 배치
+            inters.forEach((pt) => {
+                let ip = convertMathToPixel(pt.x, pt.y);
+                ctx.beginPath();
+                ctx.arc(ip.x, ip.y, 6, 0, 2 * Math.PI);
+                ctx.fillStyle = "var(--highlight-line)";
+                ctx.fill();
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            });
+        } else if (inters.length === 1) {
+            let ip = convertMathToPixel(inters[0].x, inters[0].y);
+            ctx.beginPath(); ctx.arc(ip.x, ip.y, 7, 0, 2 * Math.PI);
+            ctx.fillStyle = "#0d9488"; ctx.fill();
+        }
+
+        // 8. 동점 P 마킹 (꼭짓점)
+        let pPix = convertMathToPixel(Px, Py);
+        ctx.beginPath();
+        ctx.arc(pPix.x, pPix.y, 8, 0, 2 * Math.PI);
+        ctx.fillStyle = "var(--primary)";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        ctx.fillStyle = "#0f172a";
+        ctx.font = "bold 13px sans-serif";
+        ctx.fillText("P (꼭짓점)", pPix.x + 12, pPix.y - 4);
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>

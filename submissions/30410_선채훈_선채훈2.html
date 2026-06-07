@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>서울대학교 일반전형 수시 문제 1 · 그래프 확장판</title>
+<style>
+  :root{
+    --bg0:#040711;
+    --bg1:#071021;
+    --panel:rgba(10,16,34,.78);
+    --panel2:rgba(16,23,47,.72);
+    --line:rgba(178,210,255,.17);
+    --line2:rgba(126,231,255,.35);
+    --text:#eef5ff;
+    --muted:#93a6c5;
+    --cyan:#7ee7ff;
+    --blue:#79a7ff;
+    --mag:#ff78d8;
+    --green:#9dffb1;
+    --gold:#ffd66f;
+    --red:#ff8b8b;
+    --shadow:0 22px 70px rgba(0,0,0,.42);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg0);color:var(--text);overflow:hidden}
+  body:before{content:"";position:fixed;inset:-18%;background:
+    radial-gradient(circle at 20% 20%, rgba(126,231,255,.14), transparent 22%),
+    radial-gradient(circle at 83% 14%, rgba(255,120,216,.11), transparent 18%),
+    radial-gradient(circle at 48% 84%, rgba(157,255,177,.08), transparent 22%);
+    filter:blur(18px);animation:drift 22s ease-in-out infinite alternate;pointer-events:none}
+  @keyframes drift{from{transform:translate3d(-1.5%,1%,0) rotate(-1deg)}to{transform:translate3d(1.5%,-1%,0) rotate(1deg)}}
+
+  .app{position:relative;z-index:1;height:100vh;display:grid;grid-template-rows:56px minmax(0,1fr) clamp(210px,30vh,330px);gap:10px;padding:12px;min-width:0;overflow:hidden}
+  header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 4px}
+  .titleBlock{display:flex;align-items:baseline;gap:13px;min-width:0}
+  .tag{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);font-weight:900;white-space:nowrap}
+  h1{margin:0;font-size:21px;letter-spacing:-.035em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .headerActions{display:flex;align-items:center;gap:8px}
+  .statusChip{border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025));border-radius:999px;padding:8px 10px;color:#dcecff;font-size:12px;white-space:nowrap}
+  button{appearance:none;border:1px solid rgba(178,210,255,.20);background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.025));color:var(--text);border-radius:13px;padding:9px 11px;font-weight:800;font-size:12px;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.07);transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
+  button:hover{transform:translateY(-1px);border-color:rgba(126,231,255,.62);background:linear-gradient(180deg,rgba(126,231,255,.16),rgba(255,255,255,.035))}
+  button.active{border-color:rgba(126,231,255,.78);box-shadow:0 0 24px rgba(126,231,255,.16),inset 0 1px 0 rgba(255,255,255,.09)}
+
+  .main{min-height:0;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,390px);gap:10px;overflow:hidden}
+  .card{position:relative;overflow:hidden;border:1px solid var(--line);background:linear-gradient(180deg,rgba(12,18,39,.82),rgba(5,9,22,.70));border-radius:24px;box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.05)}
+  .card:before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(126,231,255,.42),transparent 28%,transparent 72%,rgba(255,120,216,.33));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.65}
+  .stageCard{min-height:0}
+  canvas{display:block;width:100%;height:100%}
+  #stageCanvas{cursor:default}
+
+  .side{display:grid;grid-template-rows:auto max-content max-content max-content;gap:10px;min-height:0;max-height:100%;align-content:start;overflow-y:auto;overflow-x:hidden;padding-right:4px;scrollbar-color:rgba(126,231,255,.45) rgba(255,255,255,.06);scrollbar-width:thin;overscroll-behavior:contain;touch-action:pan-y}
+  .side.dragScroll{cursor:grab}
+  .side.dragScroll.dragging{cursor:grabbing;user-select:none}
+  .side::-webkit-scrollbar{width:8px}
+  .side::-webkit-scrollbar-track{background:rgba(255,255,255,.04);border-radius:99px}
+  .side::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(126,231,255,.48),rgba(255,120,216,.36));border-radius:99px}
+  .side .card{flex-shrink:0}
+  .sideHandle{display:flex;position:sticky;top:0;z-index:4;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid rgba(178,210,255,.18);border-radius:16px;background:linear-gradient(180deg,rgba(9,14,30,.94),rgba(15,22,48,.82));font-size:12px;font-weight:950;color:#dcecff;cursor:grab;user-select:none;box-shadow:0 12px 34px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.07);backdrop-filter:blur(14px)}
+  .sideHandle:active{cursor:grabbing}
+  .sideHandle span:last-child{font-size:11px;color:var(--muted);font-weight:800}
+  .side.floatingSide{position:fixed!important;right:14px;top:72px;width:min(420px,calc(100vw - 28px));height:min(680px,calc(100vh - 86px));max-height:calc(100vh - 28px);z-index:34;padding:10px;resize:both;border:1px solid rgba(178,210,255,.25);border-radius:24px;background:linear-gradient(180deg,rgba(10,16,34,.96),rgba(5,9,22,.93));box-shadow:0 26px 90px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(20px);grid-template-rows:auto max-content max-content max-content;overflow:auto}
+  .side.floatingSide .card{box-shadow:none}.side.floatingSide .sideHandle{cursor:grab}
+  body.sideDetached .main{grid-template-columns:minmax(0,1fr)}
+  @media (max-height:760px){
+    .app{grid-template-rows:50px minmax(0,1fr) clamp(170px,26vh,240px);gap:8px;padding:9px}
+    header{min-height:0}.tag{font-size:10px}h1{font-size:18px}.statusChip{padding:6px 8px;font-size:11px}button{padding:7px 9px}
+    .main{gap:8px}.side{gap:8px}.pad{padding:10px}.controls{gap:8px}.row{gap:5px}.btnGrid{gap:6px}
+    .metric{min-height:61px;padding:9px;border-radius:15px}.value{font-size:17px;margin-top:4px}.note{font-size:10px}.label{font-size:10px}
+    .miniFormula{font-size:11px;line-height:1.42;padding:10px;max-height:115px;overflow:auto}.charts{gap:8px}.chartHead{padding:8px 10px}.chartCard{grid-template-rows:38px minmax(0,1fr)}
+    .floatPanel{top:62px;height:min(420px,calc(100vh - 76px))}.side.floatingSide{top:62px;height:min(620px,calc(100vh - 76px))}
+  }
+  .pad{padding:10px}
+  .controls{display:grid;gap:8px}
+  .row{display:grid;gap:5px}
+  .rowTop{display:flex;align-items:baseline;justify-content:space-between;color:#dce9fb;font-size:13px}
+  .rowTop strong{font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;appearance:none;height:8px;border-radius:999px;background:linear-gradient(90deg,var(--cyan),var(--mag));outline:none;box-shadow:0 0 22px rgba(126,231,255,.12)}
+  input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid #87f0ff;box-shadow:0 0 20px rgba(126,231,255,.85),0 0 42px rgba(255,120,216,.28);cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid #87f0ff;box-shadow:0 0 20px rgba(126,231,255,.85);cursor:pointer}
+  .btnGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+  .metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .metric{position:relative;border:1px solid rgba(178,210,255,.13);background:rgba(255,255,255,.035);border-radius:17px;padding:8px;min-height:58px;overflow:hidden}
+  .metric:after{content:"";position:absolute;inset:auto 0 0 0;height:3px;background:linear-gradient(90deg,var(--cyan),var(--mag));opacity:.8}
+  .label{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-weight:900}
+  .value{font-size:16px;font-weight:950;margin-top:3px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .note{font-size:10px;color:#a9bbd8;margin-top:1px;white-space:nowrap}
+  .miniFormula{padding:10px;border-top:1px solid rgba(178,210,255,.10);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#dceaff;font-size:11px;line-height:1.42;background:rgba(0,0,0,.16);min-height:0;overflow:auto}
+  .miniFormula b{color:var(--gold)}
+  .sideScrollHint{margin-top:10px;padding-top:9px;border-top:1px solid rgba(178,210,255,.10);font-size:11px;color:#91a6c5;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",Arial,sans-serif}
+
+  .charts{display:grid;grid-template-columns:minmax(390px,.88fr) minmax(520px,1.12fr);gap:12px;min-height:0}
+  .chartCard{display:grid;grid-template-rows:42px minmax(0,1fr);min-height:0}
+  .chartHead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(178,210,255,.10);background:rgba(255,255,255,.025)}
+  .chartTitle{font-size:13px;font-weight:950;letter-spacing:-.015em;white-space:nowrap}
+  .chartBtns{display:flex;gap:6px}
+  .chartBtns button{padding:7px 9px;border-radius:11px;font-size:11px}
+  .canvasWrap{position:relative;min-height:0;overflow:hidden}
+  .canvasWrap:after{content:"";position:absolute;inset:auto 0 0 0;height:38px;background:linear-gradient(0deg,rgba(5,9,22,.45),transparent);pointer-events:none}
+
+  .floatPanel{position:fixed;right:18px;top:84px;width:440px;height:420px;min-width:330px;min-height:250px;max-width:calc(100vw - 28px);max-height:calc(100vh - 28px);z-index:20;border:1px solid rgba(178,210,255,.22);background:linear-gradient(180deg,rgba(11,17,37,.95),rgba(6,10,23,.92));border-radius:22px;box-shadow:0 24px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(20px);resize:both;overflow:hidden;display:grid;grid-template-rows:42px 45px minmax(0,1fr)}
+  .floatPanel.hidden{display:none}
+  .floatPanel.maxed{left:18px!important;top:18px!important;width:calc(100vw - 36px)!important;height:calc(100vh - 36px)!important;right:auto!important;resize:none}
+  .floatHead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid rgba(178,210,255,.12);cursor:grab;user-select:none;background:rgba(255,255,255,.035)}
+  .floatHead:active{cursor:grabbing}
+  .floatHead strong{font-size:13px;letter-spacing:-.01em}
+  .windowBtns{display:flex;gap:6px}
+  .windowBtns button{padding:6px 8px;font-size:11px;border-radius:10px}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;padding:8px;gap:7px;border-bottom:1px solid rgba(178,210,255,.09);background:rgba(255,255,255,.018)}
+  .tab{display:flex;align-items:center;justify-content:center;padding:9px;border:1px solid transparent;background:rgba(255,255,255,.035);border-radius:13px;font-size:12px;font-weight:900;color:#c7d7ef;cursor:pointer;user-select:none}
+  .tab.on{color:#fff;border-color:rgba(126,231,255,.47);background:rgba(126,231,255,.10)}
+  .panelBody{min-height:0;overflow:auto;padding:15px 17px 22px;scrollbar-color:rgba(126,231,255,.45) rgba(255,255,255,.06);scrollbar-width:thin}
+  .panelBody h3{font-size:13px;margin:0 0 8px;color:#eef7ff}
+  .panelBody p{margin:8px 0 12px;color:#c8d6eb;font-size:13px;line-height:1.62}
+  .formula{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border:1px solid rgba(178,210,255,.14);background:rgba(0,0,0,.23);border-radius:14px;padding:10px;margin:8px 0;color:#deebff;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+  .statusList{display:grid;gap:8px;margin-top:10px}
+  .statusLine{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 10px;border:1px solid rgba(178,210,255,.13);border-radius:14px;background:rgba(255,255,255,.035);font-size:12px;color:#cfe0f8}
+  .pill{font-weight:950;border-radius:999px;padding:4px 8px;border:1px solid rgba(255,255,255,.18);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .pill.good{color:#dffff0;background:rgba(157,255,177,.12);border-color:rgba(157,255,177,.32)}
+  .pill.warn{color:#fff0c7;background:rgba(255,214,111,.12);border-color:rgba(255,214,111,.32)}
+  .pill.bad{color:#ffe1e1;background:rgba(255,139,139,.12);border-color:rgba(255,139,139,.32)}
+  .dragHint{font-size:11px;color:#91a6c5;margin-top:10px;border-top:1px solid rgba(178,210,255,.10);padding-top:10px}
+
+  .modal{position:fixed;inset:0;z-index:50;background:rgba(2,4,11,.88);backdrop-filter:blur(18px);display:none;grid-template-rows:58px minmax(0,1fr);padding:14px;gap:12px}
+  .modal.open{display:grid}
+  .modalHead{display:flex;align-items:center;justify-content:space-between;padding:0 2px}
+  .modalTitle{font-size:18px;font-weight:950;letter-spacing:-.025em}
+  .modalBody{position:relative;border:1px solid rgba(178,210,255,.18);border-radius:26px;overflow:hidden;background:linear-gradient(180deg,rgba(8,13,30,.92),rgba(3,6,16,.95));box-shadow:0 30px 100px rgba(0,0,0,.60)}
+  #modalCanvas{width:100%;height:100%}
+
+  .source{position:fixed;left:18px;bottom:8px;color:rgba(201,216,239,.46);font-size:10px;letter-spacing:.02em;z-index:2;pointer-events:none}
+
+  @media (max-width:1180px){
+    html,body{overflow:auto}
+    .app{overflow:visible;min-width:0;grid-template-rows:56px auto 720px;height:auto;min-height:100vh}
+    .main{grid-template-columns:1fr;grid-template-rows:430px auto}
+    .side{overflow:auto;padding-right:4px;grid-template-rows:auto max-content max-content max-content;max-height:min(560px,72vh)}
+    .charts{grid-template-columns:1fr;grid-template-rows:330px 390px}
+    .floatPanel{position:fixed;left:16px;right:auto;top:76px;width:min(440px,calc(100vw - 32px));height:390px}
+    .source{display:none}
+  }
+
+  @media (max-width:560px) and (max-height:520px){
+    .controlPanel{left:6px!important;top:6px!important;width:calc(100vw - 12px)!important;height:calc(100dvh - 12px)!important;min-width:240px;min-height:180px;border-radius:18px;z-index:50}
+    .panelHandle{height:34px;position:sticky;top:0;z-index:4}
+    .controlScroll{padding:8px;gap:8px;-webkit-overflow-scrolling:touch}
+    .pad{padding:8px}
+    .controls{gap:8px}.row{gap:5px}.rowTop{font-size:12px}
+    input[type=range]{height:7px}input[type=range]::-webkit-slider-thumb{width:18px;height:18px}
+    .btnGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.btnGrid button{font-size:10px;padding:6px 3px;border-radius:10px;white-space:nowrap}
+    .metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.metric{min-height:54px;padding:8px;border-radius:14px}.label{font-size:10px}.value{font-size:15px;margin-top:3px}.note{display:none}
+    .miniFormula{font-size:10px;line-height:1.35;padding:8px;max-height:64px;overflow:auto;border-radius:14px}
+    .infoPanel{left:8px;top:8px;width:calc(100vw - 16px);height:calc(100dvh - 16px);z-index:45}
+  }
+  @media (max-width:380px) and (max-height:520px){.btnGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.miniFormula{max-height:58px}}
+
+  @media (max-width:700px){
+    html,body{overflow:auto}
+    .app{height:auto;min-height:100vh;grid-template-rows:auto minmax(360px,54vh) minmax(670px,76vh);padding:8px;gap:9px;overflow:visible}
+    header{display:block}.titleBlock{display:block}.tag{font-size:10px}h1{font-size:15px;white-space:normal;line-height:1.15;margin-top:3px}.headerActions{margin-top:6px;gap:5px}.statusChip{padding:5px 7px;font-size:11px}button{padding:7px 8px;font-size:11px}
+    .main{grid-template-columns:1fr;grid-template-rows:minmax(360px,54vh);overflow:visible}
+    .side{position:fixed;left:8px;right:8px;top:80px;bottom:8px;z-index:34;display:grid;grid-template-rows:auto max-content max-content max-content;max-height:none;overflow:auto;padding:10px;resize:vertical;border:1px solid rgba(178,210,255,.25);border-radius:22px;background:linear-gradient(180deg,rgba(10,16,34,.96),rgba(5,9,22,.93));box-shadow:0 26px 90px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.06);backdrop-filter:blur(20px)}
+    .side.floatingSide{left:8px!important;right:8px!important;top:80px!important;bottom:8px!important;width:auto!important;height:auto!important;max-height:none}
+    .sideHandle{position:sticky;top:0;z-index:5}.metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.note{display:none}.btnGrid{grid-template-columns:1fr 1fr}.charts{grid-template-columns:1fr;grid-template-rows:310px 360px}.chartTitle{font-size:12px}.floatPanel{left:10px;right:auto;top:70px;width:calc(100vw - 20px);height:min(430px,calc(100vh - 90px))}
+  }
+
+  /* compact viewport override: keep the control/value panel readable instead of clipping */
+  @media (max-width:560px) and (max-height:520px){
+    html,body{overflow:auto!important;height:auto!important}
+    .app{height:auto!important;min-height:100vh!important;overflow:visible!important}
+    .main{overflow:visible!important}
+    .side{position:fixed!important;left:6px!important;right:6px!important;top:6px!important;bottom:6px!important;width:auto!important;height:auto!important;max-height:none!important;z-index:55!important;display:grid!important;grid-template-rows:auto max-content max-content max-content!important;overflow:auto!important;padding:8px!important;resize:both!important;border:1px solid rgba(178,210,255,.28)!important;border-radius:18px!important;background:linear-gradient(180deg,rgba(10,16,34,.98),rgba(5,9,22,.95))!important;box-shadow:0 26px 90px rgba(0,0,0,.62),inset 0 1px 0 rgba(255,255,255,.07)!important;backdrop-filter:blur(20px)!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important}
+    .sideHandle{height:34px!important;position:sticky!important;top:0!important;z-index:6!important;padding:7px 9px!important;touch-action:none!important}
+    .sideHandle span:last-child{font-size:10px!important}
+    .pad{padding:8px!important}.controls{gap:8px!important}.row{gap:5px!important}.rowTop{font-size:12px!important}
+    input[type=range]{height:7px!important}input[type=range]::-webkit-slider-thumb{width:18px!important;height:18px!important}
+    .btnGrid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important}.btnGrid button{font-size:10px!important;padding:6px 3px!important;border-radius:10px!important;white-space:nowrap!important}
+    .metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}.metric{min-height:54px!important;padding:8px!important;border-radius:14px!important}.label{font-size:10px!important}.value{font-size:15px!important;margin-top:3px!important}.note{display:none!important}
+    .miniFormula{font-size:10px!important;line-height:1.35!important;padding:8px!important;max-height:74px!important;overflow:auto!important;border-radius:14px!important}
+    .sideScrollHint{font-size:10px!important;margin-top:6px!important;padding-top:6px!important}
+    .floatPanel{left:8px!important;top:8px!important;width:calc(100vw - 16px)!important;height:calc(100dvh - 16px)!important;z-index:45!important}
+  }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="titleBlock">
+      <div class="tag">2025 · SNU · 문제 1</div>
+      <h1>정삼각형 위 여섯 점의 이동 · F(t), F(T,A) 확장판</h1>
+    </div>
+    <div class="headerActions">
+      <div class="statusChip">a=<b id="chipA">0.4200</b></div>
+      <div class="statusChip">t=<b id="chipT">0.0000</b></div>
+      <div class="statusChip">t₀=<b id="chipT0">0.5800</b></div>
+      <button id="sideFloatBtn">조작 패널 분리</button>
+      <button id="togglePanelBtn" class="active">사용법/계산</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="card stageCard"><canvas id="stageCanvas" aria-label="정삼각형 위 점 이동 시뮬레이션"></canvas></section>
+    <aside id="sideDock" class="side">
+      <div id="sideHandle" class="sideHandle"><span>조작 패널</span><span>드래그 · 내부 스크롤</span></div>
+      <section class="card pad">
+        <div class="controls">
+          <div class="row">
+            <div class="rowTop"><span>a</span><strong id="aText">0.4200</strong></div>
+            <input id="aSlider" type="range" min="0.02" max="0.98" step="0.0005" value="0.42" />
+          </div>
+          <div class="row">
+            <div class="rowTop"><span>t</span><strong id="tText">0.0000</strong></div>
+            <input id="tSlider" type="range" min="0" max="1.16" step="0.0005" value="0" />
+          </div>
+          <div class="btnGrid">
+            <button id="playBtn" class="active">재생 정지</button>
+            <button id="t0Btn">t₀로 이동</button>
+            <button id="minBtn">극소 임계</button>
+            <button id="maxBtn">극대 임계</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card pad">
+        <div class="metrics">
+          <div class="metric"><div class="label">A₁(t)</div><div class="value" id="mA1">0.0000</div><div class="note">△P₁Q₁R₁</div></div>
+          <div class="metric"><div class="label">A₂(t)</div><div class="value" id="mA2">0.0000</div><div class="note">△P₂Q₂R₂</div></div>
+          <div class="metric"><div class="label">F(t)</div><div class="value" id="mF">0.0000</div><div class="note">A₁·A₂</div></div>
+          <div class="metric"><div class="label">F′(t)</div><div class="value" id="mD">0.0000</div><div class="note">현재 기울기</div></div>
+        </div>
+      </section>
+
+      <section class="card miniFormula">
+        A₁(t)=√3/4·(3t²−6t+4)<br>
+        A₂(t)=√3/4·{3(t+2a)²−6(t+2a)+4}<br>
+        F(t)=A₁(t)A₂(t), &nbsp; t₀=1−a<br>
+        현재 판정: <b id="classText">-</b>
+        <div class="sideScrollHint">오른쪽 패널은 내용이 길어질 때 스크롤된다. 빈 영역이나 수치 카드를 잡고 위아래로 끌어도 이동한다.</div>
+      </section>
+    </aside>
+  </main>
+
+  <section class="charts">
+    <section class="card chartCard">
+      <div class="chartHead">
+        <div class="chartTitle">F(t) 그래프 — 현재 a에서 전체 정의역 표시</div>
+        <div class="chartBtns"><button id="fitGraphBtn">맞춤</button><button id="expandGraphBtn">전체화면</button></div>
+      </div>
+      <div class="canvasWrap"><canvas id="graphCanvas" aria-label="F(t) 그래프"></canvas></div>
+    </section>
+
+    <section class="card chartCard">
+      <div class="chartHead">
+        <div class="chartTitle">F(T,A) 지형 — 전체 A,T 영역 자동 맞춤</div>
+        <div class="chartBtns"><button id="surfaceModeBtn">회전</button><button id="expandSurfaceBtn">전체화면</button></div>
+      </div>
+      <div class="canvasWrap"><canvas id="surfaceCanvas" aria-label="F(T,A) 삼차원 지형"></canvas></div>
+    </section>
+  </section>
+</div>
+
+<section id="floatPanel" class="floatPanel" aria-label="사용법과 계산 패널">
+  <div id="floatHead" class="floatHead">
+    <strong>사용법 / 계산</strong>
+    <div class="windowBtns">
+      <button id="panelMaxBtn">확대</button>
+      <button id="panelCloseBtn">닫기</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <div id="usageTab" class="tab on">사용법</div>
+    <div id="proofTab" class="tab">계산</div>
+  </div>
+  <div id="usagePane" class="panelBody">
+    <h3>조작</h3>
+    <p><b>a</b> 슬라이더는 초기 간격 AX=BY=CZ=2a를 바꾼다. <b>t</b> 슬라이더는 현재 시각을 직접 지정한다.</p>
+    <p><b>t₀로 이동</b>은 두 내부 삼각형의 넓이가 같아지는 시각 t₀=1−a로 이동한다.</p>
+    <p><b>극소 임계</b>는 a=1/√3, <b>극대 임계</b>는 a=(2√6−3)/3으로 이동한다.</p>
+    <p><b>F(t) 그래프</b>는 현재 a에서 가능한 모든 t 구간을 한 번에 보여준다. 점은 현재 t, 세로선은 t₀이다. <b>전체화면</b> 버튼으로 화면 전체에서 확인할 수 있다.</p>
+    <p><b>F(T,A) 지형</b>은 A와 T 전체 영역을 자동으로 축소/확대하여 한 화면 안에 들어오게 렌더링한다. 전체화면에서도 같은 자동 맞춤이 적용된다.</p>
+    <p>이 패널은 상단 바를 잡아 이동할 수 있고, 오른쪽 아래 모서리를 끌어 크기를 바꿀 수 있다. 본문은 세로 스크롤로 끝까지 읽을 수 있다.</p>
+    <div class="dragHint">패널 조작: 상단 바 드래그 · 모서리 리사이즈 · 본문 스크롤 · 확대 버튼</div>
+  </div>
+  <div id="proofPane" class="panelBody" style="display:none">
+    <h3>계산</h3>
+    <div class="formula">A₁(t)=√3/4·(3t²−6t+4)</div>
+    <div class="formula">A₂(t)=√3/4·{3(t+2a)²−6(t+2a)+4}</div>
+    <div class="formula">F(t)=A₁(t)A₂(t)</div>
+    <div class="formula">t₀=1−a</div>
+    <div class="formula">F′(t)=9/8·(t−t₀)·{6(t−1)²+12a(t−1)+2}</div>
+    <div class="statusList">
+      <div class="statusLine"><span>전역 최솟값 조건</span><span id="minStatus" class="pill">-</span></div>
+      <div class="statusLine"><span>전역 최댓값 조건</span><span id="maxStatus" class="pill">-</span></div>
+      <div class="statusLine"><span>|t−t₀|</span><span id="distStatus" class="pill">-</span></div>
+      <div class="statusLine"><span>A₁−A₂</span><span id="diffStatus" class="pill">-</span></div>
+      <div class="statusLine"><span>현재 F 값</span><span id="fStatus" class="pill">-</span></div>
+    </div>
+    <p>F(t)의 전체 그래프는 아래 패널에 별도로 배치했다. 계산 패널을 닫거나 이동해도 그래프와 지형은 독립적으로 보인다.</p>
+    <div class="dragHint">패널 조작: 상단 바 드래그 · 모서리 리사이즈 · 본문 스크롤 · 확대 버튼</div>
+  </div>
+</section>
+
+<div id="modal" class="modal" aria-label="전체화면 그래프">
+  <div class="modalHead">
+    <div id="modalTitle" class="modalTitle">전체화면</div>
+    <button id="closeModalBtn">닫기</button>
+  </div>
+  <div class="modalBody"><canvas id="modalCanvas"></canvas></div>
+</div>
+
+<div class="source">Source: 2025.zip / 서울대학교 일반전형 수시 문제 1</div>
+
+<script>
+(() => {
+  const SQRT3 = Math.sqrt(3);
+  const TAU = Math.PI * 2;
+  const MIN_CRIT = 1 / Math.sqrt(3);
+  const MAX_CRIT = (2 * Math.sqrt(6) - 3) / 3;
+  const $ = id => document.getElementById(id);
+
+  const canvases = {
+    stage: $('stageCanvas'),
+    graph: $('graphCanvas'),
+    surface: $('surfaceCanvas'),
+    modal: $('modalCanvas')
+  };
+  const ctxs = Object.fromEntries(Object.entries(canvases).map(([k,c]) => [k, c.getContext('2d')]));
+  const el = {
+    aText:$('aText'), tText:$('tText'), chipA:$('chipA'), chipT:$('chipT'), chipT0:$('chipT0'), classText:$('classText'),
+    mA1:$('mA1'), mA2:$('mA2'), mF:$('mF'), mD:$('mD'),
+    minStatus:$('minStatus'), maxStatus:$('maxStatus'), distStatus:$('distStatus'), diffStatus:$('diffStatus'), fStatus:$('fStatus')
+  };
+  const aSlider = $('aSlider'), tSlider = $('tSlider');
+
+  const state = {
+    a: 0.42,
+    t: 0,
+    playing: true,
+    speed: .27,
+    time: 0,
+    last: performance.now(),
+    dpr: Math.min(devicePixelRatio || 1, 2.2),
+    surfaceSpin: true,
+    surfaceAngle: -.64,
+    surfaceTilt: .78,
+    modalMode: null,
+    trail: {P1:[],P2:[],Q1:[],Q2:[],R1:[],R2:[]},
+    stars: []
+  };
+
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function fmt(v,n=4){ return Number.isFinite(v) ? v.toFixed(n) : '-'; }
+  function tMax(a=state.a){ return Math.max(0, 2 - 2*a); }
+  function t0(a=state.a){ return 1 - a; }
+  function areaByS(s){ return SQRT3/4 * (3*s*s - 6*s + 4); }
+  function A1(a,t){ return areaByS(t); }
+  function A2(a,t){ return areaByS(t + 2*a); }
+  function F(a,t){ return A1(a,t) * A2(a,t); }
+  function D(a,t){ return 9/8 * (t - (1-a)) * (6*(t-1)*(t-1) + 12*a*(t-1) + 2); }
+  function classify(a){
+    if(a <= MIN_CRIT + 1e-9) return {text:'t₀ 전역 최솟값', cls:'good'};
+    if(a >= MAX_CRIT - 1e-9) return {text:'t₀ 전역 최댓값', cls:'warn'};
+    return {text:'t₀ 내부 극댓값', cls:'bad'};
+  }
+  function setPill(node, cls, text){ node.className='pill '+cls; node.textContent=text; }
+
+  function resizeCanvas(canvas){
+    const r = canvas.getBoundingClientRect();
+    const d = state.dpr;
+    canvas.width = Math.max(2, Math.floor(r.width * d));
+    canvas.height = Math.max(2, Math.floor(r.height * d));
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(d,0,0,d,0,0);
+    return {w:r.width, h:r.height, d};
+  }
+  function resizeAll(){
+    state.dpr = Math.min(devicePixelRatio || 1, 2.2);
+    Object.values(canvases).forEach(resizeCanvas);
+    setupStars();
+  }
+  window.addEventListener('resize', resizeAll);
+  const ro = new ResizeObserver(() => resizeAll());
+  Object.values(canvases).forEach(c => ro.observe(c));
+
+  function setupStars(){
+    const r = canvases.stage.getBoundingClientRect();
+    const count = Math.floor(Math.min(180, Math.max(70, r.width*r.height/7000)));
+    state.stars = Array.from({length:count}, () => ({
+      x:Math.random()*r.width, y:Math.random()*r.height, r:.4+Math.random()*1.6, v:.02+Math.random()*.09, a:.08+Math.random()*.35
+    }));
+  }
+
+  function setA(v){
+    state.a = clamp(+v, +aSlider.min, +aSlider.max);
+    state.t = clamp(state.t, 0, tMax());
+    aSlider.value = state.a;
+    tSlider.max = fmt(tMax(),4);
+    tSlider.value = state.t;
+    clearTrail();
+    updateReadout();
+  }
+  function setT(v, keep=false){
+    state.t = clamp(+v, 0, tMax());
+    tSlider.value = state.t;
+    if(!keep) clearTrail();
+    updateReadout();
+  }
+  function clearTrail(){ Object.values(state.trail).forEach(a => a.length=0); }
+  aSlider.addEventListener('input', e => setA(e.target.value));
+  tSlider.addEventListener('input', e => setT(e.target.value));
+  $('playBtn').addEventListener('click', () => { state.playing=!state.playing; $('playBtn').textContent = state.playing ? '재생 정지' : '재생 시작'; $('playBtn').classList.toggle('active', state.playing); });
+  $('t0Btn').addEventListener('click', () => setT(t0()));
+  $('minBtn').addEventListener('click', () => { setA(MIN_CRIT); setT(t0()); });
+  $('maxBtn').addEventListener('click', () => { setA(MAX_CRIT); setT(t0()); });
+  $('fitGraphBtn').addEventListener('click', () => { drawGraph(ctxs.graph, canvases.graph.getBoundingClientRect()); });
+  $('surfaceModeBtn').addEventListener('click', () => { state.surfaceSpin = !state.surfaceSpin; $('surfaceModeBtn').classList.toggle('active', state.surfaceSpin); });
+  $('expandGraphBtn').addEventListener('click', () => openModal('graph'));
+  $('expandSurfaceBtn').addEventListener('click', () => openModal('surface'));
+  $('closeModalBtn').addEventListener('click', closeModal);
+
+  function updateReadout(){
+    const a=state.a,t=state.t, a1=A1(a,t), a2=A2(a,t), f=a1*a2, d=D(a,t), c=classify(a);
+    el.aText.textContent=fmt(a); el.tText.textContent=fmt(t); el.chipA.textContent=fmt(a); el.chipT.textContent=fmt(t); el.chipT0.textContent=fmt(t0(a));
+    el.classText.textContent=c.text;
+    el.mA1.textContent=fmt(a1); el.mA2.textContent=fmt(a2); el.mF.textContent=fmt(f); el.mD.textContent=fmt(d);
+    setPill(el.minStatus, a <= MIN_CRIT + 1e-9 ? 'good':'bad', (a <= MIN_CRIT + 1e-9 ? '충족 ':'미충족 ') + 'a≤1/√3');
+    setPill(el.maxStatus, a >= MAX_CRIT - 1e-9 ? 'good':'bad', (a >= MAX_CRIT - 1e-9 ? '충족 ':'미충족 ') + 'a≥(2√6−3)/3');
+    const dist = Math.abs(t - t0(a));
+    setPill(el.distStatus, dist<.006?'good':dist<.08?'warn':'bad', fmt(dist));
+    const diff = a1-a2;
+    setPill(el.diffStatus, Math.abs(diff)<.006?'good':Math.abs(diff)<.08?'warn':'bad', fmt(diff));
+    setPill(el.fStatus, 'good', fmt(f));
+  }
+
+  function lerp(P,Q,u){ return {x:P.x+(Q.x-P.x)*u, y:P.y+(Q.y-P.y)*u}; }
+  function geometry(rect){
+    const w=rect.width,h=rect.height;
+    const s = Math.min(w*.30, h*.43, 360);
+    const cx = w*.48, cy = h*.58;
+    const A={x:cx,y:cy-s*.8660254}, B={x:cx-s,y:cy+s*.5}, C={x:cx+s,y:cy+s*.5};
+    const u1=state.t/2, u2=state.a + state.t/2;
+    return {s,A,B,C,
+      P1:lerp(A,B,u1), Q1:lerp(B,C,u1), R1:lerp(C,A,u1),
+      P2:lerp(A,B,u2), Q2:lerp(B,C,u2), R2:lerp(C,A,u2),
+      X:lerp(A,B,state.a), Y:lerp(B,C,state.a), Z:lerp(C,A,state.a)
+    };
+  }
+  function pushTrail(g){
+    for(const k of Object.keys(state.trail)){
+      const arr=state.trail[k]; arr.push({x:g[k].x,y:g[k].y}); if(arr.length>90) arr.shift();
+    }
+  }
+  function drawLine(ctx,p,q,style,w=1,glow=0){ ctx.save(); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.strokeStyle=style; ctx.lineWidth=w; ctx.shadowColor=style; ctx.shadowBlur=glow; ctx.stroke(); ctx.restore(); }
+  function drawPoly(ctx,pts,stroke,fill,w=2,glow=10){
+    ctx.save(); ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.closePath(); if(fill){ctx.fillStyle=fill;ctx.fill();} ctx.strokeStyle=stroke; ctx.lineWidth=w; ctx.shadowColor=stroke; ctx.shadowBlur=glow; ctx.stroke(); ctx.restore();
+  }
+  function drawPoint(ctx,p,label,color,r=6){
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r*4); gr.addColorStop(0,'white'); gr.addColorStop(.26,color); gr.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(p.x,p.y,r*4,0,TAU); ctx.fill();
+    ctx.fillStyle='white'; ctx.shadowColor=color; ctx.shadowBlur=18; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill();
+    ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0; ctx.font='800 12px ui-sans-serif,system-ui'; ctx.fillStyle='rgba(235,245,255,.94)'; ctx.fillText(label,p.x+10,p.y-9); ctx.restore();
+  }
+
+  function drawStage(){
+    const canvas=canvases.stage, ctx=ctxs.stage, rect=canvas.getBoundingClientRect(), w=rect.width,h=rect.height;
+    ctx.clearRect(0,0,w,h);
+    const bg=ctx.createRadialGradient(w*.42,h*.42,0,w*.42,h*.42,Math.max(w,h)*.75);
+    bg.addColorStop(0,'rgba(11,24,55,1)'); bg.addColorStop(.55,'rgba(5,10,24,1)'); bg.addColorStop(1,'rgba(2,4,12,1)'); ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(const s of state.stars){ s.y += s.v; if(s.y>h+4){s.y=-4;s.x=Math.random()*w;} ctx.fillStyle=`rgba(150,225,255,${s.a})`; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,TAU); ctx.fill(); }
+    ctx.restore();
+    ctx.save(); ctx.strokeStyle='rgba(126,231,255,.05)'; ctx.lineWidth=1; const gap=46; const off=(state.time*.018)%gap;
+    for(let x=-gap;x<w+gap;x+=gap){ctx.beginPath();ctx.moveTo(x+off,0);ctx.lineTo(x+off+h*.25,h);ctx.stroke();}
+    for(let y=-gap;y<h+gap;y+=gap){ctx.beginPath();ctx.moveTo(0,y+off);ctx.lineTo(w,y+off-h*.06);ctx.stroke();}
+    ctx.restore();
+
+    const g=geometry(rect); pushTrail(g);
+    drawPoly(ctx,[g.A,g.B,g.C],'rgba(222,238,255,.68)','rgba(126,231,255,.025)',2.3,15);
+    drawPoly(ctx,[g.X,g.Y,g.Z],'rgba(255,214,111,.34)','rgba(255,214,111,.016)',1.2,5);
+    const gr1=ctx.createLinearGradient(g.P1.x,g.P1.y,g.Q1.x,g.Q1.y); gr1.addColorStop(0,'rgba(126,231,255,.24)'); gr1.addColorStop(1,'rgba(126,231,255,.035)');
+    const gr2=ctx.createLinearGradient(g.P2.x,g.P2.y,g.Q2.x,g.Q2.y); gr2.addColorStop(0,'rgba(255,120,216,.24)'); gr2.addColorStop(1,'rgba(255,120,216,.035)');
+    drawPoly(ctx,[g.P1,g.Q1,g.R1],'rgba(126,231,255,.92)',gr1,2.6,24);
+    drawPoly(ctx,[g.P2,g.Q2,g.R2],'rgba(255,120,216,.92)',gr2,2.6,24);
+
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const trailColors={P1:'126,231,255',Q1:'126,231,255',R1:'126,231,255',P2:'255,120,216',Q2:'255,120,216',R2:'255,120,216'};
+    for(const [k,arr] of Object.entries(state.trail)){
+      for(let i=1;i<arr.length;i++){ const a=i/arr.length; ctx.strokeStyle=`rgba(${trailColors[k]},${.03+a*.23})`; ctx.lineWidth=1+a*3.8; ctx.beginPath(); ctx.moveTo(arr[i-1].x,arr[i-1].y); ctx.lineTo(arr[i].x,arr[i].y); ctx.stroke(); }
+    }
+    ctx.restore();
+    if(Math.abs(state.t - t0()) < .012){
+      const c={x:(g.P1.x+g.Q1.x+g.R1.x)/3,y:(g.P1.y+g.Q1.y+g.R1.y)/3};
+      ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(255,255,255,.46)'; ctx.lineWidth=2; ctx.shadowColor='rgba(255,255,255,.75)'; ctx.shadowBlur=34;
+      for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(c.x,c.y,g.s*(.18+i*.07)+(state.time*.04%20),0,TAU);ctx.stroke();}
+      ctx.restore();
+    }
+    drawPoint(ctx,g.P1,'P₁','rgba(126,231,255,.95)'); drawPoint(ctx,g.Q1,'Q₁','rgba(126,231,255,.95)'); drawPoint(ctx,g.R1,'R₁','rgba(126,231,255,.95)');
+    drawPoint(ctx,g.P2,'P₂','rgba(255,120,216,.95)'); drawPoint(ctx,g.Q2,'Q₂','rgba(255,120,216,.95)'); drawPoint(ctx,g.R2,'R₂','rgba(255,120,216,.95)');
+    drawReadout(ctx,w,h);
+  }
+
+  function drawReadout(ctx,w,h){
+    const a=state.a,t=state.t,a1=A1(a,t),a2=A2(a,t),f=F(a,t),c=classify(a);
+    ctx.save();
+    const x=18,y=18,boxW=Math.min(450,w-36),boxH=92;
+    roundRect(ctx,x,y,boxW,boxH,17); ctx.fillStyle='rgba(2,6,16,.48)'; ctx.fill(); ctx.strokeStyle='rgba(126,231,255,.16)'; ctx.stroke();
+    ctx.font='900 11px ui-monospace,monospace'; ctx.fillStyle='rgba(126,231,255,.88)'; ctx.fillText('LIVE VALUES',x+14,y+22);
+    ctx.font='900 22px ui-sans-serif,system-ui'; ctx.fillStyle='rgba(255,255,255,.94)'; ctx.fillText(`F(t) = ${fmt(f)}`,x+14,y+55);
+    ctx.font='800 12px ui-sans-serif,system-ui'; ctx.fillStyle='rgba(205,219,240,.78)'; ctx.fillText(`${c.text} · A₁=${fmt(a1)} · A₂=${fmt(a2)}`,x+14,y+76);
+    ctx.restore();
+  }
+  function roundRect(ctx,x,y,w,h,r){ ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath(); }
+
+  function drawGraph(ctx, rect){
+    const w=rect.width,h=rect.height; ctx.clearRect(0,0,w,h);
+    drawPanelBg(ctx,w,h);
+    const pad={l:54,r:24,t:22,b:42};
+    const gw=w-pad.l-pad.r, gh=h-pad.t-pad.b;
+    const a=state.a, Tmax=tMax(a);
+    const N=360; const pts=[]; let maxF=0;
+    for(let i=0;i<=N;i++){ const t=Tmax*i/N; const y=F(a,t); maxF=Math.max(maxF,y); pts.push({t,y}); }
+    const yMax=Math.max(.18, maxF*1.13);
+    const X=t=>pad.l+(Tmax===0?0:t/Tmax)*gw;
+    const Y=y=>pad.t+gh-(y/yMax)*gh;
+    // grid
+    ctx.save(); ctx.strokeStyle='rgba(178,210,255,.10)'; ctx.lineWidth=1; ctx.font='11px ui-monospace,monospace'; ctx.fillStyle='rgba(206,220,240,.62)';
+    for(let i=0;i<=5;i++){ const x=pad.l+gw*i/5; ctx.beginPath();ctx.moveTo(x,pad.t);ctx.lineTo(x,pad.t+gh);ctx.stroke(); const tv=Tmax*i/5; ctx.fillText(fmt(tv,2),x-12,pad.t+gh+21); }
+    for(let j=0;j<=4;j++){ const y=pad.t+gh*j/4; ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+gw,y);ctx.stroke(); const fv=yMax*(1-j/4); ctx.fillText(fmt(fv,2),9,y+4); }
+    ctx.strokeStyle='rgba(224,238,255,.52)'; ctx.lineWidth=1.3; ctx.beginPath();ctx.moveTo(pad.l,pad.t);ctx.lineTo(pad.l,pad.t+gh);ctx.lineTo(pad.l+gw,pad.t+gh);ctx.stroke();
+    ctx.fillStyle='rgba(226,240,255,.72)'; ctx.font='800 11px ui-sans-serif,system-ui'; ctx.fillText('t',pad.l+gw-6,pad.t+gh+34); ctx.fillText('F',16,pad.t+12);
+    ctx.restore();
+    // area fill
+    const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+gh); grad.addColorStop(0,'rgba(126,231,255,.26)'); grad.addColorStop(.55,'rgba(255,120,216,.12)'); grad.addColorStop(1,'rgba(126,231,255,0)');
+    ctx.save(); ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(X(p.t),Y(p.y)):ctx.moveTo(X(p.t),Y(p.y))); ctx.lineTo(X(Tmax),pad.t+gh); ctx.lineTo(X(0),pad.t+gh); ctx.closePath(); ctx.fillStyle=grad; ctx.fill(); ctx.restore();
+    // curve glow + curve
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.shadowColor='rgba(126,231,255,.9)'; ctx.shadowBlur=16; ctx.strokeStyle='rgba(126,231,255,.88)'; ctx.lineWidth=3;
+    ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(X(p.t),Y(p.y)):ctx.moveTo(X(p.t),Y(p.y))); ctx.stroke();
+    ctx.shadowColor='rgba(255,120,216,.7)'; ctx.shadowBlur=18; ctx.strokeStyle='rgba(255,120,216,.62)'; ctx.lineWidth=1.5; ctx.stroke(); ctx.restore();
+    // t0 and current
+    const tx0=X(t0(a)); const tx=X(state.t), ty=Y(F(a,state.t));
+    ctx.save(); ctx.strokeStyle='rgba(255,214,111,.78)'; ctx.lineWidth=2; ctx.setLineDash([6,6]); ctx.beginPath();ctx.moveTo(tx0,pad.t);ctx.lineTo(tx0,pad.t+gh);ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle='rgba(255,214,111,.95)'; ctx.font='900 12px ui-monospace,monospace'; ctx.fillText('t₀',tx0+7,pad.t+15); ctx.restore();
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(255,255,255,.60)'; ctx.lineWidth=1.2; ctx.beginPath();ctx.moveTo(tx,pad.t+gh);ctx.lineTo(tx,ty);ctx.stroke(); ctx.fillStyle='white'; ctx.shadowColor='white'; ctx.shadowBlur=22; ctx.beginPath();ctx.arc(tx,ty,6,0,TAU);ctx.fill(); ctx.restore();
+    // extrema markers by sampling
+    const sampleExt = localExtrema(a,Tmax);
+    ctx.save(); ctx.font='800 11px ui-sans-serif,system-ui'; ctx.fillStyle='rgba(222,238,255,.78)';
+    for(const m of sampleExt){ const x=X(m.t), y=Y(m.y); ctx.strokeStyle=m.kind==='max'?'rgba(157,255,177,.74)':'rgba(255,139,139,.74)'; ctx.fillStyle=ctx.strokeStyle; ctx.beginPath(); ctx.arc(x,y,4,0,TAU); ctx.fill(); ctx.fillText(m.kind==='max'?'max':'min',x+7,y-6); }
+    ctx.restore();
+  }
+  function localExtrema(a,Tmax){
+    const arr=[]; const N=900; let prev=F(a,0), prevD=null;
+    for(let i=1;i<=N;i++){ const t=Tmax*i/N; const d=D(a,t); if(prevD!==null && d*prevD<0){ const mid=Tmax*(i-.5)/N; const y=F(a,mid); arr.push({t:mid,y,kind:d>prevD?'min':'max'}); } prevD=d; prev=F(a,t); }
+    // include t0 robustly if in domain
+    const tt=t0(a); if(tt>=0 && tt<=Tmax && !arr.some(p=>Math.abs(p.t-tt)<.01)) arr.push({t:tt,y:F(a,tt),kind:classify(a).cls==='good'?'min':'max'});
+    return arr.slice(0,5);
+  }
+  function drawPanelBg(ctx,w,h){
+    const g=ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,'rgba(7,16,38,1)'); g.addColorStop(1,'rgba(3,6,16,1)'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const rg=ctx.createRadialGradient(w*.2,h*.2,0,w*.2,h*.2,Math.max(w,h)*.65); rg.addColorStop(0,'rgba(126,231,255,.12)'); rg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=rg; ctx.fillRect(0,0,w,h);
+    const rg2=ctx.createRadialGradient(w*.86,h*.24,0,w*.86,h*.24,Math.max(w,h)*.58); rg2.addColorStop(0,'rgba(255,120,216,.10)'); rg2.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=rg2; ctx.fillRect(0,0,w,h); ctx.restore();
+  }
+
+  function drawSurface(ctx, rect){
+    const w=rect.width,h=rect.height; ctx.clearRect(0,0,w,h); drawPanelBg(ctx,w,h);
+    if(state.surfaceSpin) state.surfaceAngle += .0012;
+    const angle=state.surfaceAngle, tilt=state.surfaceTilt;
+    const nA=48, nU=48;
+    const nodes=[];
+    let zMax=0;
+    for(let i=0;i<nA;i++){
+      const a=0.02+i*(.96/(nA-1)); nodes[i]=[];
+      for(let j=0;j<nU;j++){
+        const u=j/(nU-1); const t=u*tMax(a); const z=F(a,t)/3; zMax=Math.max(zMax,z);
+        nodes[i][j]={a,u,t,z};
+      }
+    }
+    function rawProject(a,u,z){
+      const x=(a-.5)*2.0; const y=(u-.5)*1.85; const zz=z*1.9;
+      const ca=Math.cos(angle), sa=Math.sin(angle); const ct=Math.cos(tilt), st=Math.sin(tilt);
+      const xr=x*ca-y*sa, yr=x*sa+y*ca;
+      const yp=yr*ct-zz*st, zp=yr*st+zz*ct;
+      return {x:xr,y:yp,z:zp};
+    }
+    const projected=[]; let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    for(let i=0;i<nA;i++){ projected[i]=[]; for(let j=0;j<nU;j++){ const p=rawProject(nodes[i][j].a,nodes[i][j].u,nodes[i][j].z); projected[i][j]=p; minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minY=Math.min(minY,p.y); maxY=Math.max(maxY,p.y); } }
+    const pad=32, sx=(w-pad*2)/(maxX-minX), sy=(h-pad*2)/(maxY-minY), scale=Math.min(sx,sy)*.94;
+    const cx=w/2 - (minX+maxX)/2*scale, cy=h/2 - (minY+maxY)/2*scale + 8;
+    const P=(i,j)=>({x:cx+projected[i][j].x*scale,y:cy+projected[i][j].y*scale,z:projected[i][j].z});
+    // surface cells sorted back to front
+    const cells=[];
+    for(let i=0;i<nA-1;i++) for(let j=0;j<nU-1;j++){ const depth=(projected[i][j].z+projected[i+1][j].z+projected[i+1][j+1].z+projected[i][j+1].z)/4; cells.push({i,j,depth}); }
+    cells.sort((a,b)=>a.depth-b.depth);
+    ctx.save(); ctx.globalCompositeOperation='source-over';
+    for(const c of cells){
+      const n0=nodes[c.i][c.j], n1=nodes[c.i+1][c.j], n2=nodes[c.i+1][c.j+1], n3=nodes[c.i][c.j+1];
+      const v=(n0.z+n1.z+n2.z+n3.z)/4;
+      const p0=P(c.i,c.j), p1=P(c.i+1,c.j), p2=P(c.i+1,c.j+1), p3=P(c.i,c.j+1);
+      ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.lineTo(p3.x,p3.y); ctx.closePath();
+      ctx.fillStyle=`hsla(${205+v*125},90%,${18+v*34}%,${0.32+v*.42})`; ctx.fill();
+    }
+    ctx.restore();
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+    for(let i=0;i<nA;i+=3){ ctx.beginPath(); for(let j=0;j<nU;j++){ const p=P(i,j); j?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y); } ctx.strokeStyle='rgba(126,231,255,.20)'; ctx.lineWidth=1; ctx.shadowColor='rgba(126,231,255,.35)'; ctx.shadowBlur=6; ctx.stroke(); }
+    for(let j=0;j<nU;j+=3){ ctx.beginPath(); for(let i=0;i<nA;i++){ const p=P(i,j); i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y); } ctx.strokeStyle='rgba(255,120,216,.16)'; ctx.lineWidth=1; ctx.shadowColor='rgba(255,120,216,.35)'; ctx.shadowBlur=6; ctx.stroke(); }
+    // current bead
+    const ucur=tMax() ? state.t/tMax() : 0; const pcRaw=rawProject(state.a,ucur,F(state.a,state.t)/3); const pc={x:cx+pcRaw.x*scale,y:cy+pcRaw.y*scale};
+    ctx.fillStyle='white'; ctx.shadowColor='white'; ctx.shadowBlur=24; ctx.beginPath(); ctx.arc(pc.x,pc.y,6.5,0,TAU); ctx.fill();
+    // thresholds projected lines
+    for(const [aval,color,label] of [[MIN_CRIT,'rgba(157,255,177,.70)','1/√3'],[MAX_CRIT,'rgba(255,214,111,.70)','(2√6−3)/3']]){
+      ctx.beginPath();
+      for(let j=0;j<nU;j++){ const u=j/(nU-1), t=u*tMax(aval), z=F(aval,t)/3, pr=rawProject(aval,u,z), p={x:cx+pr.x*scale,y:cy+pr.y*scale}; j?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y); }
+      ctx.strokeStyle=color; ctx.lineWidth=2; ctx.shadowColor=color; ctx.shadowBlur=14; ctx.stroke();
+    }
+    ctx.restore();
+    ctx.save(); ctx.font='900 12px ui-sans-serif,system-ui'; ctx.fillStyle='rgba(225,239,255,.78)'; ctx.fillText('A',18,h-18); ctx.fillText('T/(2−2A)',w-92,h-18); ctx.fillText('F/3',18,22); ctx.fillStyle='rgba(198,215,238,.62)'; ctx.font='11px ui-sans-serif,system-ui'; ctx.fillText('자동 맞춤 투영: 전체 지형이 캔버스 내부에 들어오도록 스케일링',18,h-38); ctx.restore();
+  }
+
+  function openModal(mode){
+    state.modalMode=mode; $('modal').classList.add('open'); $('modalTitle').textContent = mode==='graph' ? 'F(t) 그래프 · 전체화면' : 'F(T,A) 지형 · 전체화면';
+    setTimeout(()=>{ resizeCanvas(canvases.modal); redrawModal(); }, 30);
+  }
+  function closeModal(){ $('modal').classList.remove('open'); state.modalMode=null; }
+  function redrawModal(){
+    if(!state.modalMode) return;
+    const rect=canvases.modal.getBoundingClientRect();
+    if(state.modalMode==='graph') drawGraph(ctxs.modal, rect); else drawSurface(ctxs.modal, rect);
+  }
+
+  // floating panel tabs/drag/maximize
+  $('usageTab').addEventListener('click', () => switchPane('usage'));
+  $('proofTab').addEventListener('click', () => switchPane('proof'));
+  function switchPane(name){ const usage=name==='usage'; $('usageTab').classList.toggle('on',usage); $('proofTab').classList.toggle('on',!usage); $('usagePane').style.display=usage?'block':'none'; $('proofPane').style.display=usage?'none':'block'; }
+  $('togglePanelBtn').addEventListener('click', () => { const p=$('floatPanel'); p.classList.toggle('hidden'); $('togglePanelBtn').classList.toggle('active', !p.classList.contains('hidden')); });
+  $('panelCloseBtn').addEventListener('click', () => { $('floatPanel').classList.add('hidden'); $('togglePanelBtn').classList.remove('active'); });
+  $('panelMaxBtn').addEventListener('click', () => { const p=$('floatPanel'); p.classList.toggle('maxed'); $('panelMaxBtn').textContent = p.classList.contains('maxed') ? '복원' : '확대'; });
+
+  const sideDock = $('sideDock');
+  function setSideFloating(on){
+    sideDock.classList.toggle('floatingSide', on);
+    document.body.classList.toggle('sideDetached', on);
+    $('sideFloatBtn').textContent = on ? '조작 패널 고정' : '조작 패널 분리';
+    if(!on){ sideDock.style.left=''; sideDock.style.top=''; sideDock.style.right=''; sideDock.style.bottom=''; sideDock.style.width=''; sideDock.style.height=''; }
+    setTimeout(resizeAll, 50);
+  }
+  $('sideFloatBtn').addEventListener('click', () => setSideFloating(!sideDock.classList.contains('floatingSide')));
+
+  makeDraggable($('floatPanel'), $('floatHead'));
+  makeDraggable(sideDock, $('sideHandle'), () => sideDock.classList.contains('floatingSide') || matchMedia('(max-width:700px)').matches);
+  function makeDraggable(panel, handle, canDrag=()=>true){
+    let dragging=false, sx=0, sy=0, left=0, top=0;
+    handle.addEventListener('pointerdown', e => {
+      if(e.target.tagName==='BUTTON') return;
+      if(getComputedStyle(handle).display === 'none') return;
+      if(!canDrag()) return;
+      if(panel.classList.contains('maxed')) return;
+      dragging=true; sx=e.clientX; sy=e.clientY; const r=panel.getBoundingClientRect(); left=r.left; top=r.top; panel.style.left=left+'px'; panel.style.top=top+'px'; panel.style.right='auto'; panel.style.bottom='auto'; handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener('pointermove', e => {
+      if(!dragging) return;
+      const nx=clamp(left+e.clientX-sx, 6, Math.max(6, innerWidth-panel.offsetWidth-6)); const ny=clamp(top+e.clientY-sy, 6, Math.max(6, innerHeight-panel.offsetHeight-6));
+      panel.style.left=nx+'px'; panel.style.top=ny+'px'; panel.style.right='auto';
+    });
+    handle.addEventListener('pointerup', e => { dragging=false; try{handle.releasePointerCapture(e.pointerId)}catch{} });
+  }
+
+
+  // right-side controls: drag-to-scroll when the viewport is too short
+  makeDragScroll(document.querySelector('.side'));
+  function makeDragScroll(scroller){
+    if(!scroller) return;
+    scroller.classList.add('dragScroll');
+    let active=false, startY=0, startTop=0;
+    const interactive='input,button,textarea,select,a,[role="button"],canvas';
+    scroller.addEventListener('pointerdown', e => {
+      if(e.target.closest(interactive)) return;
+      if(scroller.scrollHeight <= scroller.clientHeight + 2) return;
+      active=true; startY=e.clientY; startTop=scroller.scrollTop;
+      scroller.classList.add('dragging');
+      try{ scroller.setPointerCapture(e.pointerId); }catch{}
+    });
+    scroller.addEventListener('pointermove', e => {
+      if(!active) return;
+      scroller.scrollTop = startTop - (e.clientY - startY);
+    });
+    const stop = e => {
+      if(!active) return;
+      active=false; scroller.classList.remove('dragging');
+      try{ scroller.releasePointerCapture(e.pointerId); }catch{}
+    };
+    scroller.addEventListener('pointerup', stop);
+    scroller.addEventListener('pointercancel', stop);
+    scroller.addEventListener('mouseleave', () => { active=false; scroller.classList.remove('dragging'); });
+  }
+
+  function frame(now){
+    const dt=Math.min(50, now-state.last); state.last=now; state.time+=dt;
+    if(state.playing){ state.t += state.speed * dt/1000; if(state.t>tMax()){ state.t=0; clearTrail(); } tSlider.value=state.t; }
+    updateReadout();
+    drawStage();
+    drawGraph(ctxs.graph, canvases.graph.getBoundingClientRect());
+    drawSurface(ctxs.surface, canvases.surface.getBoundingClientRect());
+    redrawModal();
+    requestAnimationFrame(frame);
+  }
+
+  resizeAll(); setA(state.a); setT(state.t,true); updateReadout(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

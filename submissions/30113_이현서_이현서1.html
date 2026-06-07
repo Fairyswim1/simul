@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사면체 OABC 단면 시뮬레이터</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        #container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+        #canvas-container {
+            flex: 1;
+            height: 100%;
+            position: relative;
+        }
+        #sidebar {
+            width: 380px;
+            background-color: rgba(30, 30, 30, 0.95);
+            padding: 20px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #444;
+            padding-bottom: 10px;
+            color: #4da6ff;
+            font-size: 1.4rem;
+        }
+        .control-group-row {
+            display: flex;
+            gap: 12px;
+        }
+        .input-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .input-box label {
+            font-weight: bold;
+            color: #ffcc00;
+            font-size: 0.9rem;
+        }
+        .input-box input {
+            background-color: #2a2a2a;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+        .input-box input:focus {
+            border-color: #4da6ff;
+            outline: none;
+        }
+        .info-panel {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4da6ff;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        #plane-eq {
+            font-family: 'Courier New', monospace;
+            font-size: 1.15rem;
+            color: #4da6ff;
+            margin-top: 5px;
+            font-weight: bold;
+            text-align: center;
+            background: #222;
+            padding: 6px;
+            border-radius: 4px;
+        }
+        .result-highlight {
+            font-size: 1.3rem;
+            color: #ff5555;
+            font-weight: bold;
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            font-size: 0.85em;
+            padding: 0 0.25em;
+            line-height: 1.1;
+        }
+        .frac sup {
+            border-bottom: 1px solid #ff5555;
+            padding-bottom: 2px;
+            top: 0;
+        }
+        .frac sub {
+            padding-top: 2px;
+            bottom: 0;
+        }
+        #btn-insight {
+            background-color: #4da6ff;
+            color: #111;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: auto;
+        }
+        #btn-insight:hover {
+            background-color: #80bfff;
+        }
+        .modal {
+            display: none; 
+            position: fixed;
+            z-index: 2000; 
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.75); 
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #222;
+            color: #eee;
+            margin: auto;
+            padding: 30px;
+            border: 1px solid #444;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            line-height: 1.7;
+        }
+        .close-btn {
+            color: #aaa;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-btn:hover {
+            color: #fff;
+        }
+        .modal-content h3 {
+            color: #4da6ff;
+            margin-top: 0;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+        .modal-content h4 {
+            color: #ffcc00;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+        .axis-guide {
+            display: flex;
+            gap: 10px;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+        .axis-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+        ol, ul {
+            padding-left: 20px;
+        }
+        li { margin-bottom: 8px; }
+    </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+<div id="container">
+    <div id="canvas-container">
+        <div style="position: absolute; top: 10px; left: 10px; pointer-events: none; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 5px;">
+            <div class="axis-guide"><span class="axis-dot" style="background:#ff3333;"></span>X축 (A)</div>
+            <div class="axis-guide"><span class="axis-dot" style="background:#33cc33;"></span>Y축 (B)</div>
+            <div class="axis-guide"><span class="axis-dot" style="background:#3333ff;"></span>Z축 (C)</div>
+            <div class="axis-guide"><span style="display:inline-block; width:20px; height:2px; background:#00ffcc; margin-right:4px; vertical-align:middle;"></span>OG 벡터</div>
+            <div class="axis-guide"><span style="display:inline-block; width:20px; height:2px; background:#ffcc00; margin-right:4px; vertical-align:middle;"></span>잘린 단면 경계</div>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <h2>시뮬레이터 제어판</h2>
+        
+        <div class="control-group-row">
+            <div class="input-box">
+                <label for="input-a">값 a (X축)</label>
+                <input type="number" id="input-a" min="1" max="30" step="1" value="7">
+            </div>
+            <div class="input-box">
+                <label for="input-b">값 b (Y축)</label>
+                <input type="number" id="input-b" min="1" max="30" step="1" value="8">
+            </div>
+            <div class="input-box">
+                <label for="input-c">값 c (Z축)</label>
+                <input type="number" id="input-c" min="1" max="30" step="1" value="9">
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <strong>평면의 방정식 ($\bot \vec{OG}$, passing $G$):</strong>
+            <div id="plane-eq">7x + 8y + 9z = 48.50</div>
+        </div>
+
+        <div class="info-panel" style="border-left-color: #ffaa00;">
+            <strong>단면 분석 결과:</strong><br>
+            단면 형태: <span id="section-shape" style="color:#ffaa00; font-weight:bold;">삼각형</span>
+            <div class="result-highlight">
+                <span>넓이:</span>
+                <span id="section-area-exact"></span>
+                <span id="section-area-num" style="font-size:0.85rem; color:#aaa; font-weight:normal; margin-left:5px;"></span>
+            </div>
+        </div>
+
+        <button id="btn-insight">💡 수학적 인사이트 (일반화 풀이)</button>
+    </div>
+</div>
+
+<div id="insight-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" id="modal-close">&times;</span>
+        <h3>💡 사면체 OABC의 단면 제어와 일반화 해법 (검증 완결판)</h3>
+        
+        <div id="dynamic-analysis-board" style="background:#2d2d2d; padding:20px; border-radius:8px; margin-bottom:20px; border:2px solid #4da6ff;"></div>
+        
+        <h4>1. 문제 상황 및 평면의 방정식 설정 공식</h4>
+        <p>
+            공간좌표 위에 세 점 $A(a,0,0)$, $B(0,b,0)$, $C(0,0,c)$가 주어졌을 때, 사면체 $OABC$의 무게중심 $G$의 좌표는 각 좌표의 평균이므로 다음과 같습니다.
+            $$\vec{OG} = \left(\frac{a}{4}, \frac{b}{4}, \frac{c}{4}\right)$$
+            이때 점 $G$를 지나고 위치벡터 $\vec{OG}$에 수직인 평면의 법선벡터는 $\vec{n} = (a, b, c)$로 둘 수 있으므로, 평면의 방정식은 다음과 같이 명쾌하게 유도됩니다.
+            $$a\left(x - \frac{a}{4}\right) + b\left(y - \frac{b}{4}\right) + c\left(z - \frac{c}{4}\right) = 0 \implies ax + by + cz = \frac{a^2+b^2+c^2}{4}$$
+            편의상 이 우변의 상수를 $k = \frac{a^2+b^2+c^2}{4}$ 라고 정의하겠습니다.
+        </p>
+
+        <h4>2. 단면이 삼각형이 될 조건과 넓이 공식</h4>
+        <p>
+            평면이 사면체 내부의 삼각뿔 면들만 관통하려면, 이 평면의 세 축 절편인 $X\left(\frac{k}{a},0,0\right)$, $Y\left(0,\frac{k}{b},0\right)$, $Z\left(0,0,\frac{k}{c}\right)$가 각각 선분 $OA, OB, OC$ 위에 온전하게 존재해야 합니다. 즉, $\frac{k}{a} \le a$, $\frac{k}{b} \le b$, $\frac{k}{c} \le c$ 여야 합니다. <br>
+            이를 $k$의 본래 수식과 연립하여 정리하면 단면이 <strong>삼각형</strong>이 되기 위한 조건은 다음 <strong>세 부등식을 동시에 만족</strong>하는 것입니다.
+        </p>
+        <div style="background:#2d2d2d; padding:10px 20px; border-radius:6px; margin:10px 0; border-left:4px solid #ffcc00;">
+            $$b^2 + c^2 \le 3a^2 \quad \text{and} \quad a^2 + c^2 \le 3b^2 \quad \text{and} \quad a^2 + b^2 \le 3c^2$$
+        </div>
+        <p>
+            <strong>[삼각형 단면의 넓이 공식]</strong><br>
+            이 조건 하에서는 절편삼각형 $XYZ$ 자체가 사면체를 자른 단면이 되므로 넓이는 다음과 같이 엄밀하게 유도됩니다.
+            $$\text{Area}_{\text{triangle}} = \frac{(a^2+b^2+c^2)^2 \sqrt{a^2+b^2+c^2}}{32abc}$$
+        </p>
+
+        <h4>3. 단면이 사각형이 될 조건과 넓이 공식</h4>
+        <p>
+            만약 변수 중 하나가 나머지 변수들에 비해 극단적으로 크다면(예: $b^2+c^2 > 3a^2$), 절편 $X$의 좌표 $\frac{k}{a}$가 $a$보다 커지면서 점 $A$를 뚫고 바깥으로 탈출합니다. 이때 평면은 모서리 $OA$와 만나지 못하고, 대신 주변부 모서리인 $AB, AC, OB, OC$ 총 4개의 선분과 만나며 단면이 <strong>사각형</strong>으로 변합니다.
+        </p>
+        <p>
+            <strong>[사각형 단면의 넓이 공식]</strong><br>
+            이 사각형의 넓이는 거대한 절편삼각형 $XYZ$의 면적에서 꼭짓점 $X$를 포함하며 사면체 바깥으로 삐져나간 작은 닮은꼴 삼각형의 넓이를 빼서 계산하는 것이 기하학적 핵심입니다.
+            $$\text{Area}_{\text{quad}} = \frac{(a^2+b^2+c^2)^2\sqrt{a^2+b^2+c^2}}{32abc} - \frac{bc\left(\frac{a^2+b^2+c^2}{4} - a^2\right)^2 \sqrt{a^2+b^2+c^2}}{2a(b^2-a^2)(c^2-a^2)}$$
+        </p>
+    </div>
+</div>
+
+<script>
+    // --- 3D 그래픽스 기본 설정 ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a1a);
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position = new THREE.Vector3(15, 12, 18);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(3, 3, 3);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    dirLight.position.set(20, 30, 15);
+    scene.add(dirLight);
+
+    const axesHelper = new THREE.AxesHelper(20);
+    scene.add(axesHelper);
+
+    // 글로벌 메쉬 컴포넌트 변수
+    let tetraMesh, tetraEdges, pointG, sectionLine, ogArrow;
+    let globalExactLatex = "", globalExactHtml = "", globalNumArea = 0, globalShapeStr = "";
+
+    const inputA = document.getElementById('input-a');
+    const inputB = document.getElementById('input-b');
+    const inputC = document.getElementById('input-c');
+    const planeEq = document.getElementById('plane-eq');
+    const sectionShape = document.getElementById('section-shape');
+    const sectionAreaExact = document.getElementById('section-area-exact');
+    const sectionAreaNum = document.getElementById('section-area-num');
+    const btnInsight = document.getElementById('btn-insight');
+    const modal = document.getElementById('insight-modal');
+    const modalClose = document.getElementById('modal-close');
+    const dynamicBoard = document.getElementById('dynamic-analysis-board');
+
+    // 정수 유틸리티: 최대공약수 연산 (정밀 약분용)
+    function getGCD(x, y) {
+        x = Math.abs(x);
+        y = Math.abs(y);
+        while(y) {
+            var t = y;
+            y = x % y;
+            x = t;
+        }
+        return x;
+    }
+
+    // --- 그래픽 및 수학 연산 업데이트 ---
+    function updateSimulation() {
+        let a = parseInt(inputA.value) || 1;
+        let b = parseInt(inputB.value) || 1;
+        let c = parseInt(inputC.value) || 1;
+
+        const S = a*a + b*b + c*c;
+        const k = S / 4;
+        planeEq.innerText = `${a}x + ${b}y + ${c}z = ${k.toFixed(2)}`;
+
+        const gX = a / 4; const gY = b / 4; const gZ = c / 4;
+
+        // 기존 3D 메쉬 오브젝트 초기화
+        if(tetraMesh) scene.remove(tetraMesh); if(tetraEdges) scene.remove(tetraEdges);
+        if(pointG) scene.remove(pointG); if(sectionLine) scene.remove(sectionLine);
+        if(ogArrow) scene.remove(ogArrow);
+
+        // 1. 투명 사면체 OABC
+        const vertices = new Float32Array([0,0,0, a,0,0, 0,b,0, 0,0,c]);
+        const indices = [0,2,1, 0,1,3, 0,3,2, 1,2,3];
+        const tetraGeo = new THREE.BufferGeometry();
+        tetraGeo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        tetraGeo.setIndex(indices);
+        tetraGeo.computeVertexNormals();
+
+        tetraMesh = new THREE.Mesh(tetraGeo, new THREE.MeshPhongMaterial({
+            color: 0x888888, transparent: true, opacity: 0.15, side: THREE.DoubleSide
+        }));
+        scene.add(tetraMesh);
+
+        tetraEdges = new THREE.LineSegments(new THREE.EdgesGeometry(tetraGeo), new THREE.LineBasicMaterial({ color: 0x999999 }));
+        scene.add(tetraEdges);
+
+        // 2. 무게중심 G 점
+        pointG = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+        pointG.position.set(gX, gY, gZ);
+        scene.add(pointG);
+
+        // 3. OG 벡터 화살표 (민트색)
+        const gVector = new THREE.Vector3(gX, gY, gZ);
+        const ogLength = gVector.length();
+        const ogDir = gVector.clone().normalize();
+        ogArrow = new THREE.ArrowHelper(ogDir, new THREE.Vector3(0,0,0), ogLength, 0x00ffcc, 0.4, 0.2);
+        scene.add(ogArrow);
+
+        // 4. 교점 연산 및 단면 다각형 추출
+        const intersectionPoints = [];
+        const edges = [
+            {p1: new THREE.Vector3(0,0,0), p2: new THREE.Vector3(a,0,0)},
+            {p1: new THREE.Vector3(0,0,0), p2: new THREE.Vector3(0,b,0)},
+            {p1: new THREE.Vector3(0,0,0), p2: new THREE.Vector3(0,0,c)},
+            {p1: new THREE.Vector3(a,0,0), p2: new THREE.Vector3(0,b,0)},
+            {p1: new THREE.Vector3(0,b,0), p2: new THREE.Vector3(0,0,c)},
+            {p1: new THREE.Vector3(0,0,c), p2: new THREE.Vector3(a,0,0)}
+        ];
+
+        edges.forEach(edge => {
+            const dX = edge.p2.x - edge.p1.x;
+            const dY = edge.p2.y - edge.p1.y;
+            const dZ = edge.p2.z - edge.p1.z;
+            const denom = a*dX + b*dY + c*dZ;
+            if (Math.abs(denom) > 1e-6) {
+                const num = k - (a*edge.p1.x + b*edge.p1.y + c*edge.p1.z);
+                const t = num / denom;
+                if (t >= -1e-5 && t <= 1 + 1e-5) {
+                    const p = new THREE.Vector3(edge.p1.x + t*dX, edge.p1.y + t*dY, edge.p1.z + t*dZ);
+                    if (!intersectionPoints.some(ip => ip.distanceTo(p) < 1e-4)) intersectionPoints.push(p);
+                }
+            }
+        });
+
+        if (intersectionPoints.length >= 3) {
+            const center = new THREE.Vector3(0,0,0);
+            intersectionPoints.forEach(p => center.add(p));
+            center.divideScalar(intersectionPoints.length);
+
+            const v1 = new THREE.Vector3().subVectors(intersectionPoints[0], center).normalize();
+            const v2 = new THREE.Vector3().crossVectors(ogDir, v1).normalize();
+
+            intersectionPoints.sort((pA, pB) => {
+                const dA = new THREE.Vector3().subVectors(pA, center);
+                const dB = new THREE.Vector3().subVectors(pB, center);
+                return Math.atan2(dA.dot(v2), dA.dot(v1)) - Math.atan2(dB.dot(v2), dB.dot(v1));
+            });
+
+            // 반투명 면 채우기를 제거하고, 실선으로만 단면 시각화
+            const linePoints = [...intersectionPoints, intersectionPoints[0]];
+            sectionLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(linePoints), new THREE.LineBasicMaterial({ color: 0xffcc00, linewidth: 3 }));
+            scene.add(sectionLine);
+
+            // 벡터 외적 기반 수치 해석 (수소수점 검증용)
+            let totalArea = 0;
+            const p0 = intersectionPoints[0];
+            for (let i = 1; i < intersectionPoints.length - 1; i++) {
+                const vA = new THREE.Vector3().subVectors(intersectionPoints[i], p0);
+                const vB = new THREE.Vector3().subVectors(intersectionPoints[i+1], p0);
+                totalArea += new THREE.Vector3().crossVectors(vA, vB).length() / 2;
+            }
+            globalNumArea = totalArea;
+            globalShapeStr = intersectionPoints.length === 4 ? "사각형" : "삼각형";
+            sectionShape.innerText = globalShapeStr;
+            sectionAreaNum.innerText = `(≈ ${totalArea.toFixed(3)})`;
+
+            // 임의의 정수 a,b,c에 대응하도록 엄밀한 대수 공식 처리 및 GCD 분수 약분 로직 전면 구축
+            if (globalShapeStr === "삼각형") {
+                let numerator = S * S;          // (a^2+b^2+c^2)^2
+                let denominator = 32 * a * b * c; // 32abc
+                let gcd = getGCD(numerator, denominator);
+                
+                let finalNum = numerator / gcd;
+                let finalDen = denominator / gcd;
+
+                if (finalDen === 1) {
+                    globalExactHtml = `${finalNum}√${S}`;
+                    globalExactLatex = `${finalNum}\\sqrt{${S}}`;
+                } else {
+                    globalExactHtml = `<span class="frac"><sup>${finalNum}</sup><sub>${finalDen}</sub></span>√${S}`;
+                    globalExactLatex = `\\frac{${finalNum}}{${finalDen}}\\sqrt{${S}}`;
+                }
+            } else {
+                // 사각형일 경우 일반화 공식을 이용해 엄밀 분수 형태로 연산 유도
+                let maxVal = Math.max(a*a, b*b, c*c);
+                let targetAxis = (maxVal === a*a) ? 'a' : (maxVal === b*b ? 'b' : 'c');
+                
+                let numXYZ = S * S;
+                let denXYZ = 32 * a * b * c;
+                
+                let numCut, denCut;
+                if (targetAxis === 'a') {
+                    numCut = b * c * Math.pow((S / 4) - a*a, 2);
+                    denCut = 2 * a * (b*b - a*a) * (c*c - a*a);
+                } else if (targetAxis === 'b') {
+                    numCut = a * c * Math.pow((S / 4) - b*b, 2);
+                    denCut = 2 * b * (a*a - b*b) * (c*c - b*b);
+                } else {
+                    numCut = a * b * Math.pow((S / 4) - c*c, 2);
+                    denCut = 2 * c * (a*a - c*c) * (b*b - c*c);
+                }
+                
+                // 분수 뺄셈 통분 연산 (Area_XYZ - Area_Cut)
+                let commonDen = denXYZ * denCut;
+                let finalNum = (numXYZ * denCut) - (numCut * denXYZ);
+                let gcd = getGCD(finalNum, commonDen);
+                
+                finalNum = Math.abs(finalNum / gcd);
+                finalDen = Math.abs(commonDen / gcd);
+                
+                if (finalDen === 1) {
+                    globalExactHtml = `${finalNum}√${S}`;
+                    globalExactLatex = `${finalNum}\\sqrt{${S}}`;
+                } else {
+                    globalExactHtml = `<span class="frac"><sup>${finalNum}</sup><sub>${finalDen}</sub></span>√${S}`;
+                    globalExactLatex = `\\frac{${finalNum}}{${finalDen}}\\sqrt{${S}}`;
+                }
+            }
+            sectionAreaExact.innerHTML = globalExactHtml;
+
+        } else {
+            sectionShape.innerText = "단면 없음";
+            sectionAreaExact.innerText = "0";
+            sectionAreaNum.innerText = "";
+            globalExactLatex = "0";
+            globalExactHtml = "0";
+            globalNumArea = 0;
+            globalShapeStr = "없음";
+        }
+    }
+
+    [inputA, inputB, inputC].forEach(input => {
+        input.addEventListener('input', updateSimulation);
+    });
+
+    // --- 인사이트 팝업창 제어 ---
+    btnInsight.addEventListener('click', () => {
+        let a = parseInt(inputA.value) || 1;
+        let b = parseInt(inputB.value) || 1;
+        let c = parseInt(inputC.value) || 1;
+        const S = a*a + b*b + c*c;
+        const k = S / 4;
+
+        let check1 = (b*b + c*c <= 3*a*a);
+        let check2 = (a*a + c*c <= 3*b*b);
+        let check3 = (a*a + b*b <= 3*c*c);
+        let isTri = check1 && check2 && check3;
+
+        let conclusionText = isTri 
+            ? `세 조건을 모두 충족하므로, 현재 단면은 깔끔한 <span style="color:#ffcc00; font-weight:bold;">삼각형</span> 구조를 이룹니다.`
+            : `조건 중 불만족하는 항이 있으므로, 평면 절편이 사면체 모서리를 이탈하여 단면은 <span style="color:#ffaa00; font-weight:bold;">사각형</span> 구조가 됩니다.`;
+
+        dynamicBoard.innerHTML = `
+            <h4 style="margin-top:0; color:#4da6ff; font-size:1.15rem;">📊 현재 입력값 ($a=${a}, \\, b=${b}, \\, c=${c}$) 기준 실시간 수학 분석 검증 고찰</h4>
+            <ul style="list-style-type: square; padding-left:15px; margin-bottom:0;">
+                <li><strong>무게중심 좌표 $G$:</strong> $\\left(\\frac{${a}}{4}, \\frac{${b}}{4}, \\frac{${c}}{4}\\right) = (${(a/4).toFixed(2)}, ${(b/4).toFixed(2)}, ${(c/4).toFixed(2)})$</li>
+                <li><strong>G를 통과하는 수직 평면 방정식:</strong> $${a}x + ${b}y + ${c}z = ${k.toFixed(2)}$</li>
+                <li><strong>단면 형태 조건식 실시간 판정:</strong>
+                    <ul>
+                        <li>$b^2 + c^2 \\le 3a^2 \\implies ${b}^2 + ${c}^2 = ${b*b+c*c} ${check1 ? '\\le' : '>'} 3(${a}^2) = ${3*a*a}$ (${check1 ? '만족' : '불만족'})</li>
+                        <li>$a^2 + c^2 \\le 3b^2 \\implies ${a}^2 + ${c}^2 = ${a*a+c*c} ${check2 ? '\\le' : '>'} 3(${b}^2) = ${3*b*b}$ (${check2 ? '만족' : '불만족'})</li>
+                        <li>$a^2 + b^2 \\le 3c^2 \\implies ${a}^2 + ${b}^2 = ${a*a+b*b} ${check3 ? '\\le' : '>'} 3(${c}^2) = ${3*c*c}$ (${check3 ? '만족' : '불만족'})</li>
+                    </ul>
+                    <p style="margin: 6px 0 0 0; color:#eee;">$\\rightarrow$ ${conclusionText}</p>
+                </li>
+                <li style="margin-top:10px;"><strong>최종 단면의 정밀 무리수 넓이 계산식 검증 (정수 약분):</strong><br>
+                    ${isTri ? `$$\\text{Area} = \\frac{(a^2+b^2+c^2)^2\\sqrt{a^2+b^2+c^2}}{32abc} = \\frac{(${a}^2+${b}^2+${c}^2)^2\\sqrt{${a}^2+${b}^2+${c}^2}}{32 \\cdot ${a} \\cdot ${b} \\cdot ${c}} = \\frac{${S*S}\\sqrt{${S}}}{${32*a*b*c}}$$` : `$$\\text{Area} = \\text{Area}_{XYZ} - \\text{Area}_{cut}$$`}
+                    <span style="color:#ff5555; font-weight:bold; font-size:1.2rem;">결과값: $S_{area} = ${globalExactLatex}$</span> 
+                    <span style="color:#aaa; font-size:0.9rem;">($\\approx ${globalNumArea.toFixed(4)}$)</span>
+                </li>
+            </ul>
+        `;
+
+        modal.style.display = 'flex';
+        if (window.MathJax) {
+            MathJax.typesetPromise([modal]);
+        }
+    });
+
+    modalClose.addEventListener('click', () => { modal.style.display = 'none'; });
+    window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    updateSimulation();
+    animate();
+</script>
+
+</body>
+</html>

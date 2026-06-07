@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>KAIST 기출 세 원 위의 회전 점 시뮬레이터 (라디안 버전)</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 20px;
+        }
+        #main-container {
+            position: relative;
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 950px;
+        }
+        /* 우측 상단 슬라이더 조절 바 */
+        #slider-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #eee;
+            padding: 10px 15px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            width: 240px;
+        }
+        #slider-container input {
+            width: 100%;
+        }
+        .angle-display {
+            color: #007bff;
+            float: right;
+            font-family: monospace;
+        }
+
+        canvas {
+            border: 1px solid #ddd;
+            background-color: #fafafa;
+            border-radius: 6px;
+        }
+        
+        #info-panel {
+            width: 260px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+        
+        /* 하단 데이터 표시 구역 */
+        #data-box {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .status-row:last-child { margin-bottom: 0; }
+        .data-value {
+            font-size: 18px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+        #collinear-status {
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>세 원 위의 회전 동점과 삼각형 ABC 시뮬레이터 (라디안)</h1>
+    
+    <div id="main-container">
+        <div id="slider-container">
+            <label for="theta-slider">회전 각도 θ: <span id="theta-val" class="angle-display">0.00 rad</span></label>
+            <input type="range" id="theta-slider" min="0" max="6.283185" step="0.005" value="0">
+            <span style="font-size: 11px; color: #666; font-weight: normal; margin-top: 2px;">범위: 0 ~ 2π (6.28rad)</span>
+        </div>
+
+        <canvas id="simCanvas" width="600" height="600"></canvas>
+
+        <div id="info-panel">
+            <div id="data-box">
+                <div class="status-row">
+                    <span>일직선 여부:</span>
+                    <span id="collinear-status" style="font-weight:bold; color:#ffc107; padding: 2px 6px; border-radius: 4px;">아님</span>
+                </div>
+                <div class="status-row" style="margin-top: 10px; border-top: 1px solid #455a64; padding-top: 10px;">
+                    <span>삼각형 ABC 넓이:</span>
+                    <span class="data-value" id="area-val" style="color: #ffca28;">0.0000</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const thetaSlider = document.getElementById('theta-slider');
+    const thetaVal = document.getElementById('theta-val');
+    const areaVal = document.getElementById('area-val');
+    const collinearStatus = document.getElementById('collinear-status');
+
+    let thetaRad = 0; // 라디안 단위 각도
+
+    // 뷰포트 설정 (원점 중심 배치 및 크기 스케일)
+    const scale = 110; // 1단위당 픽셀 크기
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2 + 50; // 원들이 아래쪽에 몰려있으므로 중심을 살짝 내림
+
+    function toScreenX(x) { return cx + x * scale; }
+    function toScreenY(y) { return cy - y * scale; }
+
+    // 신발끈 공식으로 세 점의 삼각형 넓이 계산
+    function getTriangleArea(A, B, C) {
+        return 0.5 * Math.abs(A.x * (B.y - C.y) + B.x * (C.y - A.y) + C.x * (A.y - B.y));
+    }
+
+    // 메인 그리기 함수
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. x축, y축 그리기
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy);
+        ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height);
+        ctx.stroke();
+
+        // 2. 세 원의 매개변수 설정 및 동점 좌표 계산
+        // 원 X: 중심 (0,1), 반지름 2, (0,3) 시작하여 시계방향 회전
+        const centerX_A = 0, centerY_A = 1, rX = 2;
+        const Ax = centerX_A + rX * Math.sin(thetaRad); 
+        const Ay = centerY_A + rX * Math.cos(thetaRad);
+        const ptA = { x: Ax, y: Ay };
+
+        // 원 Y: 중심 (1,0), 반지름 1, (1,1) 시작하여 시계방향 회전
+        const centerX_B = 1, centerY_B = 0, rY = 1;
+        const Bx = centerX_B + rY * Math.sin(thetaRad);
+        const By = centerY_B + rY * Math.cos(thetaRad);
+        const ptB = { x: Bx, y: By };
+
+        // 원 Z: 중심 (-1,0), 반지름 1, (-1,1) 시작하여 반시계방향 회전
+        const centerX_C = -1, centerY_C = 0, rZ = 1;
+        const Cx = centerX_C - rZ * Math.sin(thetaRad); 
+        const Cy = centerY_C + rZ * Math.cos(thetaRad);
+        const ptC = { x: Cx, y: Cy };
+
+        // 3. 고정된 세 원 그리기
+        function drawFixedCircle(x, y, r, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]); // 원은 점선으로 처리
+            ctx.beginPath();
+            ctx.arc(toScreenX(x), toScreenY(y), r * scale, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.setLineDash([]); // 실선 복구
+
+            // 중심점 마크
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            ctx.arc(toScreenX(x), toScreenY(y), 3, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        drawFixedCircle(centerX_A, centerY_A, rX, '#cbd5e1');
+        drawFixedCircle(centerX_B, centerY_B, rY, '#cbd5e1');
+        drawFixedCircle(centerX_C, centerY_C, rZ, '#cbd5e1');
+
+        // 4. 삼각형 ABC 선분 및 내측 채우기
+        const area = getTriangleArea(ptA, ptB, ptC);
+
+        ctx.fillStyle = 'rgba(0, 123, 255, 0.1)';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(toScreenX(ptA.x), toScreenY(ptA.y));
+        ctx.lineTo(toScreenX(ptB.x), toScreenY(ptB.y));
+        ctx.lineTo(toScreenX(ptC.x), toScreenY(ptC.y));
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 5. 회전하는 점 A, B, C 그리기
+        function drawMovingPoint(pt, color, label) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(toScreenX(pt.x), toScreenY(pt.y), 6, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.fillText(label, toScreenX(pt.x) + 8, toScreenY(pt.y) - 6);
+        }
+
+        drawMovingPoint(ptA, '#dc3545', 'A'); // 빨강
+        drawMovingPoint(ptB, '#007bff', 'B'); // 파랑
+        drawMovingPoint(ptC, '#28a745', 'C'); // 초록
+
+        // 6. 데이터 패널 텍스트 업데이트 및 일직선 판정
+        areaVal.innerText = area.toFixed(4);
+        
+        // 일직선 판정 조건을 넓이 0.01 미만으로 변경하여 덜 타이트하게 완화
+        if (area < 0.01) {
+            collinearStatus.innerText = "한 직선 위!";
+            collinearStatus.style.color = '#fff';
+            collinearStatus.style.backgroundColor = '#2ecc71'; // 초록색 배경 하이라이트
+            
+            // 일직선일 때 빨간색 관통 연장선 그려주기
+            ctx.strokeStyle = '#e11d48';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            // A와 C를 길게 잇는 직선 시각화
+            ctx.moveTo(toScreenX(ptA.x), toScreenY(ptA.y));
+            ctx.lineTo(toScreenX(ptC.x), toScreenY(ptC.y));
+            ctx.stroke();
+        } else {
+            collinearStatus.innerText = "아님";
+            collinearStatus.style.color = '#ffc107';
+            collinearStatus.style.backgroundColor = 'transparent';
+        }
+    }
+
+    // 슬라이더 이벤트 바인딩 (라디안 값 직접 변경)
+    thetaSlider.addEventListener('input', (e) => {
+        thetaRad = parseFloat(e.target.value);
+        thetaVal.innerText = thetaRad.toFixed(2) + ' rad';
+        draw();
+    });
+
+    // 최초 1회 실행
+    draw();
+</script>
+</body>
+</html>

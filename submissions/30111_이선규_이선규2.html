@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>무리함수 그래프 시뮬레이터</title>
+    
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            max-width: 1050px;
+            width: 100%;
+        }
+        .left-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .right-panel {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            cursor: crosshair;
+        }
+        .controls {
+            margin-top: 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            flex: 1;
+            cursor: pointer;
+        }
+        .info-box {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .highlight {
+            color: #007bff;
+            font-weight: bold;
+        }
+        .alert {
+            color: #d9534f;
+            background-color: #fdf2f2;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #d9534f;
+            margin-top: 10px;
+        }
+        .safe {
+            color: #28a745;
+            background-color: #f0fdf4;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+            margin-top: 10px;
+        }
+        h3 {
+            margin-top: 0;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+            color: #007bff;
+            font-size: 18px;
+        }
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .color-box {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="left-panel">
+        <canvas id="sim-canvas" width="600" height="500"></canvas>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="color-box" style="background-color: #007bff;"></div>
+                <span>함수 \( f(x) \) 그래프</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box" style="background-color: #d9534f;"></div>
+                <span>사선 점근선</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box" style="background-color: #28a745; border-radius: 50%;"></div>
+                <span>원점 (0,0)</span>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="slider-group">
+                <label for="n-slider" style="width: 150px;">홀수 n (3 이상):</label>
+                <input type="range" id="n-slider" min="3" max="15" step="2" value="3">
+                <span id="n-display" class="highlight" style="width: 30px;">3</span>
+            </div>
+            <div class="slider-group">
+                <label for="k-slider" style="width: 150px;">정수 k (1 ≤ k < n):</label>
+                <input type="range" id="k-slider" min="1" max="2" step="1" value="1">
+                <span id="k-display" class="highlight" style="width: 30px;">1</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div>
+            <h3>현재 설정된 함수식</h3>
+            <div class="info-box" id="math-formula">
+                <p>\( f(x) = \sqrt[3]{x^{2}(x-1)^{1}} \)</p>
+            </div>
+        </div>
+
+        <div>
+            <h3>문항 (1) 점근선 분석</h3>
+            <div class="info-box" id="asymptote-formula">
+                </div>
+        </div>
+
+        <div>
+            <h3>문항 (2) 원점 극값 분석</h3>
+            <div id="extremum-analysis">
+                </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('sim-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const nSlider = document.getElementById('n-slider');
+    const kSlider = document.getElementById('k-slider');
+    const nDisplay = document.getElementById('n-display');
+    const kDisplay = document.getElementById('k-display');
+    
+    const mathFormulaDiv = document.getElementById('math-formula');
+    const asymptoteFormulaDiv = document.getElementById('asymptote-formula');
+    const extremumAnalysisDiv = document.getElementById('extremum-analysis');
+
+    // Constants
+    const SCALE = 100; // 1 unit = 100 pixels
+    const CANVAS_W = canvas.width;
+    const CANVAS_H = canvas.height;
+    const ORIGIN_X = CANVAS_W / 2;
+    const ORIGIN_Y = CANVAS_H / 2;
+
+    let n = parseInt(nSlider.value);
+    let k = parseInt(kSlider.value);
+
+    // 슬라이더 이벤트 리스너
+    nSlider.addEventListener('input', (e) => {
+        n = parseInt(e.target.value);
+        nDisplay.textContent = n;
+        
+        // k의 최대값은 n-1
+        kSlider.max = n - 1;
+        if (k >= n) {
+            k = n - 1;
+            kSlider.value = k;
+            kDisplay.textContent = k;
+        }
+        updateAll();
+    });
+
+    kSlider.addEventListener('input', (e) => {
+        k = parseInt(e.target.value);
+        kDisplay.textContent = k;
+        updateAll();
+    });
+
+    // 함수 f(x) 계산
+    function f(x, n, k) {
+        let inner = Math.pow(x, n - k) * Math.pow(x - 1, k);
+        return Math.sign(inner) * Math.pow(Math.abs(inner), 1 / n);
+    }
+
+    function drawGridAndAxes() {
+        ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+        
+        ctx.strokeStyle = '#f0f0f0';
+        ctx.lineWidth = 1;
+        for (let i = -10; i <= 10; i++) {
+            let pos = i * (SCALE / 2);
+            ctx.beginPath(); ctx.moveTo(ORIGIN_X + pos, 0); ctx.lineTo(ORIGIN_X + pos, CANVAS_H); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, ORIGIN_Y - pos); ctx.lineTo(CANVAS_W, ORIGIN_Y - pos); ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#aaa';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, ORIGIN_Y); ctx.lineTo(CANVAS_W, ORIGIN_Y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ORIGIN_X, 0); ctx.lineTo(ORIGIN_X, CANVAS_H); ctx.stroke();
+
+        ctx.fillStyle = '#666';
+        ctx.font = '12px Arial';
+        ctx.fillText('1', ORIGIN_X + SCALE + 5, ORIGIN_Y + 15);
+        ctx.fillText('1', ORIGIN_X + 5, ORIGIN_Y - SCALE + 15);
+        ctx.fillText('-1', ORIGIN_X - SCALE - 20, ORIGIN_Y + 15);
+        ctx.fillText('x', CANVAS_W - 15, ORIGIN_Y - 10);
+        ctx.fillText('y', ORIGIN_X + 10, 15);
+    }
+
+    function drawGraph() {
+        drawGridAndAxes();
+
+        // 점근선 그리기 y = x - (k/n)
+        ctx.strokeStyle = '#d9534f';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]); 
+        ctx.beginPath();
+        let x1 = -3, x2 = 3;
+        let y1 = x1 - (k / n);
+        let y2 = x2 - (k / n);
+        ctx.moveTo(ORIGIN_X + x1 * SCALE, ORIGIN_Y - y1 * SCALE);
+        ctx.lineTo(ORIGIN_X + x2 * SCALE, ORIGIN_Y - y2 * SCALE);
+        ctx.stroke();
+        ctx.setLineDash([]); 
+
+        // f(x) 그리기
+        ctx.strokeStyle = '#007bff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        let isFirstPoint = true;
+        
+        for (let px = 0; px <= CANVAS_W; px += 1) {
+            let x = (px - ORIGIN_X) / SCALE;
+            let y = f(x, n, k);
+            let py = ORIGIN_Y - y * SCALE;
+            
+            if (isNaN(y)) continue;
+
+            if (isFirstPoint) {
+                ctx.moveTo(px, py);
+                isFirstPoint = false;
+            } else {
+                ctx.lineTo(px, py);
+            }
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = '#28a745';
+        ctx.beginPath();
+        ctx.arc(ORIGIN_X, ORIGIN_Y, 5, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(ORIGIN_X + SCALE, ORIGIN_Y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    function updateMathJax() {
+        // 자바스크립트 템플릿 리터럴 내부 백슬래시 기호 이스케이프('\\') 처리
+        mathFormulaDiv.innerHTML = `<p>\\( f(x) = \\sqrt[${n}]{x^{${n - k}}(x-1)^{${k}}} \\)</p>`;
+        
+        let a_val = 1;
+        let b_val_display = (k === 0) ? "0" : `\\frac{${k}}{${n}}`;
+        asymptoteFormulaDiv.innerHTML = `
+            <p>\\( y = x - ${b_val_display} \\)</p>
+            <p style="font-size: 13px; color: #666; margin-top: 8px;">* 현재 극한값: \\( -${b_val_display} \\)</p>
+            <p style="font-size: 13px; color: #007bff; margin-top: 5px; font-weight: bold;">* 극한(수렴)값의 일반적인 표현: \\( -\\frac{k}{n} \\)</p>
+        `;
+
+        // 극값 논리 (홀수일 때 극값 O -> safe/초록색, 짝수일 때 극값 X -> alert/빨간색)
+        if (k % 2 !== 0) {
+            extremumAnalysisDiv.innerHTML = `
+                <div class="safe">
+                    <p style="font-weight:bold; font-size:16px;">✓ k = ${k} (홀수)</p>
+                    <p style="margin-top:5px;">원점에서 <strong>극값을 가집니다.</strong></p>
+                    <p style="font-size:12px; font-weight:normal; margin-top:5px; color:#333;">좌우에서 도함수의 부호가 바뀌며 뾰족점(Cusp)을 형성합니다.</p>
+                    <hr style="border: 0; border-top: 1px dashed #28a745; margin: 10px 0;">
+                    <p style="font-size:13px; font-weight:bold; color:#155724;">▶ (2)번 문항 결론: f(x)가 원점에서 극값을 가질 조건은 'k가 홀수'일 때입니다.</p>
+                </div>
+            `;
+        } else {
+            extremumAnalysisDiv.innerHTML = `
+                <div class="alert">
+                    <p style="font-weight:bold; font-size:16px;">✗ k = ${k} (짝수)</p>
+                    <p style="margin-top:5px;">원점에서 <strong>극값을 가지지 않습니다.</strong></p>
+                    <p style="font-size:12px; font-weight:normal; margin-top:5px; color:#333;">단조 증가(또는 감소)하며 원점을 스치듯 부드럽게 통과합니다.</p>
+                </div>
+            `;
+        }
+
+        // MathJax 렌더링
+        if (window.MathJax) {
+            MathJax.typesetPromise([mathFormulaDiv, asymptoteFormulaDiv, extremumAnalysisDiv]).catch(function (err) {
+                console.error('MathJax Rendering Error:', err.message);
+            });
+        }
+    }
+
+    function updateAll() {
+        drawGraph();
+        updateMathJax();
+    }
+
+    updateAll();
+</script>
+
+</body>
+</html>

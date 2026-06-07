@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>정다각형 굴리기 (파이 수식 포함 완벽판)</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --primary-hover: #357abd;
+            --success: #2ecc71;
+            --success-hover: #27ae60;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 30px;
+        }
+
+        h2 { margin-top: 0; margin-bottom: 10px; }
+
+        .dashboard {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 850px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        label { font-weight: bold; font-size: 14px; }
+        input[type="range"] { width: 130px; cursor: pointer; }
+
+        .btn-group { display: flex; gap: 8px; }
+
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        button:active { transform: scale(0.96); }
+
+        .btn-play { background-color: var(--primary); }
+        .btn-play:hover { background-color: var(--primary-hover); }
+        
+        .btn-preset { background-color: var(--success); }
+        .btn-preset:hover { background-color: var(--success-hover); }
+
+        canvas {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>정다각형 굴리기 시뮬레이터 (π 수치 연동판)</h2>
+    
+    <div class="dashboard">
+        <div class="btn-group">
+            <button class="btn-preset" onclick="setPreset(3)">▲ 정삼각형 (n=3)</button>
+            <button class="btn-preset" onclick="setPreset(4)">■ 정사각형 (n=4)</button>
+            <button class="btn-preset" onclick="setPreset(30)" style="background-color:#9b59b6;">● 원형 근접 (n=30)</button>
+        </div>
+
+        <div class="control-group" style="margin-left: 15px;">
+            <label for="nSlider">변의 수 (n) : <span id="nValue" style="color:#e74c3c; font-size:16px;">3</span></label>
+            <input type="range" id="nSlider" min="3" max="50" value="3">
+        </div>
+        
+        <div class="control-group">
+            <label for="speedSlider">애니메이션 속도</label>
+            <input type="range" id="speedSlider" min="1" max="5" value="3">
+        </div>
+
+        <div class="btn-group" style="margin-left: 15px;">
+            <button class="btn-play" id="playPauseBtn">▶ 굴리기 시작</button>
+            <button class="btn-play" style="background-color: #7f8c8d;" onclick="initSimulation()">↺ 강제 초기화</button>
+        </div>
+    </div>
+
+    <canvas id="simCanvas" width="900" height="420"></canvas>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const nSlider = document.getElementById('nSlider');
+        const nValue = document.getElementById('nValue');
+        const speedSlider = document.getElementById('speedSlider');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+
+        let n = parseInt(nSlider.value);
+        let animating = false;
+        let animationId;
+        
+        const totalPerimeter = 550; 
+        let sideLength;
+        let extAngle;
+        const startX = 130; 
+        const groundY = 350; 
+
+        let currentAngle = 0;
+        let pivotIndex = 1; 
+        let tracePointIndex = 0; 
+        let rollCount = 0; 
+        
+        let currentMathDist = 0; 
+        
+        let vertices = [];
+        let tracePath = [];
+
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.beginPath();
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                this.closePath();
+                return this;
+            }
+        }
+
+        function setPreset(val) {
+            nSlider.value = val;
+            nValue.textContent = val;
+            initSimulation();
+        }
+
+        function initSimulation() {
+            cancelAnimationFrame(animationId);
+            n = parseInt(nSlider.value);
+            sideLength = totalPerimeter / n;
+            extAngle = 2 * Math.PI / n;
+            
+            currentAngle = 0;
+            rollCount = 0;
+            currentMathDist = 0; 
+            tracePointIndex = 0;
+            pivotIndex = 1;
+            
+            tracePath = [];
+            vertices = [];
+            
+            vertices.push({x: startX, y: groundY}); 
+            
+            let currentDir = 0; 
+            for(let i = 1; i < n; i++) {
+                let prev = vertices[i-1];
+                let vx = prev.x + sideLength * Math.cos(currentDir);
+                let vy = prev.y - sideLength * Math.sin(currentDir);
+                vertices.push({x: vx, y: vy});
+                currentDir += extAngle; 
+            }
+            
+            tracePath.push({x: vertices[tracePointIndex].x, y: vertices[tracePointIndex].y});
+            
+            animating = false;
+            playPauseBtn.innerHTML = "▶ 굴리기 시작";
+            draw();
+        }
+
+        nSlider.addEventListener('input', function() {
+            nValue.textContent = this.value;
+            initSimulation();
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            if (rollCount >= n - 1) {
+                initSimulation();
+                return; 
+            }
+            animating = !animating;
+            playPauseBtn.innerHTML = animating ? "⏸ 일시정지" : "▶ 재생 계속";
+            if (animating) animate();
+        });
+
+        function animate() {
+            if (!animating) return;
+
+            let speedMultiplier = parseInt(speedSlider.value);
+            let currentSpeed = 0.015 * speedMultiplier;
+            
+            let pivot = vertices[pivotIndex];
+            let target = vertices[tracePointIndex];
+            let radiusPixel = Math.sqrt(Math.pow(target.x - pivot.x, 2) + Math.pow(target.y - pivot.y, 2));
+            let mathRadius = radiusPixel / totalPerimeter; 
+
+            if (currentAngle + currentSpeed >= extAngle) {
+                let remainAngle = extAngle - currentAngle;
+                
+                rotateVertices(remainAngle);
+                currentMathDist += mathRadius * remainAngle; 
+                tracePath.push({x: vertices[tracePointIndex].x, y: vertices[tracePointIndex].y});
+                
+                rollCount++;
+                currentAngle = 0;
+                
+                if (rollCount >= n - 1) {
+                    animating = false;
+                    playPauseBtn.innerHTML = "↺ 완료 (초기화)"; 
+                } else {
+                    pivotIndex = (pivotIndex + 1) % n;
+                }
+            } else {
+                rotateVertices(currentSpeed);
+                currentMathDist += mathRadius * currentSpeed; 
+                currentAngle += currentSpeed;
+                tracePath.push({x: vertices[tracePointIndex].x, y: vertices[tracePointIndex].y});
+            }
+
+            draw();
+
+            if (animating) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        function rotateVertices(angle) {
+            let pivot = vertices[pivotIndex];
+            for (let i = 0; i < n; i++) {
+                if (i === pivotIndex) continue;
+                let dx = vertices[i].x - pivot.x;
+                let dy = vertices[i].y - pivot.y;
+                let newX = dx * Math.cos(angle) - dy * Math.sin(angle);
+                let newY = dx * Math.sin(angle) + dy * Math.cos(angle);
+                vertices[i].x = pivot.x + newX;
+                vertices[i].y = pivot.y + newY;
+            }
+        }
+
+        function drawStats() {
+            let panelW = 350;
+            let panelH = 185;
+            let panelX = canvas.width - panelW - 15;
+            let panelY = 15;
+
+            // 반투명 패널 배경
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.strokeStyle = '#bdc3c7';
+            ctx.lineWidth = 1;
+            ctx.roundRect(panelX, panelY, panelW, panelH, 10);
+            ctx.fill();
+            ctx.stroke();
+
+            // 패널 제목
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 16px "Malgun Gothic", sans-serif';
+            ctx.fillText('📊 실시간 수학적 수치 (둘레=1 기준)', panelX + 15, panelY + 28);
+            
+            // 구분선
+            ctx.beginPath();
+            ctx.moveTo(panelX + 15, panelY + 38);
+            ctx.lineTo(panelX + panelW - 15, panelY + 38);
+            ctx.strokeStyle = '#ecf0f1';
+            ctx.stroke();
+
+            // 데이터 텍스트 (기본 정보)
+            ctx.fillStyle = '#34495e';
+            ctx.font = '14px "Malgun Gothic", sans-serif';
+            ctx.fillText(`• 다각형 형태 : 정${n}각형`, panelX + 15, panelY + 60);
+            ctx.fillText(`• 굴림 진행도 : ${rollCount} / ${n-1} 회전 완료`, panelX + 15, panelY + 82);
+            
+            // 수학적 이론값 d(n) 계산 및 π 문자열 변환
+            let theoreticalDn = Math.PI / (n * n * Math.pow(Math.sin(Math.PI / (2 * n)), 2));
+            let coeff = theoreticalDn / Math.PI;
+            
+            // n=3, 4일 때 손글씨 풀이와 일치하는 완벽한 파이 수식 제공
+            let exactStr = "";
+            if(n === 3) exactStr = "4/9 π";
+            else if(n === 4) exactStr = "(2+√2)/8 π";
+            else exactStr = `${coeff.toFixed(4)}π`;
+
+            ctx.fillText(`• 총 목표 거리 d(n) : ${exactStr}  (≈ ${theoreticalDn.toFixed(4)})`, panelX + 15, panelY + 104);
+            
+            // 현재 이동거리 (파이 포함 실시간 변환)
+            let currCoeff = currentMathDist / Math.PI;
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = 'bold 15px "Malgun Gothic", sans-serif';
+            ctx.fillText(`▶ 현재 점 A 이동거리 :`, panelX + 15, panelY + 130);
+            ctx.fillText(`   ${currCoeff.toFixed(4)}π  (≈ ${currentMathDist.toFixed(4)})`, panelX + 25, panelY + 150);
+            
+            // 극한값 안내
+            ctx.fillStyle = '#7f8c8d';
+            ctx.font = '12px "Malgun Gothic", sans-serif';
+            ctx.fillText(`(※ n→∞ 일 때 극한값 = 4/π ≈ 1.2732)`, panelX + 15, panelY + 172);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 바닥 선
+            ctx.beginPath();
+            ctx.moveTo(30, groundY);
+            ctx.lineTo(870, groundY);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#34495e';
+            ctx.stroke();
+
+            // 점 A 궤적
+            if (tracePath.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(tracePath[0].x, tracePath[0].y);
+                for (let i = 1; i < tracePath.length; i++) {
+                    ctx.lineTo(tracePath[i].x, tracePath[i].y);
+                }
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineJoin = 'round';
+                ctx.stroke();
+            }
+
+            // 다각형
+            ctx.beginPath();
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            for (let i = 1; i < n; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+            ctx.closePath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#2980b9';
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.15)';
+            ctx.fill();
+            ctx.stroke();
+
+            // 점 A 강조
+            let tX = vertices[tracePointIndex].x;
+            let tY = vertices[tracePointIndex].y;
+            ctx.beginPath();
+            ctx.arc(tX, tY, 6, 0, Math.PI * 2);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#000';
+            ctx.font = 'italic bold 20px Arial';
+            ctx.fillText('A', tX - 25, tY - 10);
+
+            // 데이터 패널 호출
+            drawStats();
+        }
+
+        initSimulation();
+    </script>
+</body>
+</html>

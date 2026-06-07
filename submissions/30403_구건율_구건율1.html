@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Geometry Optimizer | Problem 35</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+    <style>
+        :root {
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-rose: #f43f5e;
+            --accent-indigo: #6366f1;
+            --border-light: #e5e7eb;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin: 0;
+        }
+
+        .dashboard {
+            display: flex;
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .canvas-container {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05), 0 4px 10px rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border-light);
+        }
+
+        canvas {
+            border-radius: 12px;
+            background-color: #fafafa;
+            cursor: crosshair;
+        }
+
+        .panel {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            width: 400px;
+            border: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+
+        .k-badge {
+            background: var(--accent-indigo);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 6px rgba(99, 102, 241, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .k-badge.minimized {
+            background: var(--accent-green);
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        /* 커스텀 고급 슬라이더 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: var(--accent-indigo);
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: var(--border-light);
+            border-radius: 3px;
+        }
+
+        .data-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-light);
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            align-items: center;
+        }
+        
+        .data-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .data-label { color: var(--text-muted); font-weight: 500; }
+        .data-value { font-family: monospace; font-size: 1.1rem; font-weight: 600; color: var(--text-main); }
+        
+        .divider {
+            height: 1px;
+            background: var(--border-light);
+            margin: 15px 0;
+        }
+
+        .result-highlight {
+            font-size: 1.2rem;
+            color: var(--accent-indigo);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .status-msg {
+            font-size: 0.8rem;
+            color: var(--accent-green);
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>동적 기하 최적화 시뮬레이터 (Optimization of Dynamic Geometry)</h1>
+        <p>임의의 다각형 내분점 비율에 따른 면적 최소화 검증 모델</p>
+    </div>
+
+    <div class="dashboard">
+        <div class="canvas-container">
+            <canvas id="simCanvas" width="650" height="550"></canvas>
+            <div class="legend" style="margin-top: 15px;">
+                <div class="legend-item"><div class="dot" style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6;"></div>기저 사각형 S</div>
+                <div class="legend-item"><div class="dot" style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981;"></div>내접 육각형 T</div>
+                <div class="legend-item"><div class="dot" style="background: rgba(244, 63, 94, 0.3); border: 1px solid #f43f5e;"></div>핵심 사각형 U</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span>내분비 매개변수 (k)</span>
+                    <span id="kValue" class="k-badge">0.50</span>
+                </div>
+                <input type="range" id="kSlider" min="0.01" max="0.99" step="0.01" value="0.5">
+            </div>
+
+            <div class="data-card">
+                <div style="font-weight: 600; margin-bottom: 15px; color: var(--text-main);">실시간 면적 데이터 (측정값)</div>
+                <div class="data-row"><span class="data-label">영역 S (ABCD)</span><span id="areaS" class="data-value">0</span></div>
+                <div class="data-row"><span class="data-label">영역 T (PBQRDS)</span><span id="areaT" class="data-value">0</span></div>
+                <div class="data-row"><span class="data-label">영역 U (PQRS)</span><span id="areaU" class="data-value">0</span></div>
+            </div>
+
+            <div class="data-card" style="background: #fff; border-color: var(--accent-indigo);">
+                <div style="font-weight: 600; margin-bottom: 15px; color: var(--accent-indigo);">목적 함수 (Objective Function) 검증</div>
+                <div class="data-row">
+                    <span class="data-label" title="k² - k + 1">비율 T / S (이론값)</span>
+                    <span id="theoTS" class="data-value">0.0000</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">비율 T / S (실측값)</span>
+                    <span id="measTS" class="data-value" style="color: var(--text-muted)">0.0000</span>
+                </div>
+                <div class="divider"></div>
+                <div class="data-row">
+                    <span class="data-label" title="(2k²-2k+1)/(k²-k+1)">비율 U / T (이론값)</span>
+                    <span id="theoUT" class="data-value">0.0000</span>
+                </div>
+                <div class="result-highlight">
+                    <span style="font-size: 0.95rem; font-weight: 500; color: var(--text-main);">비율 U / T (실측값)</span>
+                    <div>
+                        <span id="statusMsg" class="status-msg">✓ 최적화 도달</span>
+                        <span id="measUT" style="font-family: monospace; margin-left: 10px;">0.0000</span>
+                    </div>
+                </div>
+            </div>
+            
+            <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin: 0; line-height: 1.5;">
+                ※ 캔버스 상의 정점(Vertex)을 마우스로 드래그하여 위상(Topology)을 변형해도 목적 함수의 이론값은 불변함을 증명합니다.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const kSlider = document.getElementById('kSlider');
+        const kValueDisplay = document.getElementById('kValue');
+        const statusMsg = document.getElementById('statusMsg');
+
+        // 초기 좌표 세팅
+        let points = [
+            {x: 120, y: 120, label: 'A'},
+            {x: 520, y: 160, label: 'B'},
+            {x: 480, y: 460, label: 'C'},
+            {x: 180, y: 380, label: 'D'}
+        ];
+
+        let draggingPoint = null;
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            for (let p of points) {
+                if (Math.hypot(p.x - mouseX, p.y - mouseY) < 20) { draggingPoint = p; break; }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggingPoint) {
+                const rect = canvas.getBoundingClientRect();
+                draggingPoint.x = e.clientX - rect.left;
+                draggingPoint.y = e.clientY - rect.top;
+                draw();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => { draggingPoint = null; });
+        canvas.addEventListener('mouseleave', () => { draggingPoint = null; });
+        kSlider.addEventListener('input', draw);
+
+        function getArea(pts) {
+            let area = 0, j = pts.length - 1;
+            for (let i = 0; i < pts.length; i++) {
+                area += (pts[j].x + pts[i].x) * (pts[j].y - pts[i].y);
+                j = i;
+            }
+            return Math.abs(area / 2);
+        }
+
+        function drawPolygon(pts, fillStyle, strokeStyle, lineDash = []) {
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+            ctx.closePath();
+            
+            if (fillStyle) { ctx.fillStyle = fillStyle; ctx.fill(); }
+            if (strokeStyle) {
+                ctx.strokeStyle = strokeStyle;
+                ctx.lineWidth = 2;
+                ctx.setLineDash(lineDash);
+                ctx.stroke();
+                ctx.setLineDash([]); // reset
+            }
+        }
+
+        function drawPoint(p, isMain = true) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, isMain ? 6 : 4, 0, Math.PI * 2);
+            ctx.fillStyle = isMain ? '#ffffff' : '#f43f5e';
+            ctx.fill();
+            ctx.lineWidth = isMain ? 3 : 2;
+            ctx.strokeStyle = isMain ? '#1f2937' : '#ffffff';
+            ctx.stroke();
+
+            ctx.fillStyle = '#1f2937';
+            ctx.font = isMain ? '600 16px Pretendard' : '500 14px Pretendard';
+            ctx.fillText(p.label, p.x + 10, p.y - 10);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const k = parseFloat(kSlider.value);
+            
+            // k 값 표시 애니메이션 효과
+            kValueDisplay.innerText = k.toFixed(2);
+            if(Math.abs(k - 0.5) < 0.01) {
+                kValueDisplay.classList.add('minimized');
+                statusMsg.style.opacity = 1;
+            } else {
+                kValueDisplay.classList.remove('minimized');
+                statusMsg.style.opacity = 0;
+            }
+
+            const P = {x: (1-k)*points[0].x + k*points[1].x, y: (1-k)*points[0].y + k*points[1].y, label: 'P'};
+            const Q = {x: (1-k)*points[1].x + k*points[2].x, y: (1-k)*points[1].y + k*points[2].y, label: 'Q'};
+            const R = {x: (1-k)*points[2].x + k*points[3].x, y: (1-k)*points[2].y + k*points[3].y, label: 'R'};
+            const S_pt = {x: (1-k)*points[3].x + k*points[0].x, y: (1-k)*points[3].y + k*points[0].y, label: 'S'};
+
+            const hexT = [P, points[1], Q, R, points[3], S_pt];
+            const quadU = [P, Q, R, S_pt];
+
+            // 세련된 색상 오버레이 (Alpha blending)
+            drawPolygon(points, 'rgba(59, 130, 246, 0.08)', '#93c5fd', [5, 5]); // 기저 사각형 (S)
+            drawPolygon(hexT, 'rgba(16, 185, 129, 0.15)', '#34d399'); // 육각형 (T)
+            drawPolygon(quadU, 'rgba(244, 63, 94, 0.2)', '#fb7185'); // 내부 사각형 (U)
+
+            points.forEach(p => drawPoint(p, true));
+            quadU.forEach(p => drawPoint(p, false));
+
+            // 데이터 연산
+            const S_area = getArea(points);
+            const T_area = getArea(hexT);
+            const U_area = getArea(quadU);
+
+            document.getElementById('areaS').innerText = S_area.toFixed(1);
+            document.getElementById('areaT').innerText = T_area.toFixed(1);
+            document.getElementById('areaU').innerText = U_area.toFixed(1);
+
+            // 이론값 vs 실측값
+            const theoTS = k*k - k + 1;
+            const theoUT = (2*k*k - 2*k + 1) / (k*k - k + 1);
+            
+            document.getElementById('theoTS').innerText = theoTS.toFixed(4);
+            document.getElementById('measTS').innerText = (T_area / S_area).toFixed(4);
+            document.getElementById('theoUT').innerText = theoUT.toFixed(4);
+            
+            const measUT_el = document.getElementById('measUT');
+            measUT_el.innerText = (U_area / T_area).toFixed(4);
+            
+            if(Math.abs(k - 0.5) < 0.01) measUT_el.style.color = 'var(--accent-green)';
+            else measUT_el.style.color = 'var(--accent-indigo)';
+        }
+
+        draw();
+    </script>
+</body>
+</html>

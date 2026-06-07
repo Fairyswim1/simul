@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>세 동점 운동 정밀 분석기 (최종)</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f1f3f5; padding: 15px; margin: 0; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 880px; }
+        canvas { border: 2px solid #333; background-color: #fff; display: block; margin: 0 auto; }
+        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 15px; }
+        .card { background: #f8f9fa; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #dee2e6; }
+        .card label { font-size: 11px; color: #666; font-weight: bold; display: block; margin-bottom: 4px; }
+        .card div { font-family: 'Consolas', monospace; font-size: 14px; font-weight: 600; }
+        .controls { margin-top: 15px; display: flex; align-items: center; gap: 15px; justify-content: center; }
+        input[type=range] { width: 450px; }
+        button { cursor: pointer; border: none; border-radius: 4px; font-weight: bold; padding: 8px 15px; }
+        .btn-play { background: #3498db; color: white; }
+        .btn-reset { background: #e74c3c; color: white; }
+        
+        .log-section { margin-top: 20px; display: flex; gap: 15px; }
+        .log-box { flex: 1; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
+        .log-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; color: #333; border-bottom: 2px solid #eee; padding-bottom: 5px; }
+        .log-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .log-table th, .log-table td { border: 1px solid #eee; padding: 5px; text-align: center; }
+        .log-table th { background: #f8f9fa; }
+        .highlight-red { color: #e74c3c; font-weight: bold; }
+        .highlight-blue { color: #2980b9; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2 style="margin-bottom: 15px;">세 동점 A, B, C 정밀 기하 분석 시뮬레이터</h2>
+    
+    <div class="container">
+        <canvas id="canvas" width="840" height="420"></canvas>
+        
+        <div class="dashboard">
+            <div class="card"><label>현재 넓이</label><div id="areaVal">0.000</div></div>
+            <div class="card"><label>실시간 각도</label><div id="angleVal">0.0°</div></div>
+            <button onclick="togglePlay()" id="playBtn" class="btn-play">일시정지</button>
+            <button onclick="resetAll()" class="btn-reset">데이터 초기화</button>
+        </div>
+
+        <div class="controls">
+            <span>0°</span>
+            <input type="range" id="timeSlider" min="0" max="360" step="0.1" value="0">
+            <span>360°</span>
+        </div>
+        
+        <div class="log-section">
+            <div class="log-box">
+                <div class="log-title">📍 일직선(Collinear) 케이스 기록</div>
+                <table class="log-table">
+                    <thead>
+                        <tr><th>구분</th><th>각도</th><th>A(x,y)</th><th>B(x,y)</th><th>C(x,y)</th></tr>
+                    </thead>
+                    <tbody id="collinearLog"></tbody>
+                </table>
+            </div>
+            <div class="log-box">
+                <div class="log-title">📐 최대 넓이(Max Area) 기록</div>
+                <table class="log-table">
+                    <thead>
+                        <tr><th>항목</th><th>수치 / 좌표</th></tr>
+                    </thead>
+                    <tbody id="maxAreaLog">
+                        <tr><td>최대 넓이</td><td id="maxAreaVal">-</td></tr>
+                        <tr><td>발생 각도</td><td id="maxAreaAngle">-</td></tr>
+                        <tr><td>A 좌표</td><td id="maxAreaA">-</td></tr>
+                        <tr><td>B 좌표</td><td id="maxAreaB">-</td></tr>
+                        <tr><td>C 좌표</td><td id="maxAreaC">-</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const scale = 75; 
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2 + 10;
+
+    let theta = 0;
+    let isPlaying = true;
+    let maxAreaInfo = { area: 0, angle: 0, A: "", B: "", C: "" };
+    let collinearCases = []; // 정확히 180, 270 두 지점 추적
+
+    function toCX(x) { return centerX + x * scale; }
+    function toCY(y) { return centerY - y * scale; }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. 명확한 x, y축 표시
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY); ctx.lineTo(canvas.width, centerY); // x축
+        ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height); // y축
+        ctx.stroke();
+
+        // 보조 그리드 (연하게)
+        ctx.strokeStyle = '#e9ecef';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for(let i=-6; i<=6; i++) {
+            if(i===0) continue;
+            ctx.moveTo(toCX(i), 0); ctx.lineTo(toCX(i), canvas.height);
+            ctx.moveTo(0, toCY(i)); ctx.lineTo(canvas.width, toCY(i));
+        }
+        ctx.stroke();
+
+        const rad = (theta * Math.PI) / 180;
+
+        // 2. 명확한 원 테두리 표시 (lineWidth 증가)
+        drawCircle(0, 1, 2, '#3498db', "원 X (r=2)");
+        drawCircle(1, 0, 1, '#2ecc71', "원 Y (r=1)");
+        drawCircle(-1, 0, 1, '#9b59b6', "원 Z (r=1)");
+
+        // 점 좌표 계산
+        const Ax = 2 * Math.sin(rad);
+        const Ay = 1 + 2 * Math.cos(rad);
+        const Bx = 1 + Math.sin(rad);
+        const By = Math.cos(rad);
+        const Cx = -1 - Math.sin(rad);
+        const Cy = Math.cos(rad);
+
+        // 넓이 계산 S = |(1+sinθ)(1+cosθ)|
+        const area = Math.abs((1 + Math.sin(rad)) * (1 + Math.cos(rad)));
+        
+        // --- 데이터 기록 로직 ---
+        
+        // 최대 넓이 업데이트
+        if (area > maxAreaInfo.area) {
+            maxAreaInfo = {
+                area: area,
+                angle: theta.toFixed(1),
+                A: `(${Ax.toFixed(2)}, ${Ay.toFixed(2)})`,
+                B: `(${Bx.toFixed(2)}, ${By.toFixed(2)})`,
+                C: `(${Cx.toFixed(2)}, ${Cy.toFixed(2)})`
+            };
+            updateMaxAreaUI();
+        }
+
+        // 일직선 케이스 포착 (180도, 270도 정밀 타격)
+        [180, 270].forEach(targetAngle => {
+            if (Math.abs(theta - targetAngle) < 0.26) { // 진행 속도 고려한 포착 범위
+                if (!collinearCases.some(c => c.target === targetAngle)) {
+                    collinearCases.push({
+                        target: targetAngle,
+                        angle: theta.toFixed(1),
+                        A: `(${Ax.toFixed(2)}, ${Ay.toFixed(2)})`,
+                        B: `(${Bx.toFixed(2)}, ${By.toFixed(2)})`,
+                        C: `(${Cx.toFixed(2)}, ${Cy.toFixed(2)})`,
+                        lineData: {Ax, Ay, Bx, By, Cx, Cy}
+                    });
+                    updateCollinearUI();
+                }
+            }
+        });
+
+        // --- 화면 표시 (잔상/가이드) ---
+
+        // 포착된 일직선 가이드라인 상시 표시
+        collinearCases.forEach(c => {
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            if(c.target === 270) { // 수직에 가까운 경우
+                const m = (c.lineData.Ay - c.lineData.By) / (c.lineData.Ax - c.lineData.Bx);
+                ctx.moveTo(toCX(c.lineData.Ax - 10), toCY(c.lineData.Ay - 10 * m));
+                ctx.lineTo(toCX(c.lineData.Ax + 10), toCY(c.lineData.Ay + 10 * m));
+            } else { // 180도 가로선
+                ctx.moveTo(0, toCY(c.lineData.By));
+                ctx.lineTo(canvas.width, toCY(c.lineData.By));
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = "bold 10px Arial";
+            ctx.fillText(`일직선 Case (${c.target}°)`, toCX(c.target === 180 ? -4.5 : 1.5), toCY(c.lineData.By + 0.2));
+        });
+
+        // 현재 삼각형 및 점
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+        ctx.setLineDash([]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(toCX(Ax), toCY(Ay)); ctx.lineTo(toCX(Bx), toCY(By)); ctx.lineTo(toCX(Cx), toCY(Cy)); ctx.closePath(); ctx.stroke();
+
+        drawPoint(Ax, Ay, '#3498db', "A");
+        drawPoint(Bx, By, '#2ecc71', "B");
+        drawPoint(Cx, Cy, '#9b59b6', "C");
+
+        // UI 갱신
+        document.getElementById('areaVal').innerText = area.toFixed(3);
+        document.getElementById('angleVal').innerText = theta.toFixed(1) + "°";
+        document.getElementById('timeSlider').value = theta;
+
+        if (isPlaying) {
+            theta = (theta + 0.5) % 360.5;
+            if(theta >= 360) theta = 0;
+        }
+        requestAnimationFrame(draw);
+    }
+
+    function drawCircle(x, y, r, color, label) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5; // 테두리 명확히
+        ctx.beginPath(); ctx.arc(toCX(x), toCY(y), r*scale, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.font = "bold 11px Arial";
+        ctx.fillText(label, toCX(x), toCY(y + r + 0.3));
+    }
+
+    function drawPoint(x, y, color, label) {
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(toCX(x), toCY(y), 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 13px Arial";
+        ctx.fillText(label, toCX(x) + 8, toCY(y) - 8);
+    }
+
+    function updateCollinearUI() {
+        const tbody = document.getElementById('collinearLog');
+        tbody.innerHTML = "";
+        collinearCases.sort((a,b)=>a.target-b.target).forEach((c, i) => {
+            const row = tbody.insertRow();
+            row.innerHTML = `<td>케이스${i+1}</td><td class="highlight-red">${c.angle}°</td><td>${c.A}</td><td>${c.B}</td><td>${c.C}</td>`;
+        });
+    }
+
+    function updateMaxAreaUI() {
+        document.getElementById('maxAreaVal').innerText = maxAreaInfo.area.toFixed(4);
+        document.getElementById('maxAreaAngle').innerText = maxAreaInfo.angle + "°";
+        document.getElementById('maxAreaA').innerText = maxAreaInfo.A;
+        document.getElementById('maxAreaB').innerText = maxAreaInfo.B;
+        document.getElementById('maxAreaC').innerText = maxAreaInfo.C;
+    }
+
+    function togglePlay() {
+        isPlaying = !isPlaying;
+        document.getElementById('playBtn').innerText = isPlaying ? "일시정지" : "재생";
+    }
+
+    function resetAll() {
+        theta = 0;
+        maxAreaInfo = { area: 0, angle: 0, A: "", B: "", C: "" };
+        collinearCases = [];
+        document.getElementById('collinearLog').innerHTML = "";
+        updateMaxAreaUI();
+    }
+
+    document.getElementById('timeSlider').oninput = function() {
+        theta = parseFloat(this.value);
+    };
+
+    draw();
+</script>
+</body>
+</html>

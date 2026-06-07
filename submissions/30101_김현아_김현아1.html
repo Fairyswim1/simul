@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2024 KAIST 기출문제 시뮬레이션</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
+        canvas { background-color: white; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .fade-in { animation: fadeIn 0.8s ease-in forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .hidden-content { opacity: 0; display: none; }
+        .visible-content { display: block; animation: fadeIn 0.8s ease-in forwards; }
+    </style>
+</head>
+<body class="p-3 md:p-6 h-screen flex flex-col overflow-hidden">
+    
+    <header class="mb-4 flex justify-between items-center shrink-0">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-slate-800">2024학년도 KAIST 기출 시뮬레이션</h1>
+            <p class="text-slate-500 text-sm mt-1">애니메이션 시작 버튼을 누르면 점 A, B, C가 원을 따라 이동합니다.</p>
+        </div>
+        <button id="startBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition duration-200 text-sm">
+            애니메이션 시작 (1회전)
+        </button>
+    </header>
+
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
+        <!-- 왼쪽: 캔버스 영역 -->
+        <div class="flex justify-center items-center bg-slate-100 rounded-xl p-2 min-h-0 h-full">
+            <canvas id="simCanvas" width="450" height="450" class="max-w-full max-h-full object-contain"></canvas>
+        </div>
+
+        <!-- 오른쪽: 문제 해설 영역 (위: 문제1, 아래: 문제2) -->
+        <div class="flex flex-col gap-4 min-h-0 h-full">
+            
+            <!-- 문제 1 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-y-auto">
+                <div class="border-b-2 border-blue-500 pb-2 mb-3 shrink-0">
+                    <h2 class="text-base font-bold text-slate-800">문제 1</h2>
+                    <p class="text-xs text-slate-600 mt-1">세 점 A, B, C가 각 원을 한 바퀴 도는 동안 한 직선 위에 있는 횟수를 구하라.</p>
+                </div>
+                
+                <div id="q1Status" class="flex-1 flex items-center justify-center text-slate-400 italic text-sm">
+                    애니메이션이 진행되면서 조건 만족 시 표시됩니다.
+                </div>
+
+                <div id="q1Result" class="hidden-content flex-1 space-y-3">
+                    <div class="bg-blue-50 p-3 rounded-lg shrink-0">
+                        <p class="font-bold text-blue-800 text-base">정답: 2번</p>
+                    </div>
+                    <div class="text-sm text-slate-700 space-y-2">
+                        <div id="q1-part1" class="hidden-content">
+                            <p><strong>첫 번째 일직선 위치 (\( t = \pi \)):</strong></p>
+                            <ul class="list-disc pl-5">
+                                <li>\( A(0, -1) \), \( B(1, -1) \), \( C(-1, -1) \)</li>
+                            </ul>
+                        </div>
+                        <div id="q1-part2" class="hidden-content mt-2">
+                            <p><strong>두 번째 일직선 위치 (\( t = \frac{3\pi}{2} \)):</strong></p>
+                            <ul class="list-disc pl-5">
+                                <li>\( A(-2, 1) \), \( B(0, 0) \), \( C(0, 0) \)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 문제 2 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-y-auto">
+                <div class="border-b-2 border-green-500 pb-2 mb-3 shrink-0">
+                    <h2 class="text-base font-bold text-slate-800">문제 2</h2>
+                    <p class="text-xs text-slate-600 mt-1">세 점 A, B, C가 만드는 삼각형 ABC 넓이의 최댓값을 구하라.</p>
+                </div>
+
+                <div id="q2Status" class="flex-1 flex items-center justify-center text-slate-400 italic text-sm">
+                    애니메이션이 진행되면서 조건 만족 시 표시됩니다.
+                </div>
+
+                <div id="q2Result" class="hidden-content flex-1 space-y-3">
+                    <div class="bg-green-50 p-3 rounded-lg shrink-0">
+                        <p class="font-bold text-green-800 text-base">정답: \( \frac{3}{2} + \sqrt{2} \)</p>
+                    </div>
+                    <div class="text-sm text-slate-700 space-y-2">
+                        <p><strong>최대 넓이일 때의 좌표 (\( t = \frac{\pi}{4} \)):</strong></p>
+                        <ul class="list-disc pl-5">
+                            <li>\( A(\sqrt{2}, 1+\sqrt{2}) \), \( B(1+\frac{\sqrt{2}}{2}, \frac{\sqrt{2}}{2}) \), \( C(-1-\frac{\sqrt{2}}{2}, \frac{\sqrt{2}}{2}) \)</li>
+                        </ul>
+                        <p class="mt-2 text-xs text-slate-500">
+                            * 왼쪽 그림에 핑크색으로 표시된 도형이 최대 넓이를 가지는 삼각형입니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+
+        // 좌표계 설정
+        const scale = 50; // 1단위 = 50픽셀 (한눈에 보이도록 축소)
+        const originX = canvas.width / 2;
+        const originY = canvas.height / 2 + 70; // y축 위치 미세 조정
+
+        // 화면 좌표 변환 함수
+        function toCX(x) { return originX + x * scale; }
+        function toCY(y) { return originY - y * scale; }
+
+        // 상태 변수
+        let t = 0;
+        let isAnimating = false;
+        let animationId;
+        
+        // 이벤트 플래그
+        let eventQ2Fired = false;
+        let eventQ1FirstFired = false;
+        let eventQ1SecondFired = false;
+
+        // 보존할 도형 데이터
+        let maxTriangle = null;
+        let line1 = null;
+        let line2 = null;
+
+        function init() {
+            t = 0;
+            isAnimating = false;
+            eventQ2Fired = false;
+            eventQ1FirstFired = false;
+            eventQ1SecondFired = false;
+            maxTriangle = null;
+            line1 = null;
+            line2 = null;
+
+            document.getElementById('q1Status').style.display = 'flex';
+            document.getElementById('q1Result').classList.remove('visible-content');
+            document.getElementById('q1Result').classList.add('hidden-content');
+            document.getElementById('q1-part1').classList.remove('visible-content');
+            document.getElementById('q1-part1').classList.add('hidden-content');
+            document.getElementById('q1-part2').classList.remove('visible-content');
+            document.getElementById('q1-part2').classList.add('hidden-content');
+
+            document.getElementById('q2Status').style.display = 'flex';
+            document.getElementById('q2Result').classList.remove('visible-content');
+            document.getElementById('q2Result').classList.add('hidden-content');
+            
+            drawFrame();
+        }
+
+        function drawAxes() {
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1;
+            
+            // X축
+            ctx.beginPath(); ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY); ctx.stroke();
+            // Y축
+            ctx.beginPath(); ctx.moveTo(originX, 0); ctx.lineTo(originX, canvas.height); ctx.stroke();
+
+            // 눈금 그리기
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            for(let i = -3; i <= 3; i++) {
+                if(i !== 0) {
+                    ctx.fillText(i, toCX(i), originY + 15);
+                    ctx.beginPath(); ctx.moveTo(toCX(i), originY - 3); ctx.lineTo(toCX(i), originY + 3); ctx.stroke();
+                }
+            }
+            ctx.textAlign = 'right';
+            for(let i = -1; i <= 4; i++) {
+                if(i !== 0) {
+                    ctx.fillText(i, originX - 5, toCY(i) + 4);
+                    ctx.beginPath(); ctx.moveTo(originX - 3, toCY(i)); ctx.lineTo(originX + 3, toCY(i)); ctx.stroke();
+                }
+            }
+            ctx.fillText('O', originX - 5, originY + 15);
+            ctx.fillText('x', canvas.width - 10, originY - 10);
+            ctx.fillText('y', originX + 15, 15);
+        }
+
+        function drawStaticCircles() {
+            ctx.lineWidth = 1.5;
+            
+            // 원 X (0, 1), r=2
+            ctx.strokeStyle = '#94a3b8';
+            ctx.beginPath(); ctx.arc(toCX(0), toCY(1), 2 * scale, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = '#64748b'; ctx.fillText('X', toCX(1.8), toCY(2.5));
+
+            // 원 Y (1, 0), r=1
+            ctx.beginPath(); ctx.arc(toCX(1), toCY(0), 1 * scale, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillText('Y', toCX(1.8), toCY(-0.8));
+
+            // 원 Z (-1, 0), r=1
+            ctx.beginPath(); ctx.arc(toCX(-1), toCY(0), 1 * scale, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillText('Z', toCX(-1.8), toCY(-0.8));
+        }
+
+        function getPositions(time) {
+            // A: (0,1) 중심, r=2, (0,3)에서 시계방향 (각도: pi/2 - t)
+            const ax = 2 * Math.sin(time);
+            const ay = 1 + 2 * Math.cos(time);
+
+            // B: (1,0) 중심, r=1, (1,1)에서 시계방향 (각도: pi/2 - t)
+            const bx = 1 + Math.sin(time);
+            const by = Math.cos(time);
+
+            // C: (-1,0) 중심, r=1, (-1,1)에서 반시계방향 (각도: pi/2 + t)
+            const cx = -1 - Math.sin(time);
+            const cy = Math.cos(time);
+
+            return { a: {x: ax, y: ay}, b: {x: bx, y: by}, c: {x: cx, y: cy} };
+        }
+
+        function drawPoint(p, label, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath(); ctx.arc(toCX(p.x), toCY(p.y), 5, 0, Math.PI * 2); ctx.fill();
+            
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText(label, toCX(p.x) - 10, toCY(p.y) - 10);
+        }
+
+        function drawMaxTriangleSnapshot() {
+            if (!maxTriangle) return;
+            ctx.fillStyle = 'rgba(236, 72, 153, 0.15)'; // 핑크색 반투명
+            ctx.strokeStyle = 'rgba(236, 72, 153, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+
+            ctx.beginPath();
+            ctx.moveTo(toCX(maxTriangle.a.x), toCY(maxTriangle.a.y));
+            ctx.lineTo(toCX(maxTriangle.b.x), toCY(maxTriangle.b.y));
+            ctx.lineTo(toCX(maxTriangle.c.x), toCY(maxTriangle.c.y));
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawCollinearLines() {
+            ctx.strokeStyle = 'rgba(249, 115, 22, 0.7)'; // 주황색
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+
+            if (line1) {
+                ctx.beginPath();
+                ctx.moveTo(toCX(-3), toCY(-1)); // 길게 그리기 위해 x 확장
+                ctx.lineTo(toCX(3), toCY(-1));
+                ctx.stroke();
+            }
+
+            if (line2) {
+                // A(-2,1), B/C(0,0)을 잇는 선
+                ctx.beginPath();
+                ctx.moveTo(toCX(-3), toCY(1.5));
+                ctx.lineTo(toCX(2), toCY(-1));
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        }
+
+        function drawFrame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawAxes();
+            drawStaticCircles();
+            drawMaxTriangleSnapshot();
+            drawCollinearLines();
+
+            const pos = getPositions(t);
+
+            // 현재 삼각형 그리기
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(toCX(pos.a.x), toCY(pos.a.y));
+            ctx.lineTo(toCX(pos.b.x), toCY(pos.b.y));
+            ctx.lineTo(toCX(pos.c.x), toCY(pos.c.y));
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 점 그리기
+            drawPoint(pos.a, 'A', '#ef4444');
+            drawPoint(pos.b, 'B', '#3b82f6');
+            drawPoint(pos.c, 'C', '#22c55e');
+
+            // 궤적 표시 (선택사항, 깔끔하게 위해 생략)
+        }
+
+        function triggerPauseAndShow(duration, callback) {
+            isAnimating = false;
+            setTimeout(() => {
+                isAnimating = true;
+                if(callback) callback();
+                animate();
+            }, duration);
+        }
+
+        function animate() {
+            if (!isAnimating) return;
+
+            t += 0.01; // 속도 조절
+
+            // 1. 최대 넓이 지점 도달 (t = pi/4)
+            if (t >= Math.PI / 4 && !eventQ2Fired) {
+                eventQ2Fired = true;
+                maxTriangle = getPositions(Math.PI / 4);
+                
+                drawFrame(); // 현재 프레임 강제 렌더링
+                
+                // 도형이 그려진 직후(0.4초 뒤)에 정답 표시
+                setTimeout(() => {
+                    document.getElementById('q2Status').style.display = 'none';
+                    document.getElementById('q2Result').classList.remove('hidden-content');
+                    document.getElementById('q2Result').classList.add('visible-content');
+                }, 400);
+
+                triggerPauseAndShow(800); // 멈춤 시간 단축 (1.5초 -> 0.8초)
+                return; 
+            }
+
+            // 2. 첫 번째 일직선 지점 도달 (t = pi)
+            if (t >= Math.PI && !eventQ1FirstFired) {
+                eventQ1FirstFired = true;
+                line1 = getPositions(Math.PI);
+
+                drawFrame();
+                
+                setTimeout(() => {
+                    document.getElementById('q1Status').style.display = 'none';
+                    document.getElementById('q1Result').classList.remove('hidden-content');
+                    document.getElementById('q1Result').classList.add('visible-content');
+                    document.getElementById('q1-part1').classList.remove('hidden-content');
+                    document.getElementById('q1-part1').classList.add('visible-content');
+                }, 400);
+                
+                triggerPauseAndShow(800);
+                return;
+            }
+
+            // 3. 두 번째 일직선 지점 도달 (t = 3pi/2)
+            if (t >= 3 * Math.PI / 2 && !eventQ1SecondFired) {
+                eventQ1SecondFired = true;
+                line2 = getPositions(3 * Math.PI / 2);
+
+                drawFrame();
+                
+                setTimeout(() => {
+                    document.getElementById('q1-part2').classList.remove('hidden-content');
+                    document.getElementById('q1-part2').classList.add('visible-content');
+                }, 400);
+                
+                triggerPauseAndShow(800);
+                return;
+            }
+
+            // 종료 조건
+            if (t >= 2 * Math.PI) {
+                t = 2 * Math.PI;
+                drawFrame();
+                isAnimating = false;
+                startBtn.disabled = false;
+                startBtn.innerText = "다시 재생";
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                return;
+            }
+
+            drawFrame();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        startBtn.addEventListener('click', () => {
+            init();
+            isAnimating = true;
+            startBtn.disabled = true;
+            startBtn.innerText = "시뮬레이션 진행 중...";
+            startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            animate();
+        });
+
+        // 초기 화면 그리기
+        init();
+    </script>
+</body>
+</html>

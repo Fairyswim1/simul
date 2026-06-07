@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circle Distance Pro Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        canvas {
+            background-color: #ffffff;
+            border-radius: 12px;
+            cursor: crosshair;
+        }
+        .font-mono-custom { font-family: 'JetBrains+Mono', monospace; }
+        .extrema-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .hidden-card { opacity: 0; transform: translateY(10px); pointer-events: none; }
+        .visible-card { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 md:p-6 font-sans">
+    <div class="max-w-7xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-end mb-6 gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">Circle Point Dynamics</h1>
+                <p class="text-slate-500 font-medium">$P(t) = (\cos 2t, \sin 2t)$ vs $Q(t) = (4 + 2\cos t, 2\sin t)$</p>
+            </div>
+            <div class="flex gap-3">
+                <button id="playPauseBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-full font-bold transition-all active:scale-95 shadow-md">일시정지</button>
+                <button id="resetBtn" class="bg-white border border-slate-200 text-slate-600 px-6 py-2 rounded-full font-bold hover:bg-slate-50 transition-all active:scale-95">초기화</button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left: Simulation & Graph -->
+            <div class="lg:col-span-9 space-y-6">
+                <!-- Simulation Area -->
+                <div class="bg-white p-4 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200">
+                    <div class="flex justify-between items-center mb-4 px-2">
+                        <div class="flex gap-4 text-[13px]">
+                            <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-md font-mono-custom font-bold">P: <span id="pDisp">1.00, 0.00</span></span>
+                            <span class="bg-red-100 text-red-700 px-3 py-1 rounded-md font-mono-custom font-bold">Q: <span id="qDisp">6.00, 0.00</span></span>
+                        </div>
+                        <div class="text-xl font-black text-indigo-600 font-mono-custom italic">DIST: <span id="distDisp">5.0000</span></div>
+                    </div>
+                    <canvas id="simCanvas" class="w-full h-[450px] border border-slate-100"></canvas>
+                </div>
+
+                <!-- Graph Area -->
+                <div class="bg-white p-4 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200">
+                    <div class="flex justify-between items-center mb-4 px-4">
+                        <h2 class="font-bold text-slate-400 text-xs tracking-widest uppercase italic">Distance-Time Function $d(t)$</h2>
+                        <span id="timeDisp" class="bg-slate-900 text-white px-3 py-1 rounded-lg font-mono-custom text-sm">0.00π</span>
+                    </div>
+                    <canvas id="graphCanvas" class="w-full h-[250px] border border-slate-100"></canvas>
+                </div>
+            </div>
+
+            <!-- Right: Info & Results -->
+            <div class="lg:col-span-3 space-y-6">
+                <div class="bg-slate-900 text-white p-6 rounded-3xl shadow-2xl">
+                    <h3 class="text-xs font-bold text-slate-500 tracking-widest uppercase mb-4">Controller</h3>
+                    <label class="block text-xs text-slate-400 mb-2 uppercase font-bold">Speed Multiplier</label>
+                    <input type="range" id="speedSlider" min="0.1" max="2" step="0.1" value="1" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500 mb-6">
+                    
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs text-slate-400"><span class="font-bold">Period</span><span>$2\pi$</span></div>
+                        <div class="flex justify-between text-xs text-slate-400"><span class="font-bold">Step</span><span>0.008 rad</span></div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div id="maxCard" class="extrema-card hidden-card bg-white p-5 rounded-3xl border-l-4 border-red-500 shadow-md">
+                        <div class="flex justify-between text-[10px] font-black text-red-500 tracking-widest uppercase mb-1">
+                            <span>Maximum</span>
+                            <span class="bg-red-50 px-2 rounded-full">Detected</span>
+                        </div>
+                        <div id="maxVal" class="text-3xl font-black text-slate-800 mb-1">--</div>
+                        <div id="maxExact" class="text-sm font-bold text-red-600 italic mb-3">--</div>
+                        <div class="grid grid-cols-2 gap-2 text-[10px] font-mono-custom text-slate-400">
+                            <div>Time: <span id="maxTime" class="text-slate-700"></span></div>
+                            <div>Pos: <span id="maxPos" class="text-slate-700"></span></div>
+                        </div>
+                    </div>
+
+                    <div id="minCard" class="extrema-card hidden-card bg-white p-5 rounded-3xl border-l-4 border-blue-500 shadow-md">
+                        <div class="flex justify-between text-[10px] font-black text-blue-500 tracking-widest uppercase mb-1">
+                            <span>Minimum</span>
+                            <span class="bg-blue-50 px-2 rounded-full">Detected</span>
+                        </div>
+                        <div id="minVal" class="text-3xl font-black text-slate-800 mb-1">--</div>
+                        <div id="minExact" class="text-sm font-bold text-blue-600 italic mb-3">--</div>
+                        <div class="grid grid-cols-2 gap-2 text-[10px] font-mono-custom text-slate-400">
+                            <div>Time: <span id="minTime" class="text-slate-700"></span></div>
+                            <div>Pos: <span id="minPos" class="text-slate-700"></span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const simCanvas = document.getElementById('simCanvas');
+        const sCtx = simCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const gCtx = graphCanvas.getContext('2d');
+
+        let time = 0;
+        let isRunning = true;
+        let history = [];
+        let confirmedMax = null, confirmedMin = null;
+        let prevDist = null, trend = null;
+
+        const scale = 50;
+        const speedBase = 0.008;
+
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            const sBox = simCanvas.getBoundingClientRect();
+            const gBox = graphCanvas.getBoundingClientRect();
+            simCanvas.width = sBox.width * dpr;
+            simCanvas.height = sBox.height * dpr;
+            graphCanvas.width = gBox.width * dpr;
+            graphCanvas.height = gBox.height * dpr;
+            sCtx.scale(dpr, dpr);
+            gCtx.scale(dpr, dpr);
+        }
+
+        function getP(t) { return { x: Math.cos(2 * t), y: Math.sin(2 * t) }; }
+        function getQ(t) { return { x: 4 + 2 * Math.cos(t), y: 2 * Math.sin(t) }; }
+
+        function getExactLabel(type, t) {
+            const piRatio = t / Math.PI;
+            if (type === 'max' && Math.abs(piRatio - 1) < 0.05) return "$d = 7$";
+            if (type === 'min' && (Math.abs(piRatio) < 0.05 || Math.abs(piRatio - 2) < 0.05)) return "$d = 3$";
+            if (type === 'min' && Math.abs(piRatio - 0.66) < 0.05) return "$d = \\sqrt{7}$";
+            return "";
+        }
+
+        function drawSim() {
+            const w = simCanvas.width / (window.devicePixelRatio || 1);
+            const h = simCanvas.height / (window.devicePixelRatio || 1);
+            const centerX = w * 0.2;
+            const centerY = h * 0.5;
+
+            sCtx.clearRect(0, 0, w, h);
+
+            // --- 1. 정밀 그리드 (Grid) ---
+            sCtx.lineWidth = 1;
+            for(let i = -5; i <= 10; i++) {
+                // 수직선
+                sCtx.beginPath();
+                sCtx.strokeStyle = (i === 0) ? '#cbd5e1' : '#f1f5f9';
+                sCtx.lineWidth = (i === 0) ? 2 : 1;
+                sCtx.moveTo(centerX + i * scale, 0);
+                sCtx.lineTo(centerX + i * scale, h);
+                sCtx.stroke();
+                
+                // 수직선 숫자
+                if (i !== 0) {
+                    sCtx.fillStyle = '#94a3b8';
+                    sCtx.font = '10px JetBrains Mono';
+                    sCtx.textAlign = 'center';
+                    sCtx.fillText(i, centerX + i * scale, centerY + 15);
+                }
+            }
+            for(let j = -5; j <= 5; j++) {
+                // 수평선
+                sCtx.beginPath();
+                sCtx.strokeStyle = (j === 0) ? '#cbd5e1' : '#f1f5f9';
+                sCtx.lineWidth = (j === 0) ? 2 : 1;
+                sCtx.moveTo(0, centerY - j * scale);
+                sCtx.lineTo(w, centerY - j * scale);
+                sCtx.stroke();
+
+                // 수평선 숫자
+                if (j !== 0) {
+                    sCtx.fillStyle = '#94a3b8';
+                    sCtx.font = '10px JetBrains Mono';
+                    sCtx.textAlign = 'right';
+                    sCtx.fillText(j, centerX - 10, centerY - j * scale + 4);
+                }
+            }
+
+            // --- 2. 궤적 ---
+            sCtx.setLineDash([]);
+            sCtx.lineWidth = 2.5;
+            sCtx.globalAlpha = 0.4;
+            // Circle P
+            sCtx.beginPath(); sCtx.strokeStyle = '#3b82f6';
+            sCtx.arc(centerX, centerY, scale, 0, Math.PI * 2); sCtx.stroke();
+            // Circle Q
+            sCtx.beginPath(); sCtx.strokeStyle = '#ef4444';
+            sCtx.arc(centerX + 4 * scale, centerY, 2 * scale, 0, Math.PI * 2); sCtx.stroke();
+            sCtx.globalAlpha = 1.0;
+
+            // --- 3. 동점 ---
+            const P = getP(time);
+            const Q = getQ(time);
+            const dist = Math.sqrt((Q.x - P.x)**2 + (Q.y - P.y)**2);
+            const scP = { x: centerX + P.x * scale, y: centerY - P.y * scale };
+            const scQ = { x: centerX + Q.x * scale, y: centerY - Q.y * scale };
+
+            // 선
+            sCtx.setLineDash([4, 4]);
+            sCtx.strokeStyle = '#6366f1';
+            sCtx.beginPath(); sCtx.moveTo(scP.x, scP.y); sCtx.lineTo(scQ.x, scQ.y); sCtx.stroke();
+            sCtx.setLineDash([]);
+
+            // 점 P
+            sCtx.fillStyle = '#3b82f6';
+            sCtx.beginPath(); sCtx.arc(scP.x, scP.y, 7, 0, Math.PI*2); sCtx.fill();
+            sCtx.strokeStyle = '#fff'; sCtx.lineWidth = 2; sCtx.stroke();
+            // 점 Q
+            sCtx.fillStyle = '#ef4444';
+            sCtx.beginPath(); sCtx.arc(scQ.x, scQ.y, 7, 0, Math.PI*2); sCtx.fill();
+            sCtx.stroke();
+
+            // UI 업데이트
+            document.getElementById('pDisp').innerText = `${P.x.toFixed(2)}, ${P.y.toFixed(2)}`;
+            document.getElementById('qDisp').innerText = `${Q.x.toFixed(2)}, ${Q.y.toFixed(2)}`;
+            document.getElementById('distDisp').innerText = dist.toFixed(4);
+            document.getElementById('timeDisp').innerText = (time/Math.PI).toFixed(2) + 'π';
+
+            // 극값 판정
+            if (prevDist !== null) {
+                let curTrend = dist > prevDist ? 'up' : 'down';
+                if (trend && trend !== curTrend) {
+                    if (trend === 'up' && !confirmedMax) {
+                        confirmedMax = { d: prevDist, t: time-speedBase, p: getP(time-speedBase), q: getQ(time-speedBase) };
+                        showCard('max', confirmedMax);
+                    } else if (trend === 'down' && !confirmedMin) {
+                        confirmedMin = { d: prevDist, t: time-speedBase, p: getP(time-speedBase), q: getQ(time-speedBase) };
+                        showCard('min', confirmedMin);
+                    }
+                }
+                trend = curTrend;
+            }
+            prevDist = dist;
+            history.push({t: time, d: dist});
+
+            if (time > Math.PI * 2) {
+                time = 0; history = []; confirmedMax = null; confirmedMin = null; 
+                trend = null; prevDist = null;
+                document.getElementById('maxCard').classList.replace('visible-card', 'hidden-card');
+                document.getElementById('minCard').classList.replace('visible-card', 'hidden-card');
+            }
+        }
+
+        function showCard(type, data) {
+            const card = document.getElementById(type + 'Card');
+            const val = document.getElementById(type + 'Val');
+            const exact = document.getElementById(type + 'Exact');
+            const tText = document.getElementById(type + 'Time');
+            const pText = document.getElementById(type + 'Pos');
+
+            val.innerText = data.d.toFixed(4);
+            exact.innerText = getExactLabel(type, data.t);
+            tText.innerText = (data.t/Math.PI).toFixed(2) + 'π';
+            pText.innerText = `P:(${data.p.x.toFixed(1)},${data.p.y.toFixed(1)})`;
+            
+            card.classList.replace('hidden-card', 'visible-card');
+            if (window.MathJax) MathJax.typesetPromise();
+        }
+
+        function drawGraph() {
+            const w = graphCanvas.width / (window.devicePixelRatio || 1);
+            const h = graphCanvas.height / (window.devicePixelRatio || 1);
+            const pad = { t: 20, r: 40, b: 50, l: 40 };
+            const gW = w - pad.l - pad.r;
+            const gH = h - pad.t - pad.b;
+
+            gCtx.clearRect(0, 0, w, h);
+
+            // --- 축 그리기 (X & Y) ---
+            gCtx.strokeStyle = '#cbd5e1';
+            gCtx.lineWidth = 2;
+            gCtx.beginPath();
+            gCtx.moveTo(pad.l, pad.t); gCtx.lineTo(pad.l, h - pad.b); // Y
+            gCtx.lineTo(w - pad.r, h - pad.b); // X
+            gCtx.stroke();
+
+            // Y축 눈금 (Distance)
+            gCtx.fillStyle = '#94a3b8';
+            gCtx.font = '10px JetBrains Mono';
+            gCtx.textAlign = 'right';
+            for(let i=0; i<=8; i+=2) {
+                const y = h - pad.b - (i / 8) * gH;
+                gCtx.fillText(i, pad.l - 8, y + 4);
+                gCtx.beginPath(); gCtx.strokeStyle = '#f1f5f9'; gCtx.moveTo(pad.l, y); gCtx.lineTo(w - pad.r, y); gCtx.stroke();
+            }
+
+            // X축 눈금 (Time in PI)
+            gCtx.textAlign = 'center';
+            const labels = [
+                {v: 0, t: '0'}, {v: 0.5, t: '0.5π'}, {v: 1.0, t: '1.0π'}, 
+                {v: 1.5, t: '1.5π'}, {v: 2.0, t: '2.0π'}
+            ];
+            labels.forEach(l => {
+                const x = pad.l + (l.v / 2) * gW;
+                gCtx.fillStyle = '#94a3b8';
+                gCtx.fillText(l.t, x, h - pad.b + 20);
+                // 작은 눈금선
+                gCtx.beginPath(); gCtx.strokeStyle = '#cbd5e1';
+                gCtx.moveTo(x, h - pad.b); gCtx.lineTo(x, h - pad.b + 5); gCtx.stroke();
+            });
+
+            if (history.length < 2) return;
+
+            const getX = (t) => pad.l + (t / (Math.PI * 2)) * gW;
+            const getY = (d) => h - pad.b - (d / 8) * gH;
+
+            // 그래프 선
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#6366f1';
+            gCtx.lineWidth = 3;
+            history.forEach((p, i) => {
+                const x = getX(p.t); const y = getY(p.d);
+                if(i===0) gCtx.moveTo(x, y); else gCtx.lineTo(x, y);
+            });
+            gCtx.stroke();
+
+            // 극값 마커
+            const drawMarker = (data, color, label) => {
+                const x = getX(data.t); const y = getY(data.d);
+                gCtx.fillStyle = color;
+                gCtx.beginPath(); gCtx.arc(x, y, 5, 0, Math.PI*2); gCtx.fill();
+                gCtx.strokeStyle = '#fff'; gCtx.stroke();
+                gCtx.font = 'bold 10px JetBrains Mono';
+                gCtx.fillText(label, x, y - 10);
+            };
+
+            if(confirmedMax) drawMarker(confirmedMax, '#ef4444', 'MAX');
+            if(confirmedMin) drawMarker(confirmedMin, '#3b82f6', 'MIN');
+        }
+
+        function animate() {
+            if (isRunning) {
+                const speed = parseFloat(document.getElementById('speedSlider').value);
+                time += speedBase * speed;
+                drawSim();
+                drawGraph();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        document.getElementById('playPauseBtn').onclick = () => {
+            isRunning = !isRunning;
+            document.getElementById('playPauseBtn').innerText = isRunning ? '일시정지' : '다시 시작';
+        };
+
+        document.getElementById('resetBtn').onclick = () => {
+            time = 0; history = []; confirmedMax = null; confirmedMin = null;
+            trend = null; prevDist = null;
+            document.getElementById('maxCard').classList.replace('visible-card', 'hidden-card');
+            document.getElementById('minCard').classList.replace('visible-card', 'hidden-card');
+        };
+
+        window.onload = () => {
+            resize();
+            window.addEventListener('resize', resize);
+            animate();
+        };
+    </script>
+</body>
+</html>

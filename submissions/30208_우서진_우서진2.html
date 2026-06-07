@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>원뿔곡선 시뮬레이터 | 우서진</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&family=Playfair+Display:wght@700&display=swap');
+:root{--bg:#0a0e1a;--panel:#0f1525;--panel2:#141b30;--border:#1e2d50;--accent:#4fa3ff;--accent2:#7b61ff;--gold:#f0c040;--green:#4fffb0;--red:#ff6b6b;--text:#e8eaf6;--text2:#8899bb;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+header{display:flex;align-items:center;justify-content:space-between;padding:9px 22px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;}
+.ht1{display:flex;align-items:center;gap:11px;}
+.ht1 h1{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--accent);}
+.ht1 span{font-size:0.7rem;color:var(--text2);font-family:'JetBrains Mono',monospace;}
+.badge{background:linear-gradient(135deg,var(--accent2),var(--accent));padding:3px 10px;border-radius:20px;font-size:0.67rem;font-weight:700;color:#fff;}
+.main{display:flex;flex:1;overflow:hidden;}
+.lp{width:265px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:13px;gap:12px;}
+.sec{font-size:0.61rem;font-family:'JetBrains Mono',monospace;color:var(--accent);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+.sec::before{content:'';width:3px;height:10px;background:var(--accent);border-radius:2px;display:inline-block;}
+.cg{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.sr{display:flex;flex-direction:column;gap:3px;}
+.sl{display:flex;justify-content:space-between;font-size:0.74rem;color:var(--text2);}
+.sl .v{font-family:'JetBrains Mono',monospace;font-size:0.76rem;color:var(--text);background:#1a2540;padding:1px 7px;border-radius:4px;min-width:48px;text-align:right;}
+input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 0 5px rgba(79,163,255,.6);cursor:pointer;}
+.rs-t{background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--p,50%),#1a2540 var(--p,50%));}
+.rs-a{background:linear-gradient(to right,var(--gold) 0%,var(--gold) var(--p,50%),#1a2540 var(--p,50%));}
+.rs-a::-webkit-slider-thumb{background:var(--gold);box-shadow:0 0 5px rgba(240,192,64,.6);}
+.rs-r{background:linear-gradient(to right,var(--accent2) 0%,var(--accent2) var(--p,50%),#1a2540 var(--p,50%));}
+.rs-r::-webkit-slider-thumb{background:var(--accent2);}
+.rs-h{background:linear-gradient(to right,var(--green) 0%,var(--green) var(--p,50%),#1a2540 var(--p,50%));}
+.rs-h::-webkit-slider-thumb{background:var(--green);}
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.pb{padding:7px 4px;border-radius:7px;border:1.5px solid;font-size:0.7rem;font-weight:700;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;text-align:center;background:transparent;}
+.pb:hover{filter:brightness(1.5);transform:translateY(-1px);}
+.pb-c{border-color:var(--accent);color:var(--accent);}
+.pb-e{border-color:var(--green);color:var(--green);}
+.pb-p{border-color:var(--gold);color:var(--gold);}
+.pb-h{border-color:var(--red);color:var(--red);}
+.cc-card{border-radius:8px;padding:11px 13px;border:2px solid;transition:all .3s;}
+.cc-card .cn{font-size:1.1rem;font-weight:700;font-family:'Playfair Display',serif;margin-bottom:2px;}
+.cc-card .cd{font-size:0.68rem;color:var(--text2);font-family:'JetBrains Mono',monospace;}
+.cc-card .ce{font-size:0.72rem;margin-top:4px;font-family:'JetBrains Mono',monospace;}
+.ig{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.ic{background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:6px 8px;}
+.ic .il{font-size:0.57rem;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;font-family:'JetBrains Mono',monospace;}
+.ic .iv{font-size:0.79rem;font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700;margin-top:1px;}
+.tgg{display:flex;flex-direction:column;gap:5px;}
+.tgr{display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;color:var(--text2);}
+.tog{width:33px;height:18px;background:#222b45;border-radius:9px;position:relative;cursor:pointer;border:none;outline:none;flex-shrink:0;transition:background .2s;}
+.tog.on{background:var(--accent);}
+.tog::after{content:'';position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;}
+.tog.on::after{transform:translateX(15px);}
+.ca{flex:1;display:flex;position:relative;overflow:hidden;}
+#c3d{width:100%;height:100%;display:block;}
+.hud{position:absolute;top:11px;right:11px;display:flex;flex-direction:column;gap:7px;pointer-events:none;}
+.hcard{background:rgba(10,14,26,.9);border:1px solid var(--border);border-radius:7px;padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:0.68rem;color:var(--text2);backdrop-filter:blur(8px);max-width:215px;}
+.hcard .htt{color:var(--accent);font-size:0.6rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+.hcard pre{white-space:pre-wrap;line-height:1.6;color:var(--text);font-size:0.67rem;}
+.cam-hint{position:absolute;bottom:11px;left:50%;transform:translateX(-50%);background:rgba(10,14,26,.82);border:1px solid var(--border);border-radius:18px;padding:5px 15px;font-size:0.64rem;color:var(--text2);pointer-events:none;display:flex;gap:13px;backdrop-filter:blur(6px);}
+.kb{background:#1e2d50;border:1px solid var(--border);border-radius:3px;padding:1px 4px;color:var(--text);}
+.axleg{position:absolute;bottom:42px;right:11px;display:flex;flex-direction:column;gap:3px;pointer-events:none;}
+.axr{display:flex;align-items:center;gap:5px;font-size:0.64rem;font-family:'JetBrains Mono',monospace;}
+.axd{width:10px;height:3px;border-radius:2px;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="ht1"><h1>원뿔곡선 시뮬레이터</h1><span>Conic Section 3D Visualizer</span></div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <span class="badge">3D Interactive</span>
+    <span style="font-size:0.69rem;color:var(--text2);">인천과학예술영재학교 · 3-2-8 우서진</span>
+  </div>
+</header>
+<div class="main">
+<div class="lp">
+  <div>
+    <div class="sec">각도 설정</div>
+    <div class="cg">
+      <div class="sr"><div class="sl"><span>θ 단면각</span><span class="v" id="vT">30.0°</span></div><input type="range" class="rs-t" id="sT" min="0" max="89" step="0.5" value="30"></div>
+      <div class="sr"><div class="sl"><span>α 모선각</span><span class="v" id="vA">45.0°</span></div><input type="range" class="rs-a" id="sA" min="5" max="80" step="0.5" value="45"></div>
+    </div>
+  </div>
+  <div>
+    <div class="sec">원뿔 치수</div>
+    <div class="cg">
+      <div class="sr"><div class="sl"><span>밑면 반지름 r</span><span class="v" id="vR">2.0</span></div><input type="range" class="rs-r" id="sR" min="0.5" max="4" step="0.1" value="2"></div>
+      <div class="sr"><div class="sl"><span>원점 거리 a</span><span class="v" id="vH">1.50</span></div><input type="range" class="rs-h" id="sH" min="0" max="2" step="0.05" value="1.5"></div>
+    </div>
+  </div>
+  <div>
+    <div class="sec">빠른 프리셋</div>
+    <div class="pg">
+      <button class="pb pb-c" onclick="preset('circle')">원 (θ=0°)</button>
+      <button class="pb pb-e" onclick="preset('ellipse')">타원</button>
+      <button class="pb pb-p" onclick="preset('parabola')">포물선</button>
+      <button class="pb pb-h" onclick="preset('hyperbola')">쌍곡선</button>
+    </div>
+  </div>
+  <div>
+    <div class="sec">현재 곡선</div>
+    <div class="cc-card" id="conicCard">
+      <div class="cn" id="conicName">타원</div>
+      <div class="cd" id="conicCond">0 &lt; θ &lt; α</div>
+      <div class="ce" id="conicEq"></div>
+    </div>
+  </div>
+  <div>
+    <div class="sec">수치 정보</div>
+    <div class="ig">
+      <div class="ic"><div class="il">θ (단면각)</div><div class="iv" id="iT">30.0°</div></div>
+      <div class="ic"><div class="il">α (모선각)</div><div class="iv" id="iA" style="color:var(--gold)">45.0°</div></div>
+      <div class="ic"><div class="il">이심률 e</div><div class="iv" id="iE">0.707</div></div>
+      <div class="ic"><div class="il">곡선 종류</div><div class="iv" id="iType" style="color:var(--green)">타원</div></div>
+    </div>
+  </div>
+  <div>
+    <div class="sec">표시 설정</div>
+    <div class="tgg">
+      <div class="tgr"><span>원뿔 표면</span><button class="tog on" id="togCone" onclick="tv('cone')"></button></div>
+      <div class="tgr"><span>절단 평면</span><button class="tog on" id="togPlane" onclick="tv('plane')"></button></div>
+      <div class="tgr"><span>단면 곡선</span><button class="tog on" id="togCurve" onclick="tv('curve')"></button></div>
+      <div class="tgr"><span>점 P·H·R</span><button class="tog on" id="togPoints" onclick="tv('points')"></button></div>
+      <div class="tgr"><span>좌표축</span><button class="tog on" id="togAxes" onclick="tv('axes')"></button></div>
+      <div class="tgr"><span>와이어프레임</span><button class="tog" id="togWire" onclick="tv('wire')"></button></div>
+    </div>
+  </div>
+</div>
+<div class="ca">
+  <canvas id="c3d"></canvas>
+  <div class="hud">
+    <div class="hcard"><div class="htt">단면 방정식</div><pre id="hudEq">-</pre></div>
+    <div class="hcard"><div class="htt">점 P 좌표</div><pre id="hudPts">-</pre></div>
+  </div>
+  <div class="axleg" style="bottom:44px;">
+    <div class="axr"><div class="axd" style="background:#ff5555;"></div><span style="color:#ff9999;">x축</span></div>
+    <div class="axr"><div class="axd" style="background:#55cc55;"></div><span style="color:#99ff99;">y축</span></div>
+    <div class="axr"><div class="axd" style="background:#5588ff;"></div><span style="color:#99aaff;">z축</span></div>
+    <div style="margin-top:6px;border-top:1px solid #1e2d50;padding-top:5px;display:flex;flex-direction:column;gap:4px;">
+      <div class="axr"><div style="width:9px;height:9px;border-radius:50%;background:#fff;flex-shrink:0;"></div><span style="color:#eee;font-family:'JetBrains Mono',monospace;font-size:.62rem;">P (단면 위 점)</span></div>
+      <div class="axr"><div style="width:9px;height:9px;border-radius:50%;background:#f0c040;flex-shrink:0;"></div><span style="color:#f0c040;font-family:'JetBrains Mono',monospace;font-size:.62rem;">H (밑면 수선발)</span></div>
+      <div class="axr"><div style="width:9px;height:9px;border-radius:50%;background:#4fffb0;flex-shrink:0;"></div><span style="color:#4fffb0;font-family:'JetBrains Mono',monospace;font-size:.62rem;">R (x축 수선발)</span></div>
+      <div class="axr"><div style="width:9px;height:9px;border-radius:50%;background:#ff9944;flex-shrink:0;"></div><span style="color:#ff9944;font-family:'JetBrains Mono',monospace;font-size:.62rem;">O (원점, C에서 a)</span></div>
+      <div class="axr"><div style="width:9px;height:9px;border-radius:50%;background:#6688ff;flex-shrink:0;"></div><span style="color:#99aaff;font-family:'JetBrains Mono',monospace;font-size:.62rem;">C (밑면 중심)</span></div>
+      <div class="axr"><div style="width:9px;height:9px;border-radius:50%;background:#ff88ff;flex-shrink:0;"></div><span style="color:#ffaaff;font-family:'JetBrains Mono',monospace;font-size:.62rem;">Q (모선∩밑면)</span></div>
+    </div>
+  </div>
+  <div class="cam-hint">
+    <span><span class="kb">드래그</span> 회전</span>
+    <span><span class="kb">휠</span> 줌</span>
+    <span><span class="kb">우클릭</span> 이동</span>
+    <span><span class="kb">R</span> 초기화</span>
+  </div>
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  좌표계 설정 (문제와 동일)
+//
+//  원뿔:
+//    꼭짓점 A = (0, 0, H)   ← Three.js에서 y가 위이므로 z→y 변환
+//    실제로 Three.js 좌표계로:
+//      꼭짓점 A = (0, H, 0)
+//      밑면 중심 C = (0, 0, 0)  (y=0 평면)
+//      밑면 반지름 r, 높이 H = r/tanα
+//    원뿔 내부 점 조건: x² + z² ≤ ((H-y)/H · r)²  (y∈[0,H])
+//    → x² + z² = (H-y)² · tan²α
+//
+//  절단 평면:
+//    문제에서 "밑면과 θ 각도를 이루는 평면"
+//    밑면은 y=0 평면. 절단 평면은 z축을 pivot으로 하여 θ만큼 기울어짐.
+//    → 평면: y = x · tanθ  (x축 방향으로 기울어짐)
+//    즉 절단 평면의 법선 n = (-sinθ, cosθ, 0)
+//    평면 방정식: -x·sinθ + y·cosθ = 0  →  y = x·tanθ
+//
+//  교선 (절단 곡선):
+//    y = x·tanθ 를 원뿔 방정식에 대입:
+//    x² + z² = (H - x·tanθ)² · tan²α
+//    let T=tanθ, t=tanα:
+//    x² + z² = (H - xT)² · t²
+//    x² + z² = H²t² - 2HT t²·x + T²t²·x²
+//    x²(1 - T²t²) + 2HT t²·x + z² - H²t² = 0
+//
+//  이를 x에 대한 이차방정식이 아닌,
+//  z를 변수로 보고 x를 매개변수로 사용:
+//    z² = H²t² - 2HT t²·x - x²(1-T²t²)
+//    z² = H²t² - 2HT t²·x - x² + T²t²·x²
+//    z² = -(1-T²t²)x² - 2HT t² x + H²t²
+//  → 이를 이용해 z를 계산하는 방식으로 곡선 생성.
+//  (x가 매개변수, 범위는 교점에서 결정)
+// ══════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('c3d');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0x0a0e1a,1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45,1,0.05,200);
+
+scene.add(new THREE.AmbientLight(0x445577,1.8));
+const dl=new THREE.DirectionalLight(0x99bbff,1.0); dl.position.set(4,7,5); scene.add(dl);
+const pl=new THREE.PointLight(0x4fa3ff,0.7,25); pl.position.set(-3,5,3); scene.add(pl);
+
+const gCone=new THREE.Group(), gPlane=new THREE.Group(), gCurve=new THREE.Group(),
+      gPts=new THREE.Group(), gAxes=new THREE.Group();
+[gCone,gPlane,gCurve,gPts,gAxes].forEach(g=>scene.add(g));
+
+const vis={cone:true,plane:true,curve:true,points:true,axes:true,wire:false};
+
+// ── Orbit ──
+let sph={th:0.6,ph:1.05,r:13}, pan=new THREE.Vector3(0,2,0), dragging=false,panning=false,pm={x:0,y:0};
+function camUpd(){
+  const sp=Math.sin(sph.ph),cp=Math.cos(sph.ph),st=Math.sin(sph.th),ct=Math.cos(sph.th);
+  camera.position.set(pan.x+sph.r*sp*st, pan.y+sph.r*cp, pan.z+sph.r*sp*ct);
+  camera.lookAt(pan);
+}
+canvas.addEventListener('mousedown',e=>{if(e.button===0)dragging=true;if(e.button===2)panning=true;pm={x:e.clientX,y:e.clientY};});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('mouseup',()=>{dragging=false;panning=false;});
+window.addEventListener('mousemove',e=>{
+  const dx=e.clientX-pm.x,dy=e.clientY-pm.y;
+  if(dragging){sph.th-=dx*.007;sph.ph=Math.max(.05,Math.min(Math.PI-.05,sph.ph+dy*.007));camUpd();}
+  if(panning){
+    const fwd=new THREE.Vector3().subVectors(pan,camera.position).normalize();
+    const right=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();
+    const up=new THREE.Vector3().crossVectors(right,fwd).normalize();
+    pan.addScaledVector(right,-dx*.013);pan.addScaledVector(up,dy*.013);camUpd();
+  }
+  pm={x:e.clientX,y:e.clientY};
+});
+canvas.addEventListener('wheel',e=>{sph.r=Math.max(2,Math.min(40,sph.r+e.deltaY*.025));camUpd();e.preventDefault();},{passive:false});
+document.addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R'){sph={th:0.6,ph:1.05,r:13};pan.set(0,2,0);camUpd();}});
+
+// ── Params ──
+let PR={theta:30,alpha:45,r:2,a:1.5};
+
+// ── Utils ──
+function clr(g){while(g.children.length)g.remove(g.children[0]);}
+function mkSphere(pos,rad,col){const m=new THREE.Mesh(new THREE.SphereGeometry(rad,16,16),new THREE.MeshBasicMaterial({color:col}));m.position.copy(pos);return m;}
+function mkLine(pts,col,dash=false,op=1){
+  const g=new THREE.BufferGeometry().setFromPoints(pts);
+  const mat=dash?new THREE.LineDashedMaterial({color:col,dashSize:.1,gapSize:.05,transparent:op<1,opacity:op}):new THREE.LineBasicMaterial({color:col,transparent:op<1,opacity:op});
+  const l=new THREE.Line(g,mat);if(dash)l.computeLineDistances();return l;
+}
+
+// ══════════════════════════════════════════════════════════
+//  AXES
+// ══════════════════════════════════════════════════════════
+function buildAxes(){
+  clr(gAxes);
+  [[new THREE.Vector3(6,0,0),0xff5555],[new THREE.Vector3(0,10,0),0x55cc55],[new THREE.Vector3(0,0,6),0x5588ff]].forEach(([d,c])=>{
+    gAxes.add(mkLine([new THREE.Vector3(0,0,0),d],c));
+  });
+  gAxes.add(new THREE.GridHelper(14,28,0x182438,0x0f1a2a));
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONE  — 꼭짓점 (0,H,0), 밑면 y=0, 중심 (0,0,0), 반지름 r
+// ══════════════════════════════════════════════════════════
+function buildCone(){
+  clr(gCone);
+  const {r,alpha}=PR;
+  const aR=alpha*Math.PI/180;
+  const H=r/Math.tan(aR);
+  const apex=new THREE.Vector3(0,H,0);
+  const SEG=80;
+
+  const pos=[], col=[];
+  for(let i=0;i<SEG;i++){
+    const a0=i/SEG*Math.PI*2, a1=(i+1)/SEG*Math.PI*2;
+    const b0=[r*Math.cos(a0),0,r*Math.sin(a0)];
+    const b1=[r*Math.cos(a1),0,r*Math.sin(a1)];
+    pos.push(0,H,0,...b0,...b1);
+    col.push(.3,.5,.9,.15,.27,.55,.15,.27,.55);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  geo.computeVertexNormals();
+
+  const mesh=new THREE.Mesh(geo,new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,transparent:true,opacity:.3,shininess:70}));
+  const wire=new THREE.Mesh(geo.clone(),new THREE.MeshBasicMaterial({color:0x1e3560,wireframe:true,transparent:true,opacity:.1}));
+  wire.userData.isWire=true; wire.visible=vis.wire;
+  gCone.add(mesh,wire);
+
+  // base circle
+  const bpts=[];for(let i=0;i<=SEG;i++)bpts.push(new THREE.Vector3(r*Math.cos(i/SEG*Math.PI*2),0,r*Math.sin(i/SEG*Math.PI*2)));
+  gCone.add(mkLine(bpts,0x2a4070,false,.5));
+  // apex & center markers
+  gCone.add(mkSphere(apex,.07,0xffffff));
+  gCone.add(mkSphere(new THREE.Vector3(0,0,0),.06,0x8899cc));
+  gCone.userData={H,apex};
+}
+
+// ══════════════════════════════════════════════════════════
+//  CUTTING PLANE + CURVE + SAMPLE POINT
+//
+//  ★ 문제의 좌표계 ★
+//    C = 밑면 중심 = (0, 0, 0)  [Three.js world]
+//    O = C에서 x방향으로 a만큼 떨어진 점 = (a, 0, 0)
+//        → 절단 평면이 O를 지나며 밑면과 θ를 이룸
+//    절단 평면: pivot = z축 방향 (O를 지나고 z에 평행)
+//              y_world = (x_world - a) · tanθ
+//    원뿔 방정식: x² + z² = (H-y)² · tan²α
+//
+//  교선 계산:
+//    y = (x-a)·T 를 원뿔에 대입 (T=tanθ, t=tanα):
+//    x² + z² = (H-(x-a)T)² · t²
+//    x² + z² = t²(H-(x-a)T)²
+//    → z² = t²(H-(x-a)T)² - x²
+//
+//  문제 좌표 x(문제) = OR, y(문제) = PH:
+//    R = (x_world, 0, 0),  O = (a, 0, 0)
+//    x(문제) = OR = x_world - a
+//    y(문제) = PH = y_world = (x_world-a)·T
+// ══════════════════════════════════════════════════════════
+function buildPlaneAndCurve(){
+  clr(gPlane); clr(gCurve); clr(gPts);
+
+  const {r,alpha,theta,a}=PR;
+  const aR=alpha*Math.PI/180, tR=theta*Math.PI/180;
+  const ta=Math.tan(aR), T=(theta>=89.5)?1e6:Math.tan(tR);
+  const H=r/ta;
+
+  // 핵심 점들
+  const Cvec=new THREE.Vector3(0,0,0);   // 밑면 중심 C
+  const Ovec=new THREE.Vector3(a,0,0);   // 원점 O (문제의 원점)
+  const Avec=new THREE.Vector3(0,H,0);   // 꼭짓점 A
+
+  // ── O, C 마커 및 a 거리 표시 ──
+  {
+    // C 마커 (밑면 중심, 파란색)
+    gPts.add(mkSphere(Cvec,.08,0x6688ff));
+    // O 마커 (문제의 원점, 주황색)
+    gPts.add(mkSphere(Ovec,.09,0xff9944));
+    // A 마커 (꼭짓점, 흰색)
+    gPts.add(mkSphere(Avec,.08,0xffffff));
+
+    // C→O 선분 (a 거리 강조, 주황 실선)
+    gPts.add(mkLine([Cvec,Ovec],0xff9944,false,.9));
+
+    // a 거리 표시: 중간점에 작은 눈금
+    const mid=new THREE.Vector3(a/2,0,0);
+    gPts.add(mkLine([new THREE.Vector3(a/2,-0.12,0),new THREE.Vector3(a/2,0.12,0)],0xff9944,false,.8));
+
+    // x축 방향으로 O에서 양방향 점선 (문제의 x축 표시)
+    gPts.add(mkLine([new THREE.Vector3(a,0,-r*1.8),new THREE.Vector3(a,0,r*1.8)],0xff9944,true,.4));
+  }
+
+  // ── 절단 평면 시각화: y = (x-a)·tanθ ──
+  {
+    const nTheta=new THREE.Vector3(-Math.sin(tR),Math.cos(tR),0).normalize();
+    const pw=r*2.5, pz=r*2.5;
+    // 평면 위의 네 꼭짓점: (x, (x-a)*T, z)
+    const corners=[
+      new THREE.Vector3(a-pw,(- pw)*T,-pz),
+      new THREE.Vector3(a+pw,( pw)*T,-pz),
+      new THREE.Vector3(a+pw,( pw)*T, pz),
+      new THREE.Vector3(a-pw,(-pw)*T, pz),
+    ];
+    // 삼각형 2개로 반투명 면
+    const verts=new Float32Array([
+      ...corners[0].toArray(),...corners[1].toArray(),...corners[2].toArray(),
+      ...corners[0].toArray(),...corners[2].toArray(),...corners[3].toArray(),
+    ]);
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    const mat=new THREE.MeshBasicMaterial({color:0x3366cc,side:THREE.DoubleSide,transparent:true,opacity:.1});
+    gPlane.add(new THREE.Mesh(geo,mat));
+    // 테두리
+    const border=[...corners,corners[0]];
+    gPlane.add(mkLine(border,0x3355bb,false,.4));
+    // O를 지나는 수평선 (절단 평면과 밑면의 교선)
+    gPlane.add(mkLine([new THREE.Vector3(a,-0.01,-r*1.5),new THREE.Vector3(a,-0.01,r*1.5)],0x6688ff,false,.5));
+  }
+
+  // ── 교선 계산: z² = t²(H-(x-a)T)² - x² ──
+  const t2=ta*ta;
+  // z²(x) = t²·(H-(x-a)T)² - x²
+  function zSq(xw){ const u=H-(xw-a)*T; return t2*u*u - xw*xw; }
+
+  // x 유효 범위: y=(x-a)*T ∈ [0,H] AND z²≥0
+  // y=0 → x=a,  y=H → x=a+H/T  (T>0 기준)
+  let xLo, xHi;
+  if(theta<0.3){
+    // θ=0: y=0 → 밑면 교선 → z²=t²H²-x²≥0 → x∈[-Ht,Ht]
+    xLo=-H*ta-0.01; xHi=H*ta+0.01;
+  } else {
+    const x0=a, x1=a+H/T;
+    xLo=Math.min(x0,x1); xHi=Math.max(x0,x1);
+    xLo-=r*.05; xHi+=r*.05;
+  }
+
+  const STEPS=1000;
+  const pts3d=[];
+  for(let i=0;i<=STEPS;i++){
+    const xw=xLo+i/STEPS*(xHi-xLo);
+    const z2=zSq(xw);
+    if(z2<-1e-7) continue;
+    const z=Math.sqrt(Math.max(0,z2));
+    const yw=(xw-a)*T;
+    if(yw<-1e-4||yw>H+1e-4) continue;
+    pts3d.push({xw,yw,z: z,side: 1});
+    if(z>1e-5) pts3d.push({xw,yw,z:-z,side:-1});
+  }
+
+  if(pts3d.length===0){
+    document.getElementById('hudPts').textContent='교선 없음';
+    updateHUD(); updateConicCard(); return;
+  }
+
+  // ── 곡선 색상 ──
+  const ct=conicType();
+  const cCol={circle:0x4fa3ff,ellipse:0x4fffb0,parabola:0xf0c040,hyperbola:0xff6b6b}[ct]||0x4fa3ff;
+
+  // ── 곡선 그리기 ──
+  const bP=pts3d.filter(p=>p.side=== 1).sort((a,b)=>a.xw-b.xw);
+  const bM=pts3d.filter(p=>p.side===-1).sort((a,b)=>a.xw-b.xw);
+  function toV3(arr){return arr.map(p=>new THREE.Vector3(p.xw,p.yw,p.z));}
+
+  if(ct==='circle'||ct==='ellipse'){
+    const loop=[...toV3(bP),...toV3(bM).reverse()];
+    if(loop.length>1) loop.push(loop[0]);
+    if(loop.length>2){gCurve.add(mkLine(loop,cCol));gCurve.add(mkLine(loop,cCol,false,.2));}
+  } else if(ct==='parabola'){
+    const all=[...toV3(bP),...toV3(bM).reverse()];
+    if(all.length>1){gCurve.add(mkLine(all,cCol));gCurve.add(mkLine(all,cCol,false,.2));}
+  } else {
+    [bP,bM].forEach(br=>{
+      const v=toV3(br);
+      if(v.length>1){gCurve.add(mkLine(v,cCol));gCurve.add(mkLine(v,cCol,false,.2));}
+    });
+  }
+
+  // ── 표본점 P + 수선 H, R ──
+  {
+    const idx=Math.floor(bP.length*0.45);
+    const sp=bP[Math.min(idx,bP.length-1)];
+    if(sp){
+      const Pvec=new THREE.Vector3(sp.xw, sp.yw, sp.z);
+      const Hvec=new THREE.Vector3(sp.xw, 0,    sp.z);  // 밑면 수선의 발
+      const Rvec=new THREE.Vector3(sp.xw, 0,    0   );  // x축 수선의 발
+
+      // 문제 좌표: x(문제)=OR=x_world-a, y(문제)=PH=y_world
+      const xProb=(sp.xw-a).toFixed(3);
+      const yProb=sp.yw.toFixed(3);
+      const OR_dist=Math.abs(sp.xw-a).toFixed(3);
+      const PH_dist=Math.abs(sp.yw).toFixed(3);
+
+      gPts.add(mkSphere(Pvec,.09,0xffffff));       // P 흰색
+      gPts.add(mkSphere(Hvec,.07,0xf0c040));       // H 금색
+      gPts.add(mkSphere(Rvec,.07,0x4fffb0));       // R 초록
+
+      gPts.add(mkLine([Pvec,Hvec],0xf0c040,true,.95)); // PH (y좌표)
+      gPts.add(mkLine([Hvec,Rvec],0x4fffb0,true,.95)); // HR (z방향)
+      gPts.add(mkLine([Rvec,Ovec],0xff9944,true,.85)); // OR (x좌표, O까지)
+
+      // Q: A에서 P 지나는 모선이 밑면과 만나는 점
+      const dir=new THREE.Vector3().subVectors(Pvec,Avec).normalize();
+      if(dir.y<-1e-7){
+        const tQ=-H/dir.y;
+        const Qvec=new THREE.Vector3().copy(Avec).addScaledVector(dir,tQ);
+        gPts.add(mkSphere(Qvec,.07,0xff88ff));        // Q 보라
+        gPts.add(mkLine([Avec,Qvec],0x886688,true,.55));
+        // CQ 선 (C에서 Q까지, 밑면 반지름)
+        gPts.add(mkLine([Cvec,Qvec],0x8866aa,true,.45));
+        const CQdist=Qvec.length().toFixed(3);
+        document.getElementById('hudPts').textContent=
+          `P(3D)=(${sp.xw.toFixed(3)},${sp.yw.toFixed(3)},${sp.z.toFixed(3)})\n`+
+          `── 문제 좌표 ──\n`+
+          `x=OR = ${xProb}\n`+
+          `y=PH = ${yProb}\n`+
+          `── 주요 점 ──\n`+
+          `O=(${a},0,0)  C=(0,0,0)\n`+
+          `H=(${sp.xw.toFixed(3)},0,${sp.z.toFixed(3)})\n`+
+          `R=(${sp.xw.toFixed(3)},0,0)\n`+
+          `CQ = ${CQdist}`;
+      } else {
+        document.getElementById('hudPts').textContent=
+          `P(3D)=(${sp.xw.toFixed(3)},${sp.yw.toFixed(3)},${sp.z.toFixed(3)})\n`+
+          `x=OR=${xProb}, y=PH=${yProb}\n`+
+          `O=(${a},0,0), C=(0,0,0)`;
+      }
+    }
+  }
+
+  updateHUD(); updateConicCard();
+}
+
+// ══════════════════════════════════════════════════════════
+//  CONIC TYPE DETECTION
+// ══════════════════════════════════════════════════════════
+function conicType(){
+  const t=PR.theta, a=PR.alpha;
+  if(t<0.35) return 'circle';
+  if(Math.abs(t-a)<0.55) return 'parabola';
+  if(t<a) return 'ellipse';
+  return 'hyperbola';
+}
+
+function eccentricity(){
+  const tR=PR.theta*Math.PI/180, aR=PR.alpha*Math.PI/180;
+  if(PR.theta<0.35) return '0.000';
+  return Math.min(Math.sin(tR)/Math.sin(aR),99.9).toFixed(4);
+}
+
+function updateHUD(){
+  const {r,alpha,theta,a}=PR;
+  const aR=alpha*Math.PI/180, tR=theta*Math.PI/180;
+  const ta=Math.tan(aR), T=theta<89.5?Math.tan(tR):1e6;
+  const H=r/ta;
+  const ct=conicType();
+  // 교선 방정식: z² = t²(H-(x_w-a)T)² - x_w²
+  // x_w = X+a (X = 문제의 x좌표 = OR)
+  // z² = t²(H-X·T)² - (X+a)²
+  // = t²H² - 2t²HTX + t²T²X² - X² - 2aX - a²
+  // = (t²T²-1)X² + (-2t²HT-2a)X + (t²H²-a²)
+  const t2=ta*ta, T2=T*T;
+  const AX=t2*T2-1;
+  const BX=-2*t2*H*T-2*a;
+  const CX=t2*H*H-a*a;
+  let eq='';
+  if(ct==='circle')
+    eq=`[원]\nz²=t²H²-x_w²\n≈ ${(t2*H*H).toFixed(2)}-x²\nx=OR 기준`;
+  else if(ct==='parabola')
+    eq=`[포물선] θ=α\nA_X≈0\nBX·X+CX+z²=0`;
+  else
+    eq=`z²=AX²+BX+C\nA=${AX.toFixed(3)}\nB=${BX.toFixed(3)}\nC=${CX.toFixed(3)}\n[${ct==='ellipse'?'타원: A<0':'쌍곡선: A>0'}]`;
+  document.getElementById('hudEq').textContent=eq;
+}
+
+function updateConicCard(){
+  const ct=conicType();
+  const info={
+    circle:  {name:'원 (Circle)',      cond:'θ = 0°',    eq:'x²+z²=r²·tan²α', col:'#4fa3ff'},
+    ellipse: {name:'타원 (Ellipse)',   cond:'0<θ<α',     eq:'x²/a²+z²/b²=1',  col:'#4fffb0'},
+    parabola:{name:'포물선 (Parabola)',cond:'θ = α',     eq:'z²=4px+c',       col:'#f0c040'},
+    hyperbola:{name:'쌍곡선 (Hyperbola)',cond:'θ>α',    eq:'x²/a²-z²/b²=1',  col:'#ff6b6b'},
+  };
+  const d=info[ct];
+  const card=document.getElementById('conicCard');
+  card.style.borderColor=d.col; card.style.background=d.col+'11';
+  document.getElementById('conicName').style.color=d.col;
+  document.getElementById('conicName').textContent=d.name;
+  document.getElementById('conicCond').textContent=d.cond;
+  document.getElementById('conicEq').textContent=d.eq;
+  document.getElementById('iT').textContent=PR.theta.toFixed(1)+'°';
+  document.getElementById('iA').textContent=PR.alpha.toFixed(1)+'°';
+  document.getElementById('iE').textContent=eccentricity();
+  const typeNames={circle:'원',ellipse:'타원',parabola:'포물선',hyperbola:'쌍곡선'};
+  document.getElementById('iType').textContent=typeNames[ct];
+  document.getElementById('iType').style.color=d.col;
+}
+
+// ══════════════════════════════════════════════════════════
+//  REBUILD
+// ══════════════════════════════════════════════════════════
+function rebuild(){buildAxes();buildCone();buildPlaneAndCurve();applyVis();}
+
+function applyVis(){
+  gCone.visible=vis.cone; gPlane.visible=vis.plane; gCurve.visible=vis.curve;
+  gPts.visible=vis.points; gAxes.visible=vis.axes;
+  gCone.children.forEach(c=>{if(c.userData.isWire)c.visible=vis.wire;});
+}
+
+function tv(k){
+  vis[k]=!vis[k];
+  const btn=document.getElementById('tog'+k.charAt(0).toUpperCase()+k.slice(1));
+  if(btn) btn.classList.toggle('on',vis[k]);
+  applyVis();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SLIDERS & PRESETS
+// ══════════════════════════════════════════════════════════
+function setupSlider(id,key,dispId,unit,mn,mx){
+  const el=document.getElementById(id);
+  el.addEventListener('input',()=>{
+    PR[key]=parseFloat(el.value);
+    el.style.setProperty('--p',(el.value-mn)/(mx-mn)*100+'%');
+    document.getElementById(dispId).textContent=PR[key].toFixed(1)+(unit||'');
+    rebuild();
+  });
+  el.style.setProperty('--p',(el.value-mn)/(mx-mn)*100+'%');
+}
+setupSlider('sT','theta','vT','°',0,89);
+setupSlider('sA','alpha','vA','°',5,80);
+
+// r 슬라이더: 변경 시 a의 max도 r로 동기화
+{
+  const elR=document.getElementById('sR');
+  const elA=document.getElementById('sH');
+  elR.addEventListener('input',()=>{
+    PR.r=parseFloat(elR.value);
+    elR.style.setProperty('--p',(elR.value-0.5)/(4-0.5)*100+'%');
+    document.getElementById('vR').textContent=PR.r.toFixed(1);
+    // a의 max를 r로 제한, 현재 값도 clamp
+    elA.max=PR.r.toFixed(1);
+    if(PR.a>PR.r){ PR.a=PR.r; elA.value=PR.r; document.getElementById('vH').textContent=PR.a.toFixed(1); }
+    elA.style.setProperty('--p',(PR.a-0)/(PR.r-0)*100+'%');
+    rebuild();
+  });
+  elR.style.setProperty('--p',(elR.value-0.5)/(4-0.5)*100+'%');
+}
+
+// a 슬라이더: 범위 0 ~ r
+{
+  const elA=document.getElementById('sH');
+  elA.min=0; elA.max=PR.r.toFixed(1); elA.step=0.05; elA.value=PR.a;
+  elA.addEventListener('input',()=>{
+    PR.a=parseFloat(elA.value);
+    const pct=PR.r>0?(PR.a/PR.r)*100:0;
+    elA.style.setProperty('--p',pct+'%');
+    document.getElementById('vH').textContent=PR.a.toFixed(2);
+    rebuild();
+  });
+  elA.style.setProperty('--p',(PR.a/PR.r)*100+'%');
+  document.getElementById('vH').textContent=PR.a.toFixed(2);
+}
+
+function preset(t){
+  const map={circle:{theta:0,alpha:45},ellipse:{theta:25,alpha:45},parabola:{theta:45,alpha:45},hyperbola:{theta:65,alpha:45}};
+  const p=map[t]; PR.theta=p.theta; PR.alpha=p.alpha;
+  document.getElementById('sT').value=p.theta; document.getElementById('sA').value=p.alpha;
+  document.getElementById('vT').textContent=p.theta.toFixed(1)+'°';
+  document.getElementById('vA').textContent=p.alpha.toFixed(1)+'°';
+  document.getElementById('sT').style.setProperty('--p',p.theta/89*100+'%');
+  document.getElementById('sA').style.setProperty('--p',(p.alpha-5)/75*100+'%');
+  rebuild();
+}
+
+// ══════════════════════════════════════════════════════════
+//  RESIZE & RENDER LOOP
+// ══════════════════════════════════════════════════════════
+function onResize(){
+  const w=canvas.parentElement.clientWidth, h=canvas.parentElement.clientHeight;
+  renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',onResize);
+function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);}
+
+onResize(); camUpd(); rebuild(); animate();
+</script>
+</body>
+</html>

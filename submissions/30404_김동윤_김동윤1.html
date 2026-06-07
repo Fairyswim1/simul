@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>직접 작도형 반직선 생성 · a 탐색 시뮬레이터</title>
+  <style>
+    :root {
+      --bg: #f6f3ec;
+      --panel: #ffffff;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --grid: #e5e7eb;
+      --axis: #64748b;
+      --initial: #111827;
+      --gen1: #2563eb;
+      --gen2: #7c3aed;
+      --gen3: #0f766e;
+      --target: #dc2626;
+      --intersection: #f59e0b;
+      --bad: #b91c1c;
+      --ok: #166534;
+      --warn: #92400e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(680px, 1fr) 430px;
+      gap: 18px;
+      padding: 18px;
+      min-height: 100vh;
+    }
+
+    .canvas-card,
+    .panel {
+      background: var(--panel);
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .canvas-card {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 780px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      align-items: flex-end;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 13px;
+      white-space: nowrap;
+      font-weight: 650;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 620px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      background: #fbfaf7;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      padding: 12px 18px 16px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 13px;
+      color: #374151;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-line {
+      width: 28px;
+      height: 0;
+      border-top: 3px solid #111827;
+      border-radius: 999px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #111827;
+      display: inline-block;
+    }
+
+    .panel {
+      padding: 16px;
+      overflow: auto;
+      max-height: calc(100vh - 36px);
+    }
+
+    .section {
+      padding: 14px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .section:first-child { padding-top: 0; }
+    .section:last-child { border-bottom: 0; padding-bottom: 0; }
+
+    .section-title {
+      font-weight: 800;
+      font-size: 15px;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      align-items: center;
+      gap: 10px;
+      margin: 9px 0;
+      font-size: 14px;
+    }
+
+    .control-row.three {
+      grid-template-columns: 120px 1fr 1fr;
+    }
+
+    input[type="range"] { width: 100%; }
+
+    input[type="number"], select {
+      width: 100%;
+      padding: 8px 9px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 14px;
+      background: white;
+    }
+
+    label.checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 9px 0;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .button-grid.three {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+      padding: 9px 10px;
+      border-radius: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.12s ease, border-color 0.12s ease;
+    }
+
+    button:hover { background: #eef2f7; border-color: #94a3b8; }
+    button:active { transform: translateY(1px); }
+
+    button.primary {
+      background: #1f2937;
+      color: white;
+      border-color: #1f2937;
+    }
+
+    button.primary:hover { background: #111827; }
+
+    button.danger {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      color: #9a3412;
+    }
+
+    button.mode-btn.active {
+      background: #1f2937;
+      border-color: #1f2937;
+      color: #ffffff;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .stat .name {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .stat .value {
+      font-size: 18px;
+      font-weight: 850;
+      letter-spacing: -0.02em;
+    }
+
+    .formula-box,
+    .result-box {
+      border-radius: 12px;
+      padding: 11px;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .formula-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #374151;
+    }
+
+    .result-box {
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      color: #374151;
+    }
+
+    .result-box.ok { border-color: #bbf7d0; background: #f0fdf4; color: #14532d; }
+    .result-box.warn { border-color: #fde68a; background: #fffbeb; color: #78350f; }
+    .result-box.bad { border-color: #fecaca; background: #fef2f2; color: #7f1d1d; }
+
+    .list-box {
+      max-height: 285px;
+      overflow: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+    }
+
+    .item {
+      padding: 9px 10px;
+      border-bottom: 1px solid #eef2f7;
+      font-size: 13px;
+      cursor: pointer;
+      line-height: 1.45;
+    }
+
+    .item:last-child { border-bottom: 0; }
+    .item:hover, .item.selected { background: #f1f5f9; }
+
+    .item-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 780;
+    }
+
+    .item-meta {
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .inline-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .small-btn {
+      padding: 3px 7px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+      margin-top: 8px;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    @media (max-width: 1120px) {
+      .app { grid-template-columns: 1fr; }
+      .panel { max-height: none; }
+      .canvas-card { min-height: 700px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="canvas-card">
+      <div class="topbar">
+        <div>
+          <h1>직접 작도형 반직선 생성 · a 탐색 시뮬레이터</h1>
+          <p class="subtitle">
+            좌표평면에 반직선과 목표점 A를 직접 찍고, 주어진 생성 규칙에서 A를 지나는 반직선이 생기는지 확인하거나 가능한 a 값을 탐색한다.
+          </p>
+        </div>
+        <div class="badge-row">
+          <div class="badge" id="modeBadge">모드: 선택</div>
+          <div class="badge" id="aBadge">a = 1.00</div>
+        </div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="plot" width="1100" height="780"></canvas>
+      </div>
+
+      <div class="legend">
+        <span class="legend-item"><span class="legend-line" style="border-color:#111827"></span>사용자 입력 반직선</span>
+        <span class="legend-item"><span class="legend-line" style="border-color:#2563eb"></span>1세대</span>
+        <span class="legend-item"><span class="legend-line" style="border-color:#7c3aed"></span>2세대</span>
+        <span class="legend-item"><span class="legend-line" style="border-color:#0f766e"></span>3세대 이상</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>목표점 A</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>교점</span>
+        <span class="legend-item"><span class="legend-line" style="border-color:#b91c1c;border-top-style:dashed"></span>A 통과 발견</span>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="section">
+        <div class="section-title">1. 직접 작도</div>
+        <div class="button-grid three">
+          <button class="mode-btn active" data-mode="select">선택</button>
+          <button class="mode-btn" data-mode="addRay">반직선 추가</button>
+          <button class="mode-btn" data-mode="setTarget">A 찍기</button>
+          <button class="mode-btn" data-mode="delete">삭제</button>
+          <button class="mode-btn" data-mode="pan">이동</button>
+          <button id="cancelDrawBtn">작도 취소</button>
+        </div>
+        <label class="checkbox">
+          <input id="snapToggle" type="checkbox" checked /> 격자 스냅 사용
+        </label>
+        <div class="control-row">
+          <span>스냅 간격</span>
+          <select id="snapStep">
+            <option value="1" selected>1</option>
+            <option value="0.5">0.5</option>
+            <option value="0.25">0.25</option>
+            <option value="0.1">0.1</option>
+          </select>
+        </div>
+        <div class="button-grid">
+          <button id="loadExampleBtn">문제 예시 불러오기</button>
+          <button class="danger" id="clearInputBtn">입력 전체 삭제</button>
+        </div>
+        <p class="small">
+          반직선 추가 모드에서는 첫 클릭으로 시작점 P를 찍고, 두 번째 클릭으로 방향점 Q를 찍는다. 내부 방향벡터는 v = Q - P로 저장된다.
+        </p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">2. 정방향 생성</div>
+        <div class="control-row">
+          <span>a 값</span>
+          <input id="aSlider" type="range" min="0.01" max="20" step="0.01" value="1" />
+        </div>
+        <div class="control-row">
+          <span>직접 입력</span>
+          <input id="aNumber" type="number" min="0.0001" max="100" step="0.01" value="1" />
+        </div>
+        <div class="control-row">
+          <span>최대 반직선</span>
+          <input id="maxRays" type="number" min="10" max="500" step="10" value="160" />
+        </div>
+        <div class="control-row">
+          <span>생성 배치</span>
+          <input id="batchLimit" type="number" min="2" max="120" step="2" value="36" />
+        </div>
+        <label class="checkbox">
+          <input id="showNormals" type="checkbox" /> 선택 반직선의 법선벡터 표시
+        </label>
+        <label class="checkbox">
+          <input id="showAllLabels" type="checkbox" checked /> 이름 표시
+        </label>
+        <label class="checkbox">
+          <input id="dedupeRays" type="checkbox" checked /> 거의 같은 반직선 중복 제거
+        </label>
+        <div class="button-grid">
+          <button class="primary" id="nextStepBtn">다음 단계 생성</button>
+          <button id="autoBtn">자동 5회 생성</button>
+          <button id="resetGeneratedBtn">생성 초기화</button>
+          <button id="fitBtn">화면 맞춤</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">3. a 값 찾기</div>
+        <div class="control-row three">
+          <span>a 범위</span>
+          <input id="searchMin" type="number" step="0.01" value="0.01" />
+          <input id="searchMax" type="number" step="0.01" value="20" />
+        </div>
+        <div class="control-row">
+          <span>탐색 단계</span>
+          <input id="searchDepth" type="number" min="1" max="4" step="1" value="2" />
+        </div>
+        <div class="control-row">
+          <span>샘플 수</span>
+          <input id="searchSamples" type="number" min="80" max="1200" step="20" value="360" />
+        </div>
+        <div class="control-row">
+          <span>허용 오차</span>
+          <input id="hitTolerance" type="number" min="0.000001" step="0.0001" value="0.005" />
+        </div>
+        <button class="primary" id="findAButton" style="width:100%; margin-top:8px;">가능한 a 값 찾기</button>
+        <div id="searchResultBox" class="result-box" style="margin-top:10px;">아직 탐색을 실행하지 않았다.</div>
+        <div class="list-box" id="candidateList" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">현재 상태</div>
+        <div class="stats-grid">
+          <div class="stat"><div class="name">입력 반직선</div><div class="value" id="baseRayStat">0</div></div>
+          <div class="stat"><div class="name">전체 반직선</div><div class="value" id="rayStat">0</div></div>
+          <div class="stat"><div class="name">생성 단계</div><div class="value" id="stepStat">0</div></div>
+          <div class="stat"><div class="name">A 통과</div><div class="value" id="hitStat">0</div></div>
+        </div>
+        <div id="statusBox" class="result-box ok" style="margin-top:10px;">반직선을 직접 추가하거나 문제 예시를 불러오면 된다.</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">선택 반직선 분석</div>
+        <div id="selectedInfo" class="formula-box">
+          선택 모드에서 반직선을 클릭하면 시작점, 방향벡터, 법선벡터, w · PA 값을 확인할 수 있다.
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">입력 반직선 목록</div>
+        <div class="list-box" id="baseRayList"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">전체 반직선 목록</div>
+        <div class="list-box" id="rayList"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    "use strict";
+
+    const EPS = 1e-9;
+    const START_EPS = 1e-7;
+    const HIT_EPS = 1e-6;
+    const POINT_KEY_SCALE = 100000;
+
+    const exampleRays = [
+      { p: { x: 6, y: 4 }, v: { x: -1, y: 0 } },
+      { p: { x: 1, y: 5 }, v: { x: 0, y: -1 } },
+      { p: { x: 0, y: 3 }, v: { x: 1, y: -1 } },
+      { p: { x: 0, y: -1 }, v: { x: 1, y: 1 } }
+    ];
+
+    const canvas = document.getElementById("plot");
+    const ctx = canvas.getContext("2d");
+
+    const ui = {
+      modeButtons: [...document.querySelectorAll(".mode-btn")],
+      modeBadge: document.getElementById("modeBadge"),
+      aBadge: document.getElementById("aBadge"),
+      aSlider: document.getElementById("aSlider"),
+      aNumber: document.getElementById("aNumber"),
+      maxRays: document.getElementById("maxRays"),
+      batchLimit: document.getElementById("batchLimit"),
+      showNormals: document.getElementById("showNormals"),
+      showAllLabels: document.getElementById("showAllLabels"),
+      dedupeRays: document.getElementById("dedupeRays"),
+      snapToggle: document.getElementById("snapToggle"),
+      snapStep: document.getElementById("snapStep"),
+      cancelDrawBtn: document.getElementById("cancelDrawBtn"),
+      loadExampleBtn: document.getElementById("loadExampleBtn"),
+      clearInputBtn: document.getElementById("clearInputBtn"),
+      nextStepBtn: document.getElementById("nextStepBtn"),
+      autoBtn: document.getElementById("autoBtn"),
+      resetGeneratedBtn: document.getElementById("resetGeneratedBtn"),
+      fitBtn: document.getElementById("fitBtn"),
+      searchMin: document.getElementById("searchMin"),
+      searchMax: document.getElementById("searchMax"),
+      searchDepth: document.getElementById("searchDepth"),
+      searchSamples: document.getElementById("searchSamples"),
+      hitTolerance: document.getElementById("hitTolerance"),
+      findAButton: document.getElementById("findAButton"),
+      searchResultBox: document.getElementById("searchResultBox"),
+      candidateList: document.getElementById("candidateList"),
+      baseRayStat: document.getElementById("baseRayStat"),
+      rayStat: document.getElementById("rayStat"),
+      stepStat: document.getElementById("stepStat"),
+      hitStat: document.getElementById("hitStat"),
+      statusBox: document.getElementById("statusBox"),
+      selectedInfo: document.getElementById("selectedInfo"),
+      baseRayList: document.getElementById("baseRayList"),
+      rayList: document.getElementById("rayList")
+    };
+
+    let state;
+    let view;
+    let isDragging = false;
+    let dragMoved = false;
+    let lastMouse = null;
+
+    function defaultView() {
+      return { minX: -3, maxX: 8, minY: -3, maxY: 7 };
+    }
+
+    function ensureView() {
+      const invalid = !view ||
+        !Number.isFinite(view.minX) || !Number.isFinite(view.maxX) ||
+        !Number.isFinite(view.minY) || !Number.isFinite(view.maxY) ||
+        Math.abs(view.maxX - view.minX) < EPS ||
+        Math.abs(view.maxY - view.minY) < EPS;
+      if (invalid) view = defaultView();
+    }
+
+    function nextIdFromBase() {
+      const maxBaseId = state.baseRays.reduce((max, ray) => Math.max(max, ray.id), 0);
+      return maxBaseId + 1;
+    }
+
+    function createInitialState() {
+      state = {
+        mode: "select",
+        a: 1,
+        target: { x: 2, y: 2 },
+        baseRays: [],
+        rays: [],
+        intersections: [],
+        processedPairs: new Set(),
+        step: 0,
+        nextId: 1,
+        selectedRayId: null,
+        tempStart: null,
+        mouseWorld: null,
+        messages: [],
+        candidates: []
+      };
+      view = defaultView();
+      loadExample();
+    }
+
+    function clampNumber(value, min, max, fallback) {
+      if (!Number.isFinite(value)) return fallback;
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function roundForDisplay(x, digits = 4) {
+      if (!Number.isFinite(x)) return "-";
+      if (Math.abs(x) < 1e-10) return "0";
+      return Number(x.toFixed(digits)).toString();
+    }
+
+    function add(u, v) { return { x: u.x + v.x, y: u.y + v.y }; }
+    function sub(u, v) { return { x: u.x - v.x, y: u.y - v.y }; }
+    function mul(k, v) { return { x: k * v.x, y: k * v.y }; }
+    function dot(u, v) { return u.x * v.x + u.y * v.y; }
+    function cross(u, v) { return u.x * v.y - u.y * v.x; }
+    function norm(v) { return Math.hypot(v.x, v.y); }
+
+    function normalize(v) {
+      const len = norm(v);
+      if (len < EPS) return { x: 0, y: 0 };
+      return { x: v.x / len, y: v.y / len };
+    }
+
+    function normalOf(v) { return { x: -v.y, y: v.x }; }
+
+    function makeRay(name, p, v, gen, parents, id, source = "generated") {
+      if (norm(v) < EPS) throw new Error("영벡터 방향은 반직선으로 사용할 수 없습니다.");
+      return {
+        id,
+        name,
+        p: { x: p.x, y: p.y },
+        v: { x: v.x, y: v.y },
+        gen,
+        parents,
+        source,
+        hitA: false,
+        wDotPA: null
+      };
+    }
+
+    function cloneRay(ray) {
+      return makeRay(ray.name, ray.p, ray.v, ray.gen, ray.parents, ray.id, ray.source);
+    }
+
+    function rayPointAt(ray, t) { return add(ray.p, mul(t, ray.v)); }
+
+    function pairKey(id1, id2) {
+      return id1 < id2 ? `${id1}|${id2}` : `${id2}|${id1}`;
+    }
+
+    function pointKey(p) {
+      return `${Math.round(p.x * POINT_KEY_SCALE)},${Math.round(p.y * POINT_KEY_SCALE)}`;
+    }
+
+    function canonicalRayKey(ray) {
+      const unit = normalize(ray.v);
+      const px = Math.round(ray.p.x * 10000);
+      const py = Math.round(ray.p.y * 10000);
+      const vx = Math.round(unit.x * 10000);
+      const vy = Math.round(unit.y * 10000);
+      return `${px},${py}|${vx},${vy}`;
+    }
+
+    function intersectRays(r1, r2) {
+      const denom = cross(r1.v, r2.v);
+      if (Math.abs(denom) < EPS) return null;
+      const qp = sub(r2.p, r1.p);
+      const t = cross(qp, r2.v) / denom;
+      const s = cross(qp, r1.v) / denom;
+      if (t > START_EPS && s > START_EPS) {
+        return { point: rayPointAt(r1, t), t, s };
+      }
+      return null;
+    }
+
+    function analyzeRay(ray, target = state.target) {
+      const pa = sub(target, ray.p);
+      const w = normalOf(ray.v);
+      const wDot = dot(w, pa);
+      const crossVal = cross(ray.v, pa);
+      const denom = dot(ray.v, ray.v);
+      const t = denom < EPS ? NaN : dot(pa, ray.v) / denom;
+      const hitA = Math.abs(crossVal) < HIT_EPS && t >= -HIT_EPS;
+      const distance = norm(ray.v) < EPS ? Infinity : Math.abs(crossVal) / norm(ray.v);
+      return { pa, w, wDot, crossVal, t, hitA, distance };
+    }
+
+    function isDuplicateRayInList(candidate, list) {
+      if (!ui.dedupeRays.checked) return false;
+      const key = canonicalRayKey(candidate);
+      return list.some(ray => canonicalRayKey(ray) === key);
+    }
+
+    function updateAllHitFlags() {
+      for (const ray of state.rays) {
+        const analysis = analyzeRay(ray, state.target);
+        ray.hitA = analysis.hitA;
+        ray.wDotPA = analysis.wDot;
+      }
+    }
+
+    function resetGenerated(keepMessage = true, redraw = true) {
+      state.nextId = nextIdFromBase();
+      state.rays = state.baseRays.map(cloneRay);
+      state.intersections = [];
+      state.processedPairs = new Set();
+      state.step = 0;
+      state.selectedRayId = null;
+      state.tempStart = null;
+      if (keepMessage) state.messages = ["생성된 반직선을 초기화하고 입력 반직선만 남겼다."];
+      updateAllHitFlags();
+      if (redraw) renderAll();
+    }
+
+    function addBaseRay(p, v) {
+      const id = state.nextId++;
+      const ray = makeRay(`l${id}`, p, v, 0, "사용자 입력", id, "base");
+      state.candidates = [];
+      state.baseRays.push(ray);
+      resetGenerated(false);
+      state.selectedRayId = ray.id;
+      state.messages = [`${ray.name}을 추가했다.`];
+      renderAll();
+    }
+
+    function loadExample() {
+      state.baseRays = [];
+      state.rays = [];
+      state.intersections = [];
+      state.processedPairs = new Set();
+      state.step = 0;
+      state.nextId = 1;
+      state.selectedRayId = null;
+      state.tempStart = null;
+      state.candidates = [];
+
+      for (const item of exampleRays) addBaseRaySilently(item.p, item.v);
+      state.target = { x: 2, y: 2 };
+      state.nextId = nextIdFromBase();
+      state.rays = state.baseRays.map(cloneRay);
+      state.messages = ["문제 예시 반직선 4개와 A(2,2)를 불러왔다."];
+      updateAllHitFlags();
+      fitViewToData(false);
+      renderAll();
+    }
+
+    function addBaseRaySilently(p, v) {
+      const id = state.nextId++;
+      state.baseRays.push(makeRay(`l${id}`, p, v, 0, "사용자 입력", id, "base"));
+    }
+
+    function clearInputs() {
+      state.baseRays = [];
+      state.rays = [];
+      state.intersections = [];
+      state.processedPairs = new Set();
+      state.step = 0;
+      state.nextId = 1;
+      state.selectedRayId = null;
+      state.tempStart = null;
+      state.candidates = [];
+      state.messages = ["입력 반직선을 모두 삭제했다. 반직선 추가 모드에서 새로 작도할 수 있다."];
+      renderAll();
+    }
+
+    function generateOneStep() {
+      if (state.rays.length < 2) {
+        state.messages = ["반직선이 2개 이상 필요하다."];
+        renderAll();
+        return;
+      }
+      const result = generateStepForSimulation(state, state.a, {
+        maxRays: readInt(ui.maxRays, 10, 500, 160),
+        batchLimit: readInt(ui.batchLimit, 2, 120, 36),
+        dedupe: ui.dedupeRays.checked
+      });
+      state.messages = [result.message];
+      updateAllHitFlags();
+      renderAll();
+    }
+
+    function generateStepForSimulation(sim, a, options) {
+      const raysSnapshot = [...sim.rays];
+      const newRays = [];
+      const localIntersectionKeys = new Set();
+      const maxRays = options.maxRays;
+      const batchLimit = options.batchLimit;
+
+      if (sim.rays.length >= maxRays) {
+        return { added: 0, message: `최대 반직선 수 ${maxRays}개에 도달하여 추가 생성을 중단했다.` };
+      }
+
+      outer:
+      for (let i = 0; i < raysSnapshot.length; i++) {
+        for (let j = i + 1; j < raysSnapshot.length; j++) {
+          const r1 = raysSnapshot[i];
+          const r2 = raysSnapshot[j];
+          const key = pairKey(r1.id, r2.id);
+          if (sim.processedPairs.has(key)) continue;
+          sim.processedPairs.add(key);
+
+          const hit = intersectRays(r1, r2);
+          if (!hit) continue;
+
+          const pk = pointKey(hit.point);
+          if (!localIntersectionKeys.has(pk)) {
+            localIntersectionKeys.add(pk);
+            sim.intersections.push({ point: hit.point, from: `${r1.name}, ${r2.name}`, step: sim.step + 1 });
+          }
+
+          const candidates = [
+            { p: hit.point, v: add(mul(a, r1.v), r2.v), parents: `${r1.name}, ${r2.name}에서 a·${r1.name}+${r2.name}` },
+            { p: hit.point, v: add(r1.v, mul(a, r2.v)), parents: `${r1.name}, ${r2.name}에서 ${r1.name}+a·${r2.name}` }
+          ];
+
+          for (const c of candidates) {
+            if (norm(c.v) < EPS) continue;
+            const id = sim.nextId++;
+            const ray = makeRay(`l${id}`, c.p, c.v, Math.max(r1.gen, r2.gen) + 1, c.parents, id, "generated");
+            if (options.dedupe && isDuplicateRayAgainst(ray, sim.rays, newRays)) continue;
+            newRays.push(ray);
+            if (sim.rays.length + newRays.length >= maxRays) break outer;
+            if (newRays.length >= batchLimit) break outer;
+          }
+        }
+      }
+
+      if (newRays.length > 0) {
+        sim.rays.push(...newRays);
+        sim.step += 1;
+        return { added: newRays.length, message: `${newRays.length}개의 새 반직선을 생성했다.` };
+      }
+      return { added: 0, message: "이번 단계에서 새로 생성된 반직선이 없다. 이미 처리된 쌍이 많거나 조건을 만족하는 교점이 없다." };
+    }
+
+    function isDuplicateRayAgainst(candidate, existing, newRays) {
+      const key = canonicalRayKey(candidate);
+      for (const ray of existing) if (canonicalRayKey(ray) === key) return true;
+      for (const ray of newRays) if (canonicalRayKey(ray) === key) return true;
+      return false;
+    }
+
+    function autoGenerate(times) {
+      for (let k = 0; k < times; k++) {
+        const before = state.rays.length;
+        generateOneStep();
+        if (state.rays.length === before) break;
+      }
+    }
+
+    function readFloat(input, min, max, fallback) {
+      return clampNumber(parseFloat(input.value), min, max, fallback);
+    }
+
+    function readInt(input, min, max, fallback) {
+      return Math.round(clampNumber(parseInt(input.value, 10), min, max, fallback));
+    }
+
+    function buildSilentSimulation(a) {
+      let maxId = 0;
+      const rays = state.baseRays.map(ray => {
+        maxId = Math.max(maxId, ray.id);
+        return cloneRay(ray);
+      });
+      return { a, rays, intersections: [], processedPairs: new Set(), step: 0, nextId: maxId + 1 };
+    }
+
+    function simulateAtA(a, depth, maxRays, batchLimit) {
+      const sim = buildSilentSimulation(a);
+      for (let i = 0; i < depth; i++) {
+        const before = sim.rays.length;
+        generateStepForSimulation(sim, a, { maxRays, batchLimit, dedupe: true });
+        if (sim.rays.length === before) break;
+      }
+      return sim;
+    }
+
+    function bestRayDistance(sim, generatedOnly = true) {
+      let best = null;
+      for (const ray of sim.rays) {
+        if (generatedOnly && ray.gen === 0) continue;
+        const an = analyzeRay(ray, state.target);
+        if (an.t < -HIT_EPS) continue;
+        const score = an.distance;
+        if (!best || score < best.error) {
+          best = { error: score, ray, analysis: an };
+        }
+      }
+      return best || { error: Infinity, ray: null, analysis: null };
+    }
+
+    function analyticOneStepCandidates(aMin, aMax) {
+      const out = [];
+      const base = state.baseRays;
+      for (let i = 0; i < base.length; i++) {
+        for (let j = i + 1; j < base.length; j++) {
+          const r1 = base[i];
+          const r2 = base[j];
+          const hit = intersectRays(r1, r2);
+          if (!hit) continue;
+          const RA = sub(state.target, hit.point);
+          addAnalyticCandidate(out, r1, r2, hit.point, RA, 1, aMin, aMax);
+          addAnalyticCandidate(out, r1, r2, hit.point, RA, 2, aMin, aMax);
+        }
+      }
+      return dedupeCandidates(out);
+    }
+
+    function addAnalyticCandidate(out, r1, r2, p, RA, kind, aMin, aMax) {
+      let denom, numerator;
+      if (kind === 1) {
+        denom = cross(r1.v, RA);
+        numerator = -cross(r2.v, RA);
+      } else {
+        denom = cross(r2.v, RA);
+        numerator = -cross(r1.v, RA);
+      }
+
+      if (Math.abs(denom) < EPS) return;
+      const a = numerator / denom;
+      if (!Number.isFinite(a) || a <= 0 || a < aMin - EPS || a > aMax + EPS) return;
+      const newV = kind === 1 ? add(mul(a, r1.v), r2.v) : add(r1.v, mul(a, r2.v));
+      if (norm(newV) < EPS) return;
+      const t = dot(newV, RA) / dot(newV, newV);
+      if (t < -HIT_EPS) return;
+      const error = Math.abs(cross(newV, RA)) / norm(newV);
+      out.push({
+        a,
+        error,
+        depth: 1,
+        type: "1단계 공식",
+        rayName: "새 반직선",
+        path: `${r1.name}, ${r2.name}의 교점에서 ${kind === 1 ? "a·u1+u2" : "u1+a·u2"}`,
+        point: p,
+        direction: newV
+      });
+    }
+
+    function dedupeCandidates(list) {
+      const sorted = [...list].sort((a, b) => a.a - b.a || a.error - b.error);
+      const result = [];
+      for (const c of sorted) {
+        if (!result.some(r => Math.abs(r.a - c.a) < 1e-5 && Math.abs(r.error - c.error) < 1e-5)) result.push(c);
+      }
+      return result;
+    }
+
+    function findAValues() {
+      if (state.baseRays.length < 2) {
+        state.candidates = [];
+        ui.searchResultBox.className = "result-box warn";
+        ui.searchResultBox.textContent = "반직선이 2개 이상 필요하다.";
+        updateCandidateList();
+        return;
+      }
+
+      let aMin = readFloat(ui.searchMin, 0.000001, 1000, 0.01);
+      let aMax = readFloat(ui.searchMax, 0.000001, 1000, 20);
+      if (aMin > aMax) [aMin, aMax] = [aMax, aMin];
+      const depth = readInt(ui.searchDepth, 1, 4, 2);
+      const samples = readInt(ui.searchSamples, 80, 1200, 360);
+      const tol = readFloat(ui.hitTolerance, 0.000001, 1, 0.005);
+      const maxRays = Math.max(readInt(ui.maxRays, 10, 500, 160), 80);
+      const batchLimit = Math.max(readInt(ui.batchLimit, 2, 120, 36), 20);
+
+      const exact = analyticOneStepCandidates(aMin, aMax);
+      const rough = [];
+
+      for (let k = 0; k <= samples; k++) {
+        const a = aMin + (aMax - aMin) * k / samples;
+        const sim = simulateAtA(a, depth, maxRays, batchLimit);
+        const best = bestRayDistance(sim);
+        rough.push({ a, error: best.error, ray: best.ray, analysis: best.analysis });
+      }
+
+      rough.sort((x, y) => x.error - y.error);
+      const seeds = [];
+      for (const r of rough.slice(0, 18)) {
+        if (!seeds.some(s => Math.abs(s.a - r.a) < (aMax - aMin) / samples * 2)) seeds.push(r);
+      }
+
+      const refined = [];
+      const initialRadius = (aMax - aMin) / samples * 4;
+      for (const seed of seeds) {
+        let center = seed.a;
+        let radius = initialRadius;
+        let best = seed;
+        for (let pass = 0; pass < 3; pass++) {
+          const localSamples = 80;
+          const left = Math.max(aMin, center - radius);
+          const right = Math.min(aMax, center + radius);
+          for (let k = 0; k <= localSamples; k++) {
+            const a = left + (right - left) * k / localSamples;
+            const sim = simulateAtA(a, depth, maxRays, batchLimit);
+            const b = bestRayDistance(sim);
+            if (b.error < best.error) best = { a, error: b.error, ray: b.ray, analysis: b.analysis };
+          }
+          center = best.a;
+          radius *= 0.18;
+        }
+        if (best.ray) {
+          refined.push({
+            a: best.a,
+            error: best.error,
+            depth,
+            type: best.error <= tol ? "수치 탐색" : "근접 후보",
+            rayName: best.ray.name,
+            path: best.ray.parents,
+            point: best.ray.p,
+            direction: best.ray.v
+          });
+        }
+      }
+
+      const combined = dedupeCandidates([...exact, ...refined]).sort((a, b) => a.error - b.error).slice(0, 12);
+      state.candidates = combined;
+
+      const exactCount = combined.filter(c => c.error <= tol).length;
+      if (combined.length === 0) {
+        ui.searchResultBox.className = "result-box warn";
+        ui.searchResultBox.textContent = "탐색 범위 안에서 후보 a 값을 찾지 못했다.";
+      } else if (exactCount > 0) {
+        ui.searchResultBox.className = "result-box ok";
+        ui.searchResultBox.textContent = `허용 오차 ${tol} 이하의 후보 ${exactCount}개를 찾았다. 후보를 클릭하면 해당 a로 정방향 시뮬레이션을 재생한다.`;
+      } else {
+        ui.searchResultBox.className = "result-box warn";
+        ui.searchResultBox.textContent = `정확히 통과하는 후보는 찾지 못했지만, 가장 가까운 후보를 표시했다. 최소 오차는 ${roundForDisplay(combined[0].error, 6)}이다.`;
+      }
+      updateCandidateList();
+    }
+
+    function updateCandidateList() {
+      ui.candidateList.innerHTML = "";
+      if (!state.candidates || state.candidates.length === 0) {
+        ui.candidateList.innerHTML = `<div class="item"><div class="item-meta">표시할 후보가 없다.</div></div>`;
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      for (const c of state.candidates) {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.innerHTML = `
+          <div class="item-title">
+            <span>a = ${roundForDisplay(c.a, 8)}</span>
+            <span>${c.type}</span>
+          </div>
+          <div class="item-meta mono">오차=${roundForDisplay(c.error, 8)}, 단계=${c.depth}, ${c.path}</div>
+        `;
+        item.addEventListener("click", () => applyCandidate(c));
+        frag.appendChild(item);
+      }
+      ui.candidateList.appendChild(frag);
+    }
+
+    function applyCandidate(candidate) {
+      setAValue(candidate.a, false);
+      resetGenerated(false, false);
+      const depth = Math.max(1, candidate.depth);
+      const maxRays = readInt(ui.maxRays, 10, 500, 160);
+      const batchLimit = readInt(ui.batchLimit, 2, 120, 36);
+
+      for (let i = 0; i < depth; i++) {
+        const before = state.rays.length;
+        generateStepForSimulation(state, state.a, { maxRays, batchLimit, dedupe: ui.dedupeRays.checked });
+        if (state.rays.length === before) break;
+      }
+
+      updateAllHitFlags();
+      const hit = state.rays.find(ray => ray.gen > 0 && analyzeRay(ray, state.target).hitA);
+      if (hit) {
+        state.selectedRayId = hit.id;
+      } else {
+        let closest = null;
+        for (const ray of state.rays) {
+          if (ray.gen === 0) continue;
+          const an = analyzeRay(ray, state.target);
+          if (an.t < -HIT_EPS) continue;
+          if (!closest || an.distance < closest.distance) closest = { ray, distance: an.distance };
+        }
+        state.selectedRayId = closest ? closest.ray.id : null;
+      }
+
+      state.messages = [`후보 a=${roundForDisplay(candidate.a, 8)}를 적용했다.`];
+      renderAll();
+    }
+
+    function setAValue(value, reset = true) {
+      const a = clampNumber(value, 0.0001, 100, 1);
+      state.a = a;
+      ui.aNumber.value = roundForDisplay(a, 8);
+      ui.aSlider.value = clampNumber(a, parseFloat(ui.aSlider.min), parseFloat(ui.aSlider.max), 1);
+      if (reset) resetGenerated(false);
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      state.tempStart = null;
+      for (const btn of ui.modeButtons) btn.classList.toggle("active", btn.dataset.mode === mode);
+      state.messages = [modeInstruction(mode)];
+      renderAll();
+    }
+
+    function modeInstruction(mode) {
+      if (mode === "select") return "선택 모드: 반직선을 클릭하면 분석 정보가 표시된다.";
+      if (mode === "addRay") return "반직선 추가 모드: 시작점 P를 클릭한 뒤 방향점 Q를 클릭한다.";
+      if (mode === "setTarget") return "A 찍기 모드: 좌표평면을 클릭하면 목표점 A가 그 위치로 이동한다.";
+      if (mode === "delete") return "삭제 모드: 사용자 입력 반직선을 클릭하면 삭제된다.";
+      if (mode === "pan") return "이동 모드: 드래그로 화면을 이동하고 휠로 확대/축소한다.";
+      return "";
+    }
+
+    function snapPoint(p) {
+      if (!ui.snapToggle.checked) return p;
+      const step = readFloat(ui.snapStep, 0.01, 10, 1);
+      return { x: Math.round(p.x / step) * step, y: Math.round(p.y / step) * step };
+    }
+
+    function resizeCanvasToDisplaySize() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(620, Math.floor(rect.width * dpr));
+      const height = Math.max(520, Math.floor(rect.height * dpr));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function fitViewToData(redraw = true) {
+      if (!state) {
+        view = defaultView();
+        return;
+      }
+
+      const points = [state.target || { x: 2, y: 2 }, { x: -2, y: -2 }, { x: 7, y: 6 }];
+      for (const ray of state.rays || []) {
+        points.push(ray.p);
+        points.push(add(ray.p, mul(6, normalize(ray.v))));
+      }
+      for (const inter of state.intersections || []) points.push(inter.point);
+      if (state.tempStart) points.push(state.tempStart);
+
+      const finitePoints = points.filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y));
+      if (finitePoints.length === 0) {
+        view = defaultView();
+        if (redraw) renderAll();
+        return;
+      }
+
+      let minX = Math.min(...finitePoints.map(p => p.x));
+      let maxX = Math.max(...finitePoints.map(p => p.x));
+      let minY = Math.min(...finitePoints.map(p => p.y));
+      let maxY = Math.max(...finitePoints.map(p => p.y));
+      if (Math.abs(maxX - minX) < 1) { minX -= 1; maxX += 1; }
+      if (Math.abs(maxY - minY) < 1) { minY -= 1; maxY += 1; }
+
+      const padX = Math.max(1.2, (maxX - minX) * 0.12);
+      const padY = Math.max(1.2, (maxY - minY) * 0.12);
+      view = { minX: minX - padX, maxX: maxX + padX, minY: minY - padY, maxY: maxY + padY };
+      if (redraw) renderAll();
+    }
+
+    function worldToScreen(p) {
+      ensureView();
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(1, rect.width);
+      const height = Math.max(1, rect.height);
+      const viewWidth = Math.max(EPS, view.maxX - view.minX);
+      const viewHeight = Math.max(EPS, view.maxY - view.minY);
+      const sx = (p.x - view.minX) / viewWidth * width;
+      const sy = height - (p.y - view.minY) / viewHeight * height;
+      return { x: sx, y: sy };
+    }
+
+    function screenToWorld(p) {
+      ensureView();
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(1, rect.width);
+      const height = Math.max(1, rect.height);
+      return {
+        x: view.minX + (p.x / width) * (view.maxX - view.minX),
+        y: view.minY + ((height - p.y) / height) * (view.maxY - view.minY)
+      };
+    }
+
+    function drawLine(p1, p2, options = {}) {
+      const s1 = worldToScreen(p1);
+      const s2 = worldToScreen(p2);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(s1.x, s1.y);
+      ctx.lineTo(s2.x, s2.y);
+      ctx.strokeStyle = options.color || "#111827";
+      ctx.lineWidth = options.width || 1;
+      ctx.globalAlpha = options.alpha ?? 1;
+      if (options.dash) ctx.setLineDash(options.dash);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawText(text, p, options = {}) {
+      const s = worldToScreen(p);
+      ctx.save();
+      ctx.font = options.font || "12px system-ui, sans-serif";
+      ctx.textAlign = options.align || "left";
+      ctx.textBaseline = options.baseline || "middle";
+      if (options.bg) {
+        const metrics = ctx.measureText(text);
+        const pad = 4;
+        const h = 17;
+        ctx.fillStyle = options.bg;
+        ctx.fillRect(s.x - pad + (options.dx || 0), s.y - h / 2 + (options.dy || 0), metrics.width + pad * 2, h);
+      }
+      ctx.fillStyle = options.color || "#111827";
+      ctx.fillText(text, s.x + (options.dx || 0), s.y + (options.dy || 0));
+      ctx.restore();
+    }
+
+    function drawPoint(p, options = {}) {
+      const s = worldToScreen(p);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, options.radius || 4, 0, Math.PI * 2);
+      ctx.fillStyle = options.color || "#111827";
+      ctx.globalAlpha = options.alpha ?? 1;
+      ctx.fill();
+      if (options.stroke) {
+        ctx.strokeStyle = options.stroke;
+        ctx.lineWidth = options.strokeWidth || 2;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawArrowHead(start, end, color, width = 2, alpha = 1) {
+      const s = worldToScreen(start);
+      const e = worldToScreen(end);
+      const angle = Math.atan2(e.y - s.y, e.x - s.x);
+      const size = Math.max(8, width * 4.5);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(e.x - size * Math.cos(angle - Math.PI / 6), e.y - size * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(e.x - size * Math.cos(angle + Math.PI / 6), e.y - size * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function rayColor(ray) {
+      if (ray.hitA) return "#b91c1c";
+      if (ray.gen === 0) return "#111827";
+      if (ray.gen === 1) return "#2563eb";
+      if (ray.gen === 2) return "#7c3aed";
+      return "#0f766e";
+    }
+
+    function rayLengthInView(ray) {
+      const unit = normalize(ray.v);
+      const candidates = [];
+      if (Math.abs(unit.x) > EPS) {
+        candidates.push((view.minX - ray.p.x) / unit.x);
+        candidates.push((view.maxX - ray.p.x) / unit.x);
+      }
+      if (Math.abs(unit.y) > EPS) {
+        candidates.push((view.minY - ray.p.y) / unit.y);
+        candidates.push((view.maxY - ray.p.y) / unit.y);
+      }
+      const positive = candidates.filter(t => t > 0);
+      return Math.max(0.5, (positive.length ? Math.min(...positive) : 10) * 0.98);
+    }
+
+    function drawRay(ray) {
+      const end = add(ray.p, mul(rayLengthInView(ray), normalize(ray.v)));
+      const color = rayColor(ray);
+      const selected = state.selectedRayId === ray.id;
+      const width = ray.hitA ? 3.6 : selected ? 3.2 : ray.gen === 0 ? 2.8 : 1.8;
+      const alpha = selected ? 1 : ray.gen >= 3 ? 0.62 : 0.9;
+      drawLine(ray.p, end, { color, width, alpha, dash: ray.hitA ? [8, 6] : null });
+      drawArrowHead(ray.p, end, color, width, alpha);
+      drawPoint(ray.p, { radius: selected ? 5 : 3.5, color, stroke: selected ? "#facc15" : undefined, strokeWidth: 2 });
+      if (ui.showAllLabels.checked && (ray.gen === 0 || selected || ray.hitA)) {
+        drawText(ray.name, add(ray.p, { x: 0.08, y: 0.14 }), { color, font: "bold 12px system-ui, sans-serif", bg: "rgba(255,255,255,0.75)" });
+      }
+    }
+
+    function drawGrid() {
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      const xStart = Math.floor(view.minX);
+      const xEnd = Math.ceil(view.maxX);
+      const yStart = Math.floor(view.minY);
+      const yEnd = Math.ceil(view.maxY);
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "11px system-ui, sans-serif";
+      for (let x = xStart; x <= xEnd; x++) {
+        const p1 = worldToScreen({ x, y: view.minY });
+        const p2 = worldToScreen({ x, y: view.maxY });
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        if (x !== 0) ctx.fillText(x.toString(), p1.x + 3, worldToScreen({ x: 0, y: 0 }).y + 13);
+      }
+      for (let y = yStart; y <= yEnd; y++) {
+        const p1 = worldToScreen({ x: view.minX, y });
+        const p2 = worldToScreen({ x: view.maxX, y });
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        if (y !== 0) ctx.fillText(y.toString(), worldToScreen({ x: 0, y: 0 }).x + 5, p1.y - 3);
+      }
+      ctx.strokeStyle = "#64748b";
+      ctx.lineWidth = 1.5;
+      const xAxis1 = worldToScreen({ x: view.minX, y: 0 });
+      const xAxis2 = worldToScreen({ x: view.maxX, y: 0 });
+      const yAxis1 = worldToScreen({ x: 0, y: view.minY });
+      const yAxis2 = worldToScreen({ x: 0, y: view.maxY });
+      ctx.beginPath(); ctx.moveTo(xAxis1.x, xAxis1.y); ctx.lineTo(xAxis2.x, xAxis2.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(yAxis1.x, yAxis1.y); ctx.lineTo(yAxis2.x, yAxis2.y); ctx.stroke();
+      ctx.fillStyle = "#475569";
+      ctx.font = "bold 12px system-ui, sans-serif";
+      ctx.fillText("x", xAxis2.x - 16, xAxis2.y - 8);
+      ctx.fillText("y", yAxis2.x + 8, yAxis2.y + 16);
+      ctx.restore();
+    }
+
+    function drawSelectedNormal() {
+      if (!ui.showNormals.checked || state.selectedRayId == null) return;
+      const ray = state.rays.find(r => r.id === state.selectedRayId);
+      if (!ray) return;
+      const unitW = normalize(normalOf(ray.v));
+      const end = add(ray.p, mul(1.2, unitW));
+      drawLine(ray.p, end, { color: "#ea580c", width: 2, dash: [5, 4] });
+      drawArrowHead(ray.p, end, "#ea580c", 2);
+      drawText("w", add(end, { x: 0.08, y: 0.08 }), { color: "#ea580c", font: "bold 12px system-ui, sans-serif" });
+    }
+
+    function drawPreview() {
+      if (state.mode !== "addRay" || !state.tempStart || !state.mouseWorld) return;
+      const q = snapPoint(state.mouseWorld);
+      const v = sub(q, state.tempStart);
+      drawPoint(state.tempStart, { radius: 6, color: "#111827", stroke: "#ffffff", strokeWidth: 2 });
+      if (norm(v) < EPS) return;
+      const tempRay = { p: state.tempStart, v };
+      const end = add(tempRay.p, mul(rayLengthInView(tempRay), normalize(v)));
+      drawLine(tempRay.p, end, { color: "#0f172a", width: 2, dash: [7, 5], alpha: 0.8 });
+      drawArrowHead(tempRay.p, end, "#0f172a", 2, 0.8);
+      drawText("미리보기", add(state.tempStart, { x: 0.12, y: 0.18 }), { color: "#0f172a", font: "bold 12px system-ui, sans-serif", bg: "rgba(255,255,255,0.8)" });
+    }
+
+    function renderCanvas() {
+      if (!state) return;
+      ensureView();
+      resizeCanvasToDisplaySize();
+      drawGrid();
+      for (const ray of state.rays) drawRay(ray);
+      for (const inter of state.intersections) drawPoint(inter.point, { radius: 3, color: "#f59e0b", alpha: 0.7 });
+      drawPoint(state.target, { radius: 6.5, color: "#dc2626", stroke: "#ffffff", strokeWidth: 2 });
+      drawText(`A(${roundForDisplay(state.target.x)},${roundForDisplay(state.target.y)})`, add(state.target, { x: 0.12, y: 0.18 }), { color: "#dc2626", font: "bold 13px system-ui, sans-serif", bg: "rgba(255,255,255,0.8)" });
+      drawSelectedNormal();
+      drawPreview();
+    }
+
+    function updateStats() {
+      const hits = state.rays.filter(r => r.hitA);
+      ui.baseRayStat.textContent = state.baseRays.length;
+      ui.rayStat.textContent = state.rays.length;
+      ui.stepStat.textContent = state.step;
+      ui.hitStat.textContent = hits.length;
+      ui.aBadge.textContent = `a = ${roundForDisplay(state.a, 4)}`;
+      ui.modeBadge.textContent = `모드: ${modeLabel(state.mode)}`;
+
+      if (hits.length > 0) {
+        ui.statusBox.className = "result-box bad";
+        ui.statusBox.innerHTML = `A를 지나는 반직선 발견: <b>${hits.map(r => r.name).join(", ")}</b>`;
+      } else if (state.messages.length > 0 && (state.messages[0].includes("없다") || state.messages[0].includes("필요") || state.messages[0].includes("도달"))) {
+        ui.statusBox.className = "result-box warn";
+        ui.statusBox.textContent = state.messages[0];
+      } else {
+        ui.statusBox.className = "result-box ok";
+        ui.statusBox.textContent = state.messages[0] || "아직 A를 지나는 반직선이 발견되지 않았다.";
+      }
+    }
+
+    function modeLabel(mode) {
+      return { select: "선택", addRay: "반직선 추가", setTarget: "A 찍기", delete: "삭제", pan: "이동" }[mode] || mode;
+    }
+
+    function updateSelectedInfo() {
+      const ray = state.rays.find(r => r.id === state.selectedRayId);
+      if (!ray) {
+        ui.selectedInfo.innerHTML = "선택 모드에서 반직선을 클릭하면 시작점, 방향벡터, 법선벡터, w · PA 값을 확인할 수 있다.";
+        return;
+      }
+      const an = analyzeRay(ray, state.target);
+      const verdict = ray.hitA ? `<span style="color:#b91c1c;font-weight:800;">A를 지난다</span>` : `<span style="color:#166534;font-weight:800;">A를 지나지 않는다</span>`;
+      ui.selectedInfo.innerHTML = `
+        <b>${ray.name}</b> <span class="pill">${ray.gen}세대</span><br />
+        시작점 P = <span class="mono">(${roundForDisplay(ray.p.x)}, ${roundForDisplay(ray.p.y)})</span><br />
+        방향벡터 v = <span class="mono">(${roundForDisplay(ray.v.x)}, ${roundForDisplay(ray.v.y)})</span><br />
+        법선벡터 w = <span class="mono">(${roundForDisplay(an.w.x)}, ${roundForDisplay(an.w.y)})</span><br />
+        PA = <span class="mono">(${roundForDisplay(an.pa.x)}, ${roundForDisplay(an.pa.y)})</span><br />
+        w · PA = <span class="mono"><b>${roundForDisplay(an.wDot, 6)}</b></span><br />
+        v × PA = <span class="mono">${roundForDisplay(an.crossVal, 6)}</span>, t = <span class="mono">${roundForDisplay(an.t, 6)}</span><br />
+        점-반직선 거리 오차 = <span class="mono">${roundForDisplay(an.distance, 6)}</span><br />
+        판정: ${verdict}<br />
+        <span style="color:#6b7280;">생성 정보: ${ray.parents}</span>
+      `;
+    }
+
+    function updateBaseRayList() {
+      ui.baseRayList.innerHTML = "";
+      if (state.baseRays.length === 0) {
+        ui.baseRayList.innerHTML = `<div class="item"><div class="item-meta">입력된 반직선이 없다.</div></div>`;
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      for (const ray of state.baseRays) {
+        const item = document.createElement("div");
+        item.className = "item" + (ray.id === state.selectedRayId ? " selected" : "");
+        item.innerHTML = `
+          <div class="item-title">
+            <span>${ray.name}</span>
+            <span class="inline-actions"><button class="small-btn danger" data-delete="${ray.id}">삭제</button></span>
+          </div>
+          <div class="item-meta mono">P=(${roundForDisplay(ray.p.x)}, ${roundForDisplay(ray.p.y)}), v=(${roundForDisplay(ray.v.x)}, ${roundForDisplay(ray.v.y)})</div>
+        `;
+        item.addEventListener("click", () => { state.selectedRayId = ray.id; renderAll(); });
+        item.querySelector("button").addEventListener("click", (e) => {
+          e.stopPropagation();
+          deleteBaseRay(ray.id);
+        });
+        frag.appendChild(item);
+      }
+      ui.baseRayList.appendChild(frag);
+    }
+
+    function updateRayList() {
+      ui.rayList.innerHTML = "";
+      if (state.rays.length === 0) {
+        ui.rayList.innerHTML = `<div class="item"><div class="item-meta">표시할 반직선이 없다.</div></div>`;
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      for (const ray of state.rays.slice(0, 180)) {
+        const item = document.createElement("div");
+        item.className = "item" + (ray.id === state.selectedRayId ? " selected" : "");
+        item.innerHTML = `
+          <div class="item-title"><span>${ray.name}</span><span>${ray.gen}세대</span></div>
+          <div class="item-meta mono">P=(${roundForDisplay(ray.p.x)}, ${roundForDisplay(ray.p.y)}), v=(${roundForDisplay(ray.v.x)}, ${roundForDisplay(ray.v.y)}), w·PA=${roundForDisplay(ray.wDotPA, 4)}</div>
+        `;
+        item.addEventListener("click", () => { state.selectedRayId = ray.id; renderAll(); });
+        frag.appendChild(item);
+      }
+      if (state.rays.length > 180) {
+        const more = document.createElement("div");
+        more.className = "item";
+        more.innerHTML = `<div class="item-meta">나머지 ${state.rays.length - 180}개는 목록 표시를 생략했다.</div>`;
+        frag.appendChild(more);
+      }
+      ui.rayList.appendChild(frag);
+    }
+
+    function renderAll() {
+      if (!state) return;
+      ensureView();
+      updateAllHitFlags();
+      renderCanvas();
+      updateStats();
+      updateSelectedInfo();
+      updateBaseRayList();
+      updateRayList();
+      updateCandidateList();
+    }
+
+    function findNearestRay(screenPoint, onlyBase = false) {
+      const world = screenToWorld(screenPoint);
+      let best = null;
+      let bestDist = Infinity;
+      const rect = canvas.getBoundingClientRect();
+      const avgScale = (rect.width / (view.maxX - view.minX) + rect.height / (view.maxY - view.minY)) / 2;
+      const list = onlyBase ? state.baseRays : state.rays;
+      for (const ray of list) {
+        const u = normalize(ray.v);
+        const ap = sub(world, ray.p);
+        const t = dot(ap, u);
+        if (t < -0.1) continue;
+        const closest = add(ray.p, mul(t, u));
+        const distPixel = norm(sub(world, closest)) * avgScale;
+        if (distPixel < bestDist) { bestDist = distPixel; best = ray; }
+      }
+      return bestDist <= 12 ? best : null;
+    }
+
+    function deleteBaseRay(id) {
+      const idx = state.baseRays.findIndex(r => r.id === id);
+      if (idx < 0) return;
+      const name = state.baseRays[idx].name;
+      state.baseRays.splice(idx, 1);
+      state.candidates = [];
+      state.messages = [`${name}을 삭제했다. 생성 결과는 초기화되었다.`];
+      resetGenerated(false);
+    }
+
+    function handleCanvasClick(event) {
+      if (dragMoved) { dragMoved = false; return; }
+      const rect = canvas.getBoundingClientRect();
+      const screenPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      const world = snapPoint(screenToWorld(screenPoint));
+
+      if (state.mode === "addRay") {
+        if (!state.tempStart) {
+          state.tempStart = world;
+          state.messages = [`시작점 P=(${roundForDisplay(world.x)}, ${roundForDisplay(world.y)})를 찍었다. 방향점 Q를 클릭한다.`];
+        } else {
+          const v = sub(world, state.tempStart);
+          if (norm(v) < 0.08) {
+            state.messages = ["시작점과 방향점이 너무 가까워 방향을 정할 수 없다. 다른 방향점을 클릭한다."];
+          } else {
+            addBaseRay(state.tempStart, v);
+            state.tempStart = null;
+          }
+        }
+        renderAll();
+        return;
+      }
+
+      if (state.mode === "setTarget") {
+        state.target = world;
+        state.candidates = [];
+        state.messages = [`목표점 A를 (${roundForDisplay(world.x)}, ${roundForDisplay(world.y)})로 설정했다.`];
+        updateAllHitFlags();
+        renderAll();
+        return;
+      }
+
+      if (state.mode === "delete") {
+        const ray = findNearestRay(screenPoint, true);
+        if (ray) deleteBaseRay(ray.id);
+        else {
+          state.messages = ["삭제할 사용자 입력 반직선을 찾지 못했다."];
+          renderAll();
+        }
+        return;
+      }
+
+      if (state.mode === "select") {
+        const ray = findNearestRay(screenPoint, false);
+        state.selectedRayId = ray ? ray.id : null;
+        renderAll();
+      }
+    }
+
+    canvas.addEventListener("mousedown", (event) => {
+      if (state.mode !== "pan" && !event.shiftKey && event.button !== 1) return;
+      isDragging = true;
+      dragMoved = false;
+      const rect = canvas.getBoundingClientRect();
+      lastMouse = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    });
+
+    window.addEventListener("mousemove", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const current = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      if (current.x >= 0 && current.y >= 0 && current.x <= rect.width && current.y <= rect.height) {
+        state.mouseWorld = screenToWorld(current);
+      }
+      if (isDragging && lastMouse) {
+        const dx = current.x - lastMouse.x;
+        const dy = current.y - lastMouse.y;
+        if (Math.abs(dx) + Math.abs(dy) > 2) dragMoved = true;
+        const worldDx = -dx / rect.width * (view.maxX - view.minX);
+        const worldDy = dy / rect.height * (view.maxY - view.minY);
+        view.minX += worldDx;
+        view.maxX += worldDx;
+        view.minY += worldDy;
+        view.maxY += worldDy;
+        lastMouse = current;
+      }
+      renderCanvas();
+    });
+
+    window.addEventListener("mouseup", () => {
+      isDragging = false;
+      lastMouse = null;
+    });
+
+    canvas.addEventListener("click", handleCanvasClick);
+
+    canvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouse = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      const before = screenToWorld(mouse);
+      const factor = event.deltaY < 0 ? 0.9 : 1.1;
+      view.minX = before.x + (view.minX - before.x) * factor;
+      view.maxX = before.x + (view.maxX - before.x) * factor;
+      view.minY = before.y + (view.minY - before.y) * factor;
+      view.maxY = before.y + (view.maxY - before.y) * factor;
+      renderCanvas();
+    }, { passive: false });
+
+    ui.modeButtons.forEach(btn => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
+    ui.cancelDrawBtn.addEventListener("click", () => { state.tempStart = null; state.messages = ["진행 중인 작도를 취소했다."]; renderAll(); });
+    ui.loadExampleBtn.addEventListener("click", loadExample);
+    ui.clearInputBtn.addEventListener("click", clearInputs);
+    ui.nextStepBtn.addEventListener("click", generateOneStep);
+    ui.autoBtn.addEventListener("click", () => autoGenerate(5));
+    ui.resetGeneratedBtn.addEventListener("click", () => resetGenerated(true));
+    ui.fitBtn.addEventListener("click", () => fitViewToData(true));
+    ui.findAButton.addEventListener("click", findAValues);
+
+    ui.aSlider.addEventListener("input", () => setAValue(parseFloat(ui.aSlider.value), true));
+    ui.aNumber.addEventListener("change", () => setAValue(parseFloat(ui.aNumber.value), true));
+    ui.maxRays.addEventListener("change", renderAll);
+    ui.batchLimit.addEventListener("change", renderAll);
+    ui.showNormals.addEventListener("change", renderAll);
+    ui.showAllLabels.addEventListener("change", renderAll);
+    ui.dedupeRays.addEventListener("change", renderAll);
+    ui.snapToggle.addEventListener("change", renderAll);
+    ui.snapStep.addEventListener("change", renderAll);
+    window.addEventListener("resize", () => renderAll());
+
+    createInitialState();
+  </script>
+</body>
+</html>

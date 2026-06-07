@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>점 Q의 자취 시뮬레이션</title>
+
+<style>
+body{
+    margin:0;
+    padding:20px;
+    background:#f0f2f5;
+    font-family:'Malgun Gothic',sans-serif;
+    display:flex;
+    justify-content:center;
+}
+
+#container{
+    display:flex;
+    background:white;
+    padding:25px;
+    border-radius:18px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.1);
+    max-width:1450px;
+}
+
+#left{
+    text-align:center;
+    margin-right:25px;
+}
+
+#right{
+    width:430px;
+}
+
+canvas{
+    border:1px solid #ccc;
+    border-radius:12px;
+    background:white;
+}
+
+.slider-box{
+    margin-top:20px;
+}
+
+input[type=range]{
+    width:420px;
+}
+
+.value{
+    color:#007bff;
+    font-weight:bold;
+}
+
+.card{
+    background:#f8f9fa;
+    padding:15px;
+    border-radius:12px;
+    margin-bottom:15px;
+    line-height:1.9;
+    font-size:15px;
+}
+
+h2{
+    margin-top:0;
+}
+
+.toggle-btn{
+    background:#007bff;
+    color:white;
+    border:none;
+    padding:10px 15px;
+    border-radius:8px;
+    cursor:pointer;
+    margin-bottom:15px;
+    font-size:14px;
+}
+
+.toggle-btn:hover{
+    background:#0056b3;
+}
+
+.math{
+    font-family:"Times New Roman",serif;
+    font-style:italic;
+    font-weight:bold;
+}
+
+#areaBox{
+    background:#007bff;
+    color:white;
+    padding:15px;
+    border-radius:12px;
+    font-size:18px;
+    font-weight:bold;
+    text-align:center;
+}
+
+#integralStatus{
+    margin-top:10px;
+    font-size:14px;
+    color:#444;
+}
+
+#crossInfo{
+    margin-top:15px;
+    font-size:15px;
+    background:#f8f9fa;
+    padding:12px;
+    border-radius:10px;
+    line-height:1.8;
+}
+</style>
+</head>
+
+<body>
+
+<div id="container">
+
+<div id="left">
+
+<canvas id="canvas" width="760" height="760"></canvas>
+
+<div class="slider-box">
+
+θ:
+<input type="range"
+id="theta"
+min="0"
+max="6.28318"
+step="0.001"
+value="0">
+
+<span class="value" id="thetaVal"></span>
+
+<div id="crossInfo">
+Q가 x축 위에 온 θ:
+</div>
+
+</div>
+
+</div>
+
+<div id="right">
+
+<button class="toggle-btn" onclick="toggleInsight()">
+인사이트 펼치기 / 접기
+</button>
+
+<div id="insightSection" style="display:none;">
+
+<h2>💡 문제 인사이트</h2>
+
+<div class="card">
+
+<b>(1) 자취의 구조</b><br><br>
+
+점 P는 단위원 위를 회전하고,<br>
+점 Q는 중심이 P인 반지름 1의 원 위를 다시 회전한다.<br><br>
+
+따라서 Q의 좌표는
+
+<div style="margin-top:10px;">
+<span class="math">
+Q(θ)=
+(cosθ + cos2θ,
+sinθ + sin2θ)
+</span>
+</div>
+
+로 나타난다.<br><br>
+
+즉, 이 곡선은 두 원운동의 합으로 만들어지는
+에피사이클(epicycle) 형태의 곡선이다.<br><br>
+
+또한 θ 대신 2π-θ를 대입하면
+y값의 부호만 바뀌므로,
+자취는 x축 대칭이다.
+
+</div>
+
+<div class="card">
+
+<b>(2) 넓이 계산 아이디어</b><br><br>
+
+먼저
+
+<span class="math">
+x²+y²
+</span>
+
+를 계산하면:
+
+<div style="margin-top:10px;">
+<span class="math">
+x²+y²
+=
+2+2cosθ
+</span>
+</div>
+
+따라서 단위원 내부 조건
+
+<span class="math">
+x²+y² ≤ 1
+</span>
+
+은
+
+<div style="margin-top:10px;">
+<span class="math">
+cosθ ≤ -1/2
+</span>
+</div>
+
+와 동치가 된다.<br><br>
+
+즉,
+
+<div style="margin-top:10px;">
+<span class="math">
+2π/3 ≤ θ ≤ 4π/3
+</span>
+</div>
+
+구간만 적분하면 된다.<br><br>
+
+이후 매개변수 곡선 넓이 공식
+
+<div style="margin-top:10px;">
+<span class="math">
+S
+=
+∫ y dx
+</span>
+</div>
+
+을 사용하면 원하는 넓이를 구할 수 있다.
+
+</div>
+
+</div>
+
+<div id="areaBox">
+단위원 내부 넓이:
+<br><br>
+<span class="math">π − 3√3/2</span>
+</div>
+
+<div id="integralStatus">
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const W = canvas.width;
+const H = canvas.height;
+
+function T(x,y){
+
+    const scale = 190;
+
+    return [
+        W/2 + x*scale,
+        H/2 - y*scale
+    ];
+}
+
+function toggleInsight(){
+
+    const sec = document.getElementById("insightSection");
+
+    if(sec.style.display==="none"){
+        sec.style.display="block";
+    }else{
+        sec.style.display="none";
+    }
+}
+
+function drawAxes(){
+
+    ctx.strokeStyle="#ddd";
+    ctx.lineWidth=1;
+
+    // x축
+    ctx.beginPath();
+    ctx.moveTo(0,H/2);
+    ctx.lineTo(W,H/2);
+    ctx.stroke();
+
+    // y축
+    ctx.beginPath();
+    ctx.moveTo(W/2,0);
+    ctx.lineTo(W/2,H);
+    ctx.stroke();
+
+    // 눈금
+    for(let i=-2;i<=2;i++){
+
+        let [x,y]=T(i,0);
+
+        ctx.beginPath();
+        ctx.moveTo(x,H/2-5);
+        ctx.lineTo(x,H/2+5);
+        ctx.stroke();
+    }
+
+    for(let i=-2;i<=2;i++){
+
+        let [x,y]=T(0,i);
+
+        ctx.beginPath();
+        ctx.moveTo(W/2-5,y);
+        ctx.lineTo(W/2+5,y);
+        ctx.stroke();
+    }
+}
+
+function draw(){
+
+    const theta = parseFloat(slider.value);
+
+    thetaVal.textContent = theta.toFixed(3);
+
+    ctx.clearRect(0,0,W,H);
+
+    drawAxes();
+
+    // ===== 단위원 =====
+    ctx.strokeStyle="#bbb";
+    ctx.lineWidth=1.5;
+
+    ctx.beginPath();
+    ctx.arc(...T(0,0),190,0,2*Math.PI);
+    ctx.stroke();
+
+    // ===== 전체 자취 =====
+    ctx.strokeStyle="rgba(0,123,255,0.25)";
+    ctx.lineWidth=3;
+
+    ctx.beginPath();
+
+    for(let t=0;t<=Math.PI*2;t+=0.003){
+
+        let x = Math.cos(t)+Math.cos(2*t);
+        let y = Math.sin(t)+Math.sin(2*t);
+
+        let [px,py]=T(x,y);
+
+        if(t===0) ctx.moveTo(px,py);
+        else ctx.lineTo(px,py);
+    }
+
+    ctx.stroke();
+
+    // ===== 단위원 내부 영역 색칠 =====
+    ctx.fillStyle="rgba(255,0,0,0.25)";
+
+    ctx.beginPath();
+
+    let started=false;
+
+    for(let t=2*Math.PI/3;t<=4*Math.PI/3;t+=0.003){
+
+        let x = Math.cos(t)+Math.cos(2*t);
+        let y = Math.sin(t)+Math.sin(2*t);
+
+        let [px,py]=T(x,y);
+
+        if(!started){
+            ctx.moveTo(px,py);
+            started=true;
+        }else{
+            ctx.lineTo(px,py);
+        }
+    }
+
+    ctx.closePath();
+    ctx.fill();
+
+    // ===== 적분 애니메이션 =====
+    ctx.strokeStyle="#ff0000";
+    ctx.lineWidth=4;
+
+    ctx.beginPath();
+
+    let start = 2*Math.PI/3;
+    let end = Math.min(theta,4*Math.PI/3);
+
+    if(theta >= start){
+
+        for(let t=start;t<=end;t+=0.003){
+
+            let x = Math.cos(t)+Math.cos(2*t);
+            let y = Math.sin(t)+Math.sin(2*t);
+
+            let [px,py]=T(x,y);
+
+            if(t===start) ctx.moveTo(px,py);
+            else ctx.lineTo(px,py);
+        }
+
+        ctx.stroke();
+    }
+
+    // ===== 현재까지 이동 경로 =====
+    ctx.strokeStyle="#007bff";
+    ctx.lineWidth=4;
+
+    ctx.beginPath();
+
+    for(let t=0;t<=theta;t+=0.003){
+
+        let x = Math.cos(t)+Math.cos(2*t);
+        let y = Math.sin(t)+Math.sin(2*t);
+
+        let [px,py]=T(x,y);
+
+        if(t===0) ctx.moveTo(px,py);
+        else ctx.lineTo(px,py);
+    }
+
+    ctx.stroke();
+
+    // ===== 점 P =====
+    let Px = Math.cos(theta);
+    let Py = Math.sin(theta);
+
+    // ===== 점 Q =====
+    let Qx = Math.cos(theta)+Math.cos(2*theta);
+    let Qy = Math.sin(theta)+Math.sin(2*theta);
+
+    // ===== OP =====
+    ctx.strokeStyle="#666";
+    ctx.lineWidth=2;
+
+    ctx.beginPath();
+    ctx.moveTo(...T(0,0));
+    ctx.lineTo(...T(Px,Py));
+    ctx.stroke();
+
+    // ===== PQ =====
+    ctx.strokeStyle="#ff9800";
+
+    ctx.beginPath();
+    ctx.moveTo(...T(Px,Py));
+    ctx.lineTo(...T(Qx,Qy));
+    ctx.stroke();
+
+    // ===== 중심 P 원 =====
+    ctx.strokeStyle="rgba(255,152,0,0.35)";
+    ctx.lineWidth=1.5;
+
+    ctx.beginPath();
+    ctx.arc(...T(Px,Py),190,0,2*Math.PI);
+    ctx.stroke();
+
+    function dot(x,y,color,label){
+
+        let [px,py]=T(x,y);
+
+        ctx.fillStyle=color;
+
+        ctx.beginPath();
+        ctx.arc(px,py,7,0,2*Math.PI);
+        ctx.fill();
+
+        ctx.fillStyle="black";
+        ctx.font="16px sans-serif";
+        ctx.fillText(label,px+10,py-10);
+    }
+
+    dot(0,0,"black","O");
+    dot(Px,Py,"red","P");
+    dot(Qx,Qy,"blue","Q");
+
+    // ===== Q가 x축 위에 오는 θ =====
+
+    const special = [
+        {v:0, label:"0"},
+        {v:2*Math.PI/3, label:"2π/3"},
+        {v:Math.PI, label:"π"},
+        {v:4*Math.PI/3, label:"4π/3"},
+        {v:2*Math.PI, label:"2π"}
+    ];
+
+    let passed = [];
+
+    for(let s of special){
+
+        if(theta >= s.v - 0.001){
+
+            if(Math.abs(theta - s.v) < 0.03){
+
+                passed.push(
+                    "<b style='color:#007bff'>[" + s.label + "]</b>"
+                );
+
+            }else{
+
+                passed.push(s.label);
+            }
+        }
+    }
+
+    document.getElementById("crossInfo").innerHTML =
+    `
+    <b>Q가 x축 위에 온 θ:</b><br>
+    ${passed.join(" → ")}
+    `;
+}
+
+const slider = document.getElementById("theta");
+
+slider.addEventListener("input",draw);
+
+draw();
+
+</script>
+
+</body>
+</html>

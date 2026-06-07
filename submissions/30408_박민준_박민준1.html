@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>포물면과 원기둥의 교선 · 표면적 시뮬레이터</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', Arial, sans-serif;
+      background: linear-gradient(135deg, #f7fbff 0%, #eef4ff 100%);
+      color: #1f2937;
+    }
+    .wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px 18px 42px;
+    }
+    header {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      padding: 24px 26px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      letter-spacing: -0.04em;
+    }
+    .subtitle {
+      margin: 0;
+      color: #64748b;
+      line-height: 1.65;
+      font-size: 15px;
+    }
+    .formula {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-weight: 800;
+      margin: 0 3px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(560px, 1.35fr) minmax(340px, 0.95fr);
+      gap: 18px;
+    }
+    .card {
+      background: rgba(255,255,255,0.97);
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+    .canvas-card {
+      padding: 18px;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: radial-gradient(circle at 50% 20%, #ffffff 0%, #f8fafc 72%);
+      border-radius: 20px;
+      border: 1px solid #e5e7eb;
+    }
+    .controls {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+    button {
+      border: none;
+      cursor: pointer;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-weight: 900;
+      color: white;
+      background: #2563eb;
+      box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #2563eb;
+    }
+    .value-pill {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 9px 13px;
+      font-weight: 900;
+      color: #334155;
+      white-space: nowrap;
+    }
+    .side {
+      padding: 20px;
+    }
+    .section {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0 0 18px;
+      margin: 0 0 18px;
+    }
+    .section:last-child {
+      border-bottom: 0;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    h2 {
+      font-size: 18px;
+      margin: 0 0 12px;
+      letter-spacing: -0.02em;
+    }
+    .result-box {
+      border-radius: 18px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 14px;
+      line-height: 1.75;
+      font-size: 14px;
+    }
+    .big-answer {
+      margin-top: 10px;
+      text-align: center;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-weight: 950;
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 17px;
+      line-height: 1.55;
+    }
+    .coord {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 8px;
+      margin: 6px 0;
+    }
+    .coord span:first-child {
+      color: #64748b;
+      font-weight: 900;
+    }
+    .note {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+    .toggle-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .mini-btn {
+      background: #e0f2fe;
+      color: #0369a1;
+      box-shadow: none;
+      padding: 9px 12px;
+      font-size: 13px;
+    }
+    .mini-btn.on {
+      background: #0f766e;
+      color: #ffffff;
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      font-size: 13px;
+      color: #475569;
+      justify-content: center;
+    }
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+    .blue { background: #2563eb; }
+    .pink { background: #ec4899; }
+    .green { background: #10b981; }
+    .orange { background: #f59e0b; }
+    .purple { background: #8b5cf6; }
+    .gray { background: #64748b; }
+
+    details {
+      margin-top: 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 12px 14px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 900;
+    }
+    ol {
+      margin: 10px 0 0 20px;
+      padding: 0;
+      line-height: 1.7;
+    }
+    .steps {
+      padding-left: 18px;
+      margin: 8px 0 0;
+    }
+    .steps li {
+      margin: 4px 0;
+    }
+    @media (max-width: 920px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .controls {
+        grid-template-columns: 1fr;
+      }
+      h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>포물면과 원기둥의 교선 · 표면적 시뮬레이터</h1>
+      <p class="subtitle">
+        정석 풀이 흐름에 맞춰, xy평면의 원 위 점
+        <span class="formula">P(1/2 + 1/2cosθ, 1/2sinθ, 0)</span>를 먼저 잡고,
+        그 점을 포물면 <span class="formula">z = 1 - x² - y²</span> 위로 올려 교선점 Q를 구하는 방식으로 구성했습니다.
+        슬라이더를 움직이면 θ에 따른 교선점, 높이, 그리고 원기둥 표면 A₀의 리만합 근사가 함께 변합니다.
+      </p>
+    </header>
+
+    <main class="grid">
+      <section class="card canvas-card">
+        <canvas id="sim" width="840" height="660"></canvas>
+
+        <div class="controls">
+          <button id="playBtn">▶ 자동 재생</button>
+          <input id="tSlider" type="range" min="0" max="6283" value="0" />
+          <div class="value-pill">θ = <span id="tValue">0.000</span></div>
+        </div>
+
+        <div class="toggle-row">
+          <button class="mini-btn on" id="togglePatch">A₀ 곡면 표시</button>
+          <button class="mini-btn on" id="toggleRiemann">리만합 조각 표시</button>
+          <button class="mini-btn on" id="toggleTop">xy평면 원 표시</button>
+          <button class="mini-btn" id="resetTrail">교선 자취 다시 그리기</button>
+        </div>
+
+        <div class="legend">
+          <span><i class="dot orange"></i>xy평면 원 / 원기둥 A</span>
+          <span><i class="dot blue"></i>포물면 S</span>
+          <span><i class="dot pink"></i>교선 S∩A</span>
+          <span><i class="dot green"></i>현재 교선점 Q</span>
+          <span><i class="dot purple"></i>A₀ 표면적 영역</span>
+          <span><i class="dot gray"></i>리만합 세로 조각</span>
+        </div>
+      </section>
+
+      <aside class="card side">
+        <section class="section">
+          <h2>(1) 정석 풀이식으로 교선점 Q 잡기</h2>
+          <div class="result-box">
+            xy평면 원 위의 점을<br />
+            <b>P(1/2 + 1/2cosθ, 1/2sinθ, 0)</b>로 둡니다.<br /><br />
+
+            원기둥 조건은<br />
+            <b>(x - 1/2)² + y² = 1/4</b><br />
+            이고, 이를 정리하면 <b>x² + y² = x</b>입니다.<br /><br />
+
+            포물면은 회전 포물면이므로<br />
+            <b>z = 1 - x² - y² = 1 - x</b>가 됩니다.
+
+            <div class="big-answer">
+              Q(θ) = (cos²(θ/2), sin(θ/2)cos(θ/2), sin²(θ/2))
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>현재 θ에서의 좌표</h2>
+          <div class="result-box">
+            <div class="coord"><span>x</span><b id="xNow">1.0000</b></div>
+            <div class="coord"><span>y</span><b id="yNow">0.0000</b></div>
+            <div class="coord"><span>z</span><b id="zNow">0.0000</b></div>
+            <div class="coord"><span>높이</span><b id="hNow">0.0000</b></div>
+            <p class="note">
+              초록색 점 Q는 S∩A 위의 현재 점입니다.
+              주황색 점은 xy평면 원 위의 점 P이고, 회색/초록 세로선은 P에서 Q까지 올라가는 높이 z를 뜻합니다.
+            </p>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>(2) A₀ 표면적: 리만합 → 정적분</h2>
+          <div class="result-box">
+            사용자의 풀이처럼 원기둥을 θ 방향으로 아주 잘게 나누면,
+            각 조각의 가로 길이는 원기둥 반지름 <b>1/2</b> 때문에
+            <b>(1/2)Δθ</b>가 됩니다.<br />
+            각 조각의 세로 높이는 교선의 z좌표인 <b>sin²(θ/2)</b>입니다.
+
+            <ol class="steps">
+              <li>작은 직사각형 넓이 ≈ <b>(1/2)Δθ · sin²(θ/2)</b></li>
+              <li>전체 표면적 ≈ <b>Σ (1/2)Δθ · sin²(θ/2)</b></li>
+              <li>극한을 취하면 <b>∫₀²π (1/2)sin²(θ/2)dθ</b></li>
+            </ol>
+
+            <div class="big-answer">A₀의 표면적 = π / 2</div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>풀이 인사이트</h2>
+          <div class="result-box">
+            이 문제의 핵심은 <b>원기둥 위 점을 먼저 잡고, 그 점을 포물면 위로 올리는 것</b>입니다.
+            그러면 교선점 Q의 x, y좌표는 원 위의 점에서 오고, z좌표는 포물면 식에 대입해 결정됩니다.
+            <p class="note">
+              특히 <b>x² + y² = x</b>가 되어 <b>z = 1 - x</b>로 단순화되는 부분이 계산을 크게 줄여줍니다.
+              표면적은 원기둥을 펼쳤을 때 ‘가로 = 호의 길이, 세로 = 높이’인 조각들의 합으로 볼 수 있습니다.
+            </p>
+          </div>
+
+          <details>
+            <summary>처음 보는 사람을 위한 사용 방법</summary>
+            <ol>
+              <li>슬라이더를 움직여 θ가 변할 때 P와 Q가 어떻게 움직이는지 봅니다.</li>
+              <li>자동 재생을 누르면 교선 S∩A가 순서대로 그려집니다.</li>
+              <li>보라색 영역은 아래 z=0, 위 S∩A로 둘러싸인 원기둥 표면 A₀입니다.</li>
+              <li>리만합 조각 표시를 켜면 표면적을 작은 직사각형들의 합으로 근사하는 과정을 볼 수 있습니다.</li>
+            </ol>
+          </details>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('sim');
+    const ctx = canvas.getContext('2d');
+
+    const slider = document.getElementById('tSlider');
+    const tValue = document.getElementById('tValue');
+    const xNow = document.getElementById('xNow');
+    const yNow = document.getElementById('yNow');
+    const zNow = document.getElementById('zNow');
+    const hNow = document.getElementById('hNow');
+
+    const playBtn = document.getElementById('playBtn');
+    const togglePatch = document.getElementById('togglePatch');
+    const toggleRiemann = document.getElementById('toggleRiemann');
+    const toggleTop = document.getElementById('toggleTop');
+    const resetTrail = document.getElementById('resetTrail');
+
+    let playing = false;
+    let showPatch = true;
+    let showRiemann = true;
+    let showTop = true;
+    let trailMaxT = 0;
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const scale = 300;
+    const origin = { x: W * 0.49, y: H * 0.64 };
+
+    function P3(x, y, z) {
+      return {
+        x: origin.x + scale * (x - y) * 0.82,
+        y: origin.y + scale * (z * -0.95 + (x + y) * 0.36)
+      };
+    }
+
+    function pointAt(theta) {
+      const x = (1 + Math.cos(theta)) / 2;
+      const y = Math.sin(theta) / 2;
+      const z = (1 - Math.cos(theta)) / 2;
+      return { x, y, z };
+    }
+
+    function roundRect(x, y, w, h, r, fill, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    }
+
+    function drawLine3(a, b, style = {}) {
+      const pa = P3(a.x, a.y, a.z);
+      const pb = P3(b.x, b.y, b.z);
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.strokeStyle = style.stroke || '#94a3b8';
+      ctx.lineWidth = style.width || 1;
+      ctx.globalAlpha = style.alpha ?? 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    function drawPath(points, style) {
+      if (points.length < 2) return;
+      ctx.beginPath();
+      const p0 = P3(points[0].x, points[0].y, points[0].z);
+      ctx.moveTo(p0.x, p0.y);
+      for (let i = 1; i < points.length; i++) {
+        const p = P3(points[i].x, points[i].y, points[i].z);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.strokeStyle = style.stroke;
+      ctx.lineWidth = style.width || 2;
+      ctx.globalAlpha = style.alpha ?? 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    function fillQuad(a, b, c, d, fill, alpha = 0.18) {
+      const pa = P3(a.x, a.y, a.z);
+      const pb = P3(b.x, b.y, b.z);
+      const pc = P3(c.x, c.y, c.z);
+      const pd = P3(d.x, d.y, d.z);
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.lineTo(pc.x, pc.y);
+      ctx.lineTo(pd.x, pd.y);
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.globalAlpha = alpha;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function drawDot3(p, color, r = 5, label = '') {
+      const pp = P3(p.x, p.y, p.z);
+      ctx.beginPath();
+      ctx.arc(pp.x, pp.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+
+      if (label) {
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText(label, pp.x + 9, pp.y - 9);
+      }
+    }
+
+    function drawAxes() {
+      drawLine3({x:0,y:0,z:0}, {x:1.25,y:0,z:0}, {stroke:'#475569', width:1.4});
+      drawLine3({x:0,y:0,z:0}, {x:0,y:0.9,z:0}, {stroke:'#475569', width:1.4});
+      drawLine3({x:0,y:0,z:0}, {x:0,y:0,z:1.25}, {stroke:'#475569', width:1.4});
+
+      const labels = [
+        [{x:1.28,y:0,z:0}, 'x'],
+        [{x:0,y:0.95,z:0}, 'y'],
+        [{x:0,y:0,z:1.28}, 'z'],
+        [{x:0,y:0,z:0}, 'O']
+      ];
+
+      ctx.font = 'bold 15px Arial';
+      ctx.fillStyle = '#334155';
+      labels.forEach(([p, txt]) => {
+        const pp = P3(p.x, p.y, p.z);
+        ctx.fillText(txt, pp.x + 3, pp.y - 3);
+      });
+    }
+
+    function drawParaboloid() {
+      for (let r = 0.15; r <= 1.001; r += 0.17) {
+        const pts = [];
+        for (let i = 0; i <= 160; i++) {
+          const th = i / 160 * Math.PI * 2;
+          pts.push({
+            x: r * Math.cos(th),
+            y: r * Math.sin(th),
+            z: 1 - r * r
+          });
+        }
+        drawPath(pts, {stroke:'#2563eb', width:1, alpha:0.17});
+      }
+
+      for (let k = 0; k < 16; k++) {
+        const th = k / 16 * Math.PI * 2;
+        const pts = [];
+        for (let r = 0; r <= 1.001; r += 0.04) {
+          pts.push({
+            x: r * Math.cos(th),
+            y: r * Math.sin(th),
+            z: 1 - r * r
+          });
+        }
+        drawPath(pts, {stroke:'#2563eb', width:1, alpha:0.13});
+      }
+    }
+
+    function drawCylinderPatchAndRiemann() {
+      const steps = 120;
+
+      if (showPatch) {
+        for (let i = 0; i < steps; i++) {
+          const t1 = i / steps * Math.PI * 2;
+          const t2 = (i + 1) / steps * Math.PI * 2;
+          const p1 = pointAt(t1);
+          const p2 = pointAt(t2);
+
+          fillQuad(
+            {x:p1.x, y:p1.y, z:0},
+            {x:p2.x, y:p2.y, z:0},
+            {x:p2.x, y:p2.y, z:p2.z},
+            {x:p1.x, y:p1.y, z:p1.z},
+            '#8b5cf6',
+            0.16
+          );
+        }
+      }
+
+      const basePts = [];
+      const topGuide = [];
+
+      for (let i = 0; i <= 160; i++) {
+        const t = i / 160 * Math.PI * 2;
+        const p = pointAt(t);
+        basePts.push({x:p.x, y:p.y, z:0});
+        topGuide.push({x:p.x, y:p.y, z:1.05});
+      }
+
+      drawPath(basePts, {stroke:'#f59e0b', width:2.3, alpha:0.8});
+      drawPath(topGuide, {stroke:'#f59e0b', width:1.1, alpha:0.22});
+
+      for (let k = 0; k < 20; k++) {
+        const t = k / 20 * Math.PI * 2;
+        const p = pointAt(t);
+        drawLine3(
+          {x:p.x, y:p.y, z:0},
+          {x:p.x, y:p.y, z:1.05},
+          {stroke:'#f59e0b', width:1, alpha:0.2}
+        );
+      }
+
+      if (showRiemann) {
+        const n = 18;
+        for (let k = 0; k < n; k++) {
+          const t1 = k / n * Math.PI * 2;
+          const t2 = (k + 1) / n * Math.PI * 2;
+          const mid = (t1 + t2) / 2;
+
+          const p1 = pointAt(t1);
+          const p2 = pointAt(t2);
+          const pm = pointAt(mid);
+          const h = pm.z;
+
+          fillQuad(
+            {x:p1.x, y:p1.y, z:0},
+            {x:p2.x, y:p2.y, z:0},
+            {x:p2.x, y:p2.y, z:h},
+            {x:p1.x, y:p1.y, z:h},
+            '#64748b',
+            0.15
+          );
+
+          if (k % 2 === 0) {
+            drawLine3(
+              {x:pm.x, y:pm.y, z:0},
+              {x:pm.x, y:pm.y, z:h},
+              {stroke:'#64748b', width:1.3, alpha:0.55}
+            );
+          }
+        }
+      }
+    }
+
+    function drawIntersection(maxT) {
+      const pts = [];
+      const n = Math.max(2, Math.floor(220 * maxT / (Math.PI * 2)));
+      for (let i = 0; i <= n; i++) {
+        pts.push(pointAt(i / n * maxT));
+      }
+      drawPath(pts, {stroke:'#ec4899', width:4, alpha:0.95});
+    }
+
+    function drawTopView(theta) {
+      if (!showTop) return;
+
+      const ox = 96;
+      const oy = 112;
+      const s = 112;
+
+      ctx.save();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.strokeStyle = '#e2e8f0';
+      roundRect(22, 22, 235, 188, 18, true, true);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText('xy평면에서 P 잡기', 42, 50);
+
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(42, oy);
+      ctx.lineTo(228, oy);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(ox, 174);
+      ctx.lineTo(ox, 58);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(ox + 0.5 * s, oy, 0.5 * s, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(ox + 0.5 * s, oy, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      const p = pointAt(theta);
+
+      ctx.strokeStyle = '#94a3b8';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(ox + 0.5 * s, oy);
+      ctx.lineTo(ox + p.x * s, oy - p.y * s);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(ox + p.x * s, oy - p.y * s, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#334155';
+      ctx.font = '12px Arial';
+      ctx.fillText('P(1/2+1/2cosθ, 1/2sinθ, 0)', 38, 194);
+
+      ctx.restore();
+    }
+
+    function drawAnnotations(theta) {
+      const q = pointAt(theta);
+
+      drawDot3({x:q.x, y:q.y, z:0}, '#f59e0b', 5, 'P');
+      drawDot3(q, '#10b981', 7, 'Q');
+
+      drawLine3(
+        {x:q.x, y:q.y, z:0},
+        q,
+        {stroke:'#10b981', width:1.7, alpha:0.65}
+      );
+
+      const top = P3(q.x, q.y, q.z);
+      const base = P3(q.x, q.y, 0);
+
+      ctx.fillStyle = '#0f766e';
+      ctx.font = 'bold 13px Arial';
+      ctx.fillText('z = sin²(θ/2)', top.x + 12, (top.y + base.y) / 2);
+
+      const h = {x:q.x, y:0, z:0};
+      drawLine3({x:0, y:0, z:0}, h, {stroke:'#94a3b8', width:1, alpha:0.55});
+      drawLine3(h, {x:q.x, y:q.y, z:0}, {stroke:'#94a3b8', width:1, alpha:0.45});
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      const theta = Number(slider.value) / 1000;
+      trailMaxT = Math.max(trailMaxT, theta);
+
+      drawAxes();
+      drawParaboloid();
+      drawCylinderPatchAndRiemann();
+      drawIntersection(Math.max(trailMaxT, 0.02));
+      drawAnnotations(theta);
+      drawTopView(theta);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText('정석 풀이 흐름: 원 위 P → 포물면 위 Q → 리만합으로 A₀ 표면적', 26, H - 36);
+
+      ctx.font = '13px Arial';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('회색 조각 하나의 넓이 ≈ (1/2)Δθ · sin²(θ/2), 전체 합의 극한이 π/2입니다.', 26, H - 15);
+
+      const q = pointAt(theta);
+      tValue.textContent = theta.toFixed(3);
+      xNow.textContent = q.x.toFixed(4);
+      yNow.textContent = q.y.toFixed(4);
+      zNow.textContent = q.z.toFixed(4);
+      hNow.textContent = q.z.toFixed(4);
+    }
+
+    slider.addEventListener('input', draw);
+
+    playBtn.addEventListener('click', () => {
+      playing = !playing;
+      playBtn.textContent = playing ? '⏸ 일시정지' : '▶ 자동 재생';
+    });
+
+    togglePatch.addEventListener('click', () => {
+      showPatch = !showPatch;
+      togglePatch.classList.toggle('on', showPatch);
+      draw();
+    });
+
+    toggleRiemann.addEventListener('click', () => {
+      showRiemann = !showRiemann;
+      toggleRiemann.classList.toggle('on', showRiemann);
+      draw();
+    });
+
+    toggleTop.addEventListener('click', () => {
+      showTop = !showTop;
+      toggleTop.classList.toggle('on', showTop);
+      draw();
+    });
+
+    resetTrail.addEventListener('click', () => {
+      trailMaxT = Number(slider.value) / 1000;
+      draw();
+    });
+
+    function animate() {
+      if (playing) {
+        let v = Number(slider.value) + 18;
+        if (v > 6283) {
+          v = 0;
+          trailMaxT = 0;
+        }
+        slider.value = v;
+        draw();
+      }
+      requestAnimationFrame(animate);
+    }
+
+    draw();
+    animate();
+  </script>
+</body>
+</html>

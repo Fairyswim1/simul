@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle Points Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=JetBrains+Mono:wght@300;400;600&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181b22;
+    --border: #2a2d36;
+    --accent-a: #60c8ff;
+    --accent-b: #ffb347;
+    --accent-c: #7dffb3;
+    --accent-red: #ff4e6a;
+    --accent-gold: #ffd700;
+    --text: #e8eaf0;
+    --text-muted: #7a7f8e;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-serif: 'Noto Serif KR', serif;
+    --font-display: 'Playfair Display', serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--font-serif); overflow-x: hidden; }
+
+  /* --- GLOBAL LAYOUT --- */
+  #app { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto 1fr auto; min-height: 100vh; gap: 0; }
+  #header { grid-column: 1 / -1; padding: 18px 28px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 16px; background: var(--surface); }
+  #header h1 { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
+  #header .subtitle { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.08em; }
+  #main-col { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
+  #side-col { grid-column: 2; grid-row: 2 / 4; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; overflow-y: auto; }
+  #bottom-row { grid-column: 1; grid-row: 3; border-top: 1px solid var(--border); background: var(--surface); }
+
+  /* --- CANVAS AREA --- */
+  #canvas-wrap { position: relative; flex: 1; min-height: 0; background: var(--bg); }
+  #mainCanvas { display: block; width: 100%; height: 100%; }
+
+  /* --- COLLINEAR OVERLAY --- */
+  #collinear-overlay {
+    position: absolute; inset: 0; pointer-events: none;
+    border: 3px solid transparent; border-radius: 0;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    z-index: 10;
+  }
+  #collinear-overlay.active {
+    border-color: var(--accent-red);
+    box-shadow: inset 0 0 60px rgba(255,78,106,0.15), 0 0 40px rgba(255,78,106,0.3);
+    animation: borderPulse 0.7s ease-in-out infinite alternate;
+  }
+  @keyframes borderPulse {
+    from { border-color: #ff4e6a; box-shadow: inset 0 0 60px rgba(255,78,106,0.15), 0 0 40px rgba(255,78,106,0.3); }
+    to   { border-color: #ff8fa0; box-shadow: inset 0 0 100px rgba(255,78,106,0.3), 0 0 80px rgba(255,78,106,0.5); }
+  }
+
+  /* MAX AREA OVERLAY */
+  #maxarea-overlay {
+    position: absolute; inset: 0; pointer-events: none; z-index: 9;
+    border: 3px solid transparent;
+    transition: border-color 0.15s;
+  }
+  #maxarea-overlay.active {
+    border-color: var(--accent-gold);
+    box-shadow: inset 0 0 80px rgba(255,215,0,0.12), 0 0 60px rgba(255,215,0,0.4);
+    animation: goldPulse 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes goldPulse {
+    from { box-shadow: inset 0 0 80px rgba(255,215,0,0.12), 0 0 60px rgba(255,215,0,0.4); }
+    to   { box-shadow: inset 0 0 140px rgba(255,215,0,0.25), 0 0 120px rgba(255,215,0,0.7); }
+  }
+
+  /* --- STATUS BADGE --- */
+  #status-badge {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+    padding: 6px 18px; border-radius: 2px; letter-spacing: 0.1em;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 20;
+    white-space: nowrap;
+  }
+  #status-badge.collinear { background: rgba(255,78,106,0.92); color: #fff; opacity: 1; border: 1px solid #ff4e6a; }
+  #status-badge.bc-overlap { background: rgba(255,100,60,0.95); color: #fff; opacity: 1; border: 1px solid #ff6030; }
+  #status-badge.maxarea { background: rgba(255,215,0,0.95); color: #000; opacity: 1; border: 1px solid #ffd700; }
+
+  /* --- CONTROLS --- */
+  #controls { padding: 14px 20px; border-top: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+  .ctrl-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ctrl-label { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); min-width: 54px; letter-spacing: 0.06em; }
+  input[type=range] {
+    flex: 1; -webkit-appearance: none; height: 3px; border-radius: 2px;
+    background: linear-gradient(to right, var(--accent-a) 0%, var(--accent-a) var(--pct, 50%), var(--border) var(--pct, 50%));
+    outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text); border: 2px solid var(--accent-a); cursor: pointer;
+  }
+  .val-display { font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-a); min-width: 80px; text-align: right; }
+  .btn { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.1em; padding: 6px 16px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; border-radius: 2px; transition: all 0.15s; }
+  .btn:hover { border-color: var(--accent-a); color: var(--accent-a); }
+  .btn.active { background: var(--accent-a); color: #000; border-color: var(--accent-a); font-weight: 600; }
+  .btn.play-btn { border-color: var(--accent-c); color: var(--accent-c); }
+  .btn.play-btn.active { background: var(--accent-c); color: #000; border-color: var(--accent-c); }
+  .sep { width: 1px; height: 20px; background: var(--border); }
+
+  /* --- BOTTOM GRAPH --- */
+  #graph-wrap { padding: 10px 20px 12px; background: var(--surface); }
+  #graph-title { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 6px; }
+  #graphCanvas { display: block; width: 100%; height: 90px; }
+
+  /* --- SIDE PANEL --- */
+  .side-section { border-bottom: 1px solid var(--border); padding: 14px 16px; }
+  .side-title { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.12em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; }
+
+  /* Coords */
+  .coord-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px; }
+  .pt-label { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; min-width: 18px; }
+  .pt-label.a { color: var(--accent-a); }
+  .pt-label.b { color: var(--accent-b); }
+  .pt-label.c { color: var(--accent-c); }
+  .pt-coords { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text); line-height: 1.5; }
+  .pt-coords .dec { color: var(--text-muted); font-size: 0.62rem; }
+
+  /* Area display */
+  #area-display { text-align: center; padding: 10px 0 6px; }
+  #area-val { font-family: var(--font-display); font-size: 2rem; color: var(--text); transition: color 0.3s; }
+  #area-val.maxima { color: var(--accent-gold); text-shadow: 0 0 20px rgba(255,215,0,0.6); animation: goldGlow 0.8s ease-in-out infinite alternate; }
+  @keyframes goldGlow { from { text-shadow: 0 0 20px rgba(255,215,0,0.6); } to { text-shadow: 0 0 40px rgba(255,215,0,1); } }
+  #area-label { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); letter-spacing: 0.08em; }
+  #area-max-row { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-muted); margin-top: 4px; }
+  #area-max-row span { color: var(--accent-gold); }
+
+  /* Analysis panel */
+  #analysis-panel { display: none; }
+  #analysis-panel.visible { display: block; }
+  .ana-row { font-family: var(--font-mono); font-size: 0.64rem; line-height: 1.7; color: var(--text); border-left: 2px solid var(--border); padding-left: 8px; margin-bottom: 6px; }
+  .ana-row .lbl { color: var(--text-muted); }
+  .ana-row .val { color: var(--accent-a); }
+  .ana-row .eq { color: #b0f0c0; }
+
+  /* Event log */
+  #event-log { flex: 1; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 5px; min-height: 80px; max-height: 220px; }
+  .log-item { font-family: var(--font-mono); font-size: 0.62rem; padding: 5px 8px; border-radius: 2px; border-left: 2px solid; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+  .log-item.collinear { border-color: var(--accent-red); background: rgba(255,78,106,0.08); color: #ff9aaa; }
+  .log-item.bc-overlap { border-color: #ff6030; background: rgba(255,96,48,0.1); color: #ffb090; }
+  .log-item.maxarea { border-color: var(--accent-gold); background: rgba(255,215,0,0.08); color: var(--accent-gold); }
+  .log-item .log-theta { color: var(--text-muted); }
+  #log-empty { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); padding: 8px; text-align: center; }
+
+  /* theta special display */
+  #theta-special { font-family: var(--font-mono); font-size: 0.7rem; color: #c0d0ff; margin-top: 2px; min-height: 16px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 900px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto; }
+    #side-col { grid-column: 1; grid-row: 3; grid-template-columns: 1fr 1fr; display: grid; border-left: none; border-top: 1px solid var(--border); max-height: 340px; }
+    #bottom-row { grid-row: 4; grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>Circle Points Simulator</h1>
+    <span class="subtitle">X(0,1,r=2) &nbsp;/&nbsp; Y(1,0,r=1) &nbsp;/&nbsp; Z(-1,0,r=1) &nbsp;&mdash;&nbsp; A,B,C on circles</span>
+  </div>
+
+  <div id="main-col">
+    <div id="canvas-wrap">
+      <canvas id="mainCanvas"></canvas>
+      <div id="collinear-overlay"></div>
+      <div id="maxarea-overlay"></div>
+      <div id="status-badge"></div>
+    </div>
+    <div id="controls">
+      <div class="ctrl-row">
+        <span class="ctrl-label">theta</span>
+        <input type="range" id="thetaSlider" min="0" max="628" value="0" step="1">
+        <span class="val-display" id="thetaVal">0</span>
+        <div class="sep"></div>
+        <span id="theta-special"></span>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn play-btn" id="playBtn">PLAY</button>
+        <span class="ctrl-label" style="min-width:44px">speed</span>
+        <input type="range" id="speedSlider" min="1" max="40" value="8" step="1" style="max-width:120px">
+        <span class="val-display" id="speedVal">x1.0</span>
+        <div class="sep"></div>
+        <button class="btn" id="resetBtn">RESET</button>
+        <button class="btn" id="analysisBtn">넓이 분석 모드</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="side-col">
+    <div class="side-section">
+      <div class="side-title">좌표</div>
+      <div class="coord-row">
+        <span class="pt-label a">A</span>
+        <div class="pt-coords" id="coordA">—</div>
+      </div>
+      <div class="coord-row">
+        <span class="pt-label b">B</span>
+        <div class="pt-coords" id="coordB">—</div>
+      </div>
+      <div class="coord-row">
+        <span class="pt-label c">C</span>
+        <div class="pt-coords" id="coordC">—</div>
+      </div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-title">삼각형 ABC 넓이</div>
+      <div id="area-display">
+        <div id="area-val">0.000</div>
+        <div id="area-label">S(theta)</div>
+        <div id="area-max-row">최댓값: <span id="area-max-val">—</span></div>
+      </div>
+    </div>
+
+    <div class="side-section" id="analysis-panel">
+      <div class="side-title">넓이 분석</div>
+      <div class="ana-row">
+        <div class="lbl">밑변 |BC|</div>
+        <div class="val" id="ana-bc">—</div>
+        <div class="eq" id="ana-bc-eq">—</div>
+      </div>
+      <div class="ana-row">
+        <div class="lbl">높이 h (A-BC)</div>
+        <div class="val" id="ana-h">—</div>
+        <div class="eq" id="ana-h-eq">—</div>
+      </div>
+      <div class="ana-row">
+        <div class="lbl">넓이 = (1/2) * |BC| * h</div>
+        <div class="val" id="ana-area">—</div>
+        <div class="eq" id="ana-area-eq">—</div>
+      </div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-title">이벤트 기록</div>
+    </div>
+    <div id="event-log">
+      <div id="log-empty">이벤트 없음</div>
+    </div>
+  </div>
+
+  <div id="bottom-row">
+    <div id="graph-wrap">
+      <div id="graph-title">S(theta) — 삼각형 ABC 넓이 그래프 &nbsp;|&nbsp; 빨간 점선: 일직선 &nbsp;|&nbsp; 금색 점선: 최댓값</div>
+      <canvas id="graphCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // =========================================================
+  // MATH HELPERS
+  // =========================================================
+  const PI = Math.PI;
+
+  function pts(theta) {
+    // A on X(0,1,r=2), clockwise: start at top (0,3)
+    const ax = 2 * Math.sin(theta);
+    const ay = 1 + 2 * Math.cos(theta);
+    // B on Y(1,0,r=1), clockwise: start at top (1,1)
+    const bx = 1 + Math.sin(theta);
+    const by = Math.cos(theta);
+    // C on Z(-1,0,r=1), counter-clockwise: start at top (-1,1)
+    const cx = -1 - Math.sin(theta);
+    const cy = Math.cos(theta);
+    return { ax, ay, bx, by, cx, cy };
+  }
+
+  function triangleArea(ax, ay, bx, by, cx, cy) {
+    return 0.5 * Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay));
+  }
+
+  function isCollinear(ax, ay, bx, by, cx, cy) {
+    const cross = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay);
+    return Math.abs(cross) < 0.01;
+  }
+
+  function bcOverlap(bx, by, cx, cy) {
+    return Math.abs(bx - cx) < 0.01 && Math.abs(by - cy) < 0.01;
+  }
+
+  // foot of perpendicular from point P to line AB
+  function footOfPerp(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+    return { x: ax + t * dx, y: ay + t * dy, t };
+  }
+
+  function dist2d(x1, y1, x2, y2) {
+    return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
+  }
+
+  // =========================================================
+  // EXACT MATH REPRESENTATION
+  // =========================================================
+  const SPECIALS = [
+    { v: 0,        s: '0',       tex: '0' },
+    { v: PI/6,     s: 'pi/6',    tex: '\u03c0/6' },
+    { v: PI/4,     s: 'pi/4',    tex: '\u03c0/4' },
+    { v: PI/3,     s: 'pi/3',    tex: '\u03c0/3' },
+    { v: PI/2,     s: 'pi/2',    tex: '\u03c0/2' },
+    { v: 2*PI/3,   s: '2pi/3',   tex: '2\u03c0/3' },
+    { v: 3*PI/4,   s: '3pi/4',   tex: '3\u03c0/4' },
+    { v: 5*PI/6,   s: '5pi/6',   tex: '5\u03c0/6' },
+    { v: PI,       s: 'pi',      tex: '\u03c0' },
+    { v: 7*PI/6,   s: '7pi/6',   tex: '7\u03c0/6' },
+    { v: 5*PI/4,   s: '5pi/4',   tex: '5\u03c0/4' },
+    { v: 4*PI/3,   s: '4pi/3',   tex: '4\u03c0/3' },
+    { v: 3*PI/2,   s: '3pi/2',   tex: '3\u03c0/2' },
+    { v: 5*PI/3,   s: '5pi/3',   tex: '5\u03c0/3' },
+    { v: 7*PI/4,   s: '7pi/4',   tex: '7\u03c0/4' },
+    { v: 11*PI/6,  s: '11pi/6',  tex: '11\u03c0/6' },
+    { v: 2*PI,     s: '2pi',     tex: '2\u03c0' },
+  ];
+
+  function nearestSpecial(theta) {
+    let best = null, bestDist = 0.04;
+    for (const s of SPECIALS) {
+      const d = Math.abs(theta - s.v);
+      if (d < bestDist) { bestDist = d; best = s; }
+    }
+    return best;
+  }
+
+  // Display coordinate with exact form where possible
+  function exactCoord(val, theta) {
+    // Known exact forms at special angles
+    const c = Math.cos(theta), s2 = Math.sin(theta);
+    function fmt(v) {
+      const SQRT2_2 = Math.SQRT2 / 2;
+      const SQRT3_2 = Math.sqrt(3) / 2;
+      const pairs = [
+        [0, '0'], [1, '1'], [-1, '-1'], [2, '2'], [-2, '-2'],
+        [0.5, '1/2'], [-0.5, '-1/2'],
+        [SQRT2_2, '\u221a2/2'], [-SQRT2_2, '-\u221a2/2'],
+        [SQRT3_2, '\u221a3/2'], [-SQRT3_2, '-\u221a3/2'],
+        [1 + SQRT2_2, '1+\u221a2/2'], [1 - SQRT2_2, '1-\u221a2/2'],
+        [-1 + SQRT2_2, '\u221a2/2-1'], [-1 - SQRT2_2, '-1-\u221a2/2'],
+        [2 * SQRT2_2, '\u221a2'], [-2 * SQRT2_2, '-\u221a2'],
+        [2 * SQRT3_2, '\u221a3'], [-2 * SQRT3_2, '-\u221a3'],
+        [1 + 2 * SQRT2_2, '1+\u221a2'], [1 - 2*SQRT2_2, '1-\u221a2'],
+        [1 + SQRT3_2*2, '1+\u221a3'], [1 - SQRT3_2*2, '1-\u221a3'],
+      ];
+      for (const [ref, label] of pairs) {
+        if (Math.abs(v - ref) < 0.0005) return label;
+      }
+      return null;
+    }
+    const exact = fmt(val);
+    return exact ? exact : null;
+  }
+
+  function coordStr(x, y, theta) {
+    const xE = exactCoord(x, theta);
+    const yE = exactCoord(y, theta);
+    const xDec = x.toFixed(3);
+    const yDec = y.toFixed(3);
+    let line1 = '(' + (xE || xDec) + ', ' + (yE || yDec) + ')';
+    let line2 = (xE || yE) ? '<span class="dec">dec: (' + xDec + ', ' + yDec + ')</span>' : '';
+    return line1 + (line2 ? '<br>' + line2 : '');
+  }
+
+  // =========================================================
+  // CANVAS SETUP
+  // =========================================================
+  const mainCanvas = document.getElementById('mainCanvas');
+  const ctx = mainCanvas.getContext('2d');
+  const graphCanvas = document.getElementById('graphCanvas');
+  const gctx = graphCanvas.getContext('2d');
+
+  let W, H, cx0, cy0, scale;
+
+  function resize() {
+    const wrap = document.getElementById('canvas-wrap');
+    W = wrap.clientWidth;
+    H = wrap.clientHeight;
+    mainCanvas.width = W * devicePixelRatio;
+    mainCanvas.height = H * devicePixelRatio;
+    mainCanvas.style.width = W + 'px';
+    mainCanvas.style.height = H + 'px';
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+
+    cx0 = W / 2;
+    cy0 = H / 2 + H * 0.04;
+    scale = Math.min(W, H) * 0.18;
+
+    const gw = graphCanvas.parentElement.clientWidth - 40;
+    const gh = 90;
+    graphCanvas.width = gw * devicePixelRatio;
+    graphCanvas.height = gh * devicePixelRatio;
+    graphCanvas.style.width = gw + 'px';
+    graphCanvas.style.height = gh + 'px';
+    gctx.scale(devicePixelRatio, devicePixelRatio);
+
+    draw();
+    drawGraph();
+  }
+
+  function toScreen(mx, my) {
+    return { x: cx0 + mx * scale, y: cy0 - my * scale };
+  }
+
+  // =========================================================
+  // STATE
+  // =========================================================
+  let theta = 0;
+  let playing = false;
+  let analysisMode = false;
+  let animId = null;
+  let lastTime = null;
+  let maxArea = 0;
+  let maxAreaTheta = null;
+  let eventLog = [];
+  let lastCollinearState = false;
+  let lastBCOverlapState = false;
+  let lastMaxAreaState = false;
+
+  // Pre-compute area curve
+  const CURVE_N = 630;
+  const areaCurve = new Float32Array(CURVE_N);
+  for (let i = 0; i < CURVE_N; i++) {
+    const t = (i / CURVE_N) * 2 * PI;
+    const { ax, ay, bx, by, cx, cy } = pts(t);
+    areaCurve[i] = triangleArea(ax, ay, bx, by, cx, cy);
+  }
+  // max
+  let globalMaxArea = 0, globalMaxIdx = 0;
+  for (let i = 0; i < CURVE_N; i++) {
+    if (areaCurve[i] > globalMaxArea) { globalMaxArea = areaCurve[i]; globalMaxIdx = i; }
+  }
+
+  // =========================================================
+  // DRAW MAIN
+  // =========================================================
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    drawGrid();
+
+    const { ax, ay, bx, by, cx, cy } = pts(theta);
+
+    // Circles
+    drawCircle(0, 1, 2, 'rgba(96,200,255,0.18)', 'rgba(96,200,255,0.5)', 'X');
+    drawCircle(1, 0, 1, 'rgba(255,179,71,0.15)', 'rgba(255,179,71,0.45)', 'Y');
+    drawCircle(-1, 0, 1, 'rgba(125,255,179,0.15)', 'rgba(125,255,179,0.45)', 'Z');
+
+    // Triangle fill
+    const col = isCollinear(ax, ay, bx, by, cx, cy);
+    if (!col) {
+      const sa = toScreen(ax, ay), sb = toScreen(bx, by), sc = toScreen(cx, cy);
+      ctx.beginPath();
+      ctx.moveTo(sa.x, sa.y); ctx.lineTo(sb.x, sb.y); ctx.lineTo(sc.x, sc.y); ctx.closePath();
+      ctx.fillStyle = 'rgba(200,200,255,0.06)';
+      ctx.fill();
+
+      // Triangle edges
+      ctx.beginPath();
+      ctx.moveTo(sa.x, sa.y); ctx.lineTo(sb.x, sb.y); ctx.lineTo(sc.x, sc.y); ctx.closePath();
+      ctx.strokeStyle = 'rgba(180,180,255,0.25)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Analysis mode overlays
+    if (analysisMode && !col) {
+      const sa = toScreen(ax, ay), sb = toScreen(bx, by), sc = toScreen(cx, cy);
+
+      // Base BC (thick)
+      ctx.beginPath(); ctx.moveTo(sb.x, sb.y); ctx.lineTo(sc.x, sc.y);
+      ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 3.5; ctx.stroke();
+
+      // Foot of perpendicular
+      const foot = footOfPerp(ax, ay, bx, by, cx, cy);
+      const sf = toScreen(foot.x, foot.y);
+
+      // Height line (thick)
+      ctx.beginPath(); ctx.moveTo(sa.x, sa.y); ctx.lineTo(sf.x, sf.y);
+      ctx.strokeStyle = 'rgba(96,200,255,0.85)'; ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+      // Right angle marker
+      const dx = (sc.x - sb.x), dy = (sc.y - sb.y);
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 0.001) {
+        const ux = dx / len, uy = dy / len;
+        const nx = -uy, ny = ux;
+        const ms = 8;
+        ctx.beginPath();
+        ctx.moveTo(sf.x + ux * ms, sf.y + uy * ms);
+        ctx.lineTo(sf.x + ux * ms + nx * ms, sf.y + uy * ms + ny * ms);
+        ctx.lineTo(sf.x + nx * ms, sf.y + ny * ms);
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+
+      // Foot dot
+      ctx.beginPath(); ctx.arc(sf.x, sf.y, 4, 0, 2 * PI);
+      ctx.fillStyle = '#fff'; ctx.fill();
+
+      // BC midpoint label
+      ctx.fillStyle = '#ffb347'; ctx.font = '600 11px JetBrains Mono, monospace';
+      ctx.fillText('BC', (sb.x + sc.x) / 2 + 4, (sb.y + sc.y) / 2 - 8);
+
+      // Height label
+      ctx.fillStyle = 'rgba(96,200,255,0.9)'; ctx.font = '600 11px JetBrains Mono, monospace';
+      ctx.fillText('h', (sa.x + sf.x) / 2 + 6, (sa.y + sf.y) / 2);
+    }
+
+    // Points
+    drawPoint(ax, ay, 'A', '#60c8ff');
+    drawPoint(bx, by, 'B', '#ffb347');
+    drawPoint(cx, cy, 'C', '#7dffb3');
+
+    // Radii (thin)
+    drawLine(0, 1, ax, ay, 'rgba(96,200,255,0.2)');
+    drawLine(1, 0, bx, by, 'rgba(255,179,71,0.2)');
+    drawLine(-1, 0, cx, cy, 'rgba(125,255,179,0.2)');
+
+    // Axes labels
+    drawAxesLabels();
+  }
+
+  function drawGrid() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = -6; i <= 6; i++) {
+      const sx = toScreen(i, -6), ex = toScreen(i, 6);
+      ctx.beginPath(); ctx.moveTo(sx.x, sx.y); ctx.lineTo(ex.x, ex.y); ctx.stroke();
+      const sy = toScreen(-6, i), ey = toScreen(6, i);
+      ctx.beginPath(); ctx.moveTo(sy.x, sy.y); ctx.lineTo(ey.x, ey.y); ctx.stroke();
+    }
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+    const ax0 = toScreen(-5, 0), ax1 = toScreen(5, 0);
+    ctx.beginPath(); ctx.moveTo(ax0.x, ax0.y); ctx.lineTo(ax1.x, ax1.y); ctx.stroke();
+    const ay0 = toScreen(0, -4), ay1 = toScreen(0, 4);
+    ctx.beginPath(); ctx.moveTo(ay0.x, ay0.y); ctx.lineTo(ay1.x, ay1.y); ctx.stroke();
+
+    // Tick marks & numbers
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '10px JetBrains Mono, monospace'; ctx.textAlign = 'center';
+    for (let i = -4; i <= 4; i++) {
+      if (i === 0) continue;
+      const p = toScreen(i, 0);
+      ctx.fillText(i, p.x, p.y + 14);
+      const q = toScreen(0, i);
+      ctx.textAlign = 'right';
+      ctx.fillText(i, q.x - 6, q.y + 3);
+      ctx.textAlign = 'center';
+    }
+    ctx.restore();
+  }
+
+  function drawAxesLabels() {
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '11px JetBrains Mono, monospace'; ctx.textAlign = 'center';
+    const xEnd = toScreen(5, 0);
+    ctx.fillText('x', xEnd.x + 10, xEnd.y + 3);
+    const yEnd = toScreen(0, 4);
+    ctx.fillText('y', yEnd.x, yEnd.y - 8);
+    ctx.restore();
+  }
+
+  function drawCircle(mx, my, mr, fill, stroke, label) {
+    const center = toScreen(mx, my);
+    const r = mr * scale;
+    ctx.beginPath(); ctx.arc(center.x, center.y, r, 0, 2 * PI);
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Center dot
+    ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, 2 * PI);
+    ctx.fillStyle = stroke; ctx.fill();
+
+    // Label
+    ctx.fillStyle = stroke; ctx.font = 'italic 700 13px Playfair Display, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, center.x, center.y - r - 7);
+  }
+
+  function drawPoint(mx, my, label, color) {
+    const p = toScreen(mx, my);
+    // Glow
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 16);
+    g.addColorStop(0, color + 'aa'); g.addColorStop(1, 'transparent');
+    ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, 2 * PI);
+    ctx.fillStyle = g; ctx.fill();
+    // Dot
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 2 * PI);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+    // Label
+    ctx.fillStyle = color; ctx.font = '700 13px Playfair Display, serif'; ctx.textAlign = 'center';
+    ctx.fillText(label, p.x, p.y - 10);
+  }
+
+  function drawLine(x1, y1, x2, y2, color) {
+    const a = toScreen(x1, y1), b = toScreen(x2, y2);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  // =========================================================
+  // DRAW GRAPH
+  // =========================================================
+  function drawGraph() {
+    const gw = graphCanvas.width / devicePixelRatio;
+    const gh = graphCanvas.height / devicePixelRatio;
+    gctx.clearRect(0, 0, gw, gh);
+
+    const pad = { l: 34, r: 10, t: 6, b: 18 };
+    const gInW = gw - pad.l - pad.r;
+    const gInH = gh - pad.t - pad.b;
+
+    const maxV = globalMaxArea * 1.1;
+
+    // Background
+    gctx.fillStyle = 'rgba(255,255,255,0.02)'; gctx.fillRect(pad.l, pad.t, gInW, gInH);
+
+    // Grid lines
+    gctx.strokeStyle = 'rgba(255,255,255,0.06)'; gctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.t + gInH - (i / 4) * gInH;
+      gctx.beginPath(); gctx.moveTo(pad.l, y); gctx.lineTo(pad.l + gInW, y); gctx.stroke();
+    }
+    // Pi gridlines
+    [PI/2, PI, 3*PI/2, 2*PI].forEach(v => {
+      const x = pad.l + (v / (2 * PI)) * gInW;
+      gctx.strokeStyle = 'rgba(255,255,255,0.08)'; gctx.lineWidth = 1;
+      gctx.beginPath(); gctx.moveTo(x, pad.t); gctx.lineTo(x, pad.t + gInH); gctx.stroke();
+    });
+
+    // Collinear verticals (red dashed)
+    // theta = pi/2, 3pi/2 (B=C overlap)
+    [PI/2, 3*PI/2].forEach(v => {
+      const x = pad.l + (v / (2 * PI)) * gInW;
+      gctx.strokeStyle = 'rgba(255,78,106,0.7)'; gctx.lineWidth = 1.5;
+      gctx.setLineDash([3, 3]);
+      gctx.beginPath(); gctx.moveTo(x, pad.t); gctx.lineTo(x, pad.t + gInH); gctx.stroke();
+      gctx.setLineDash([]);
+    });
+
+    // Max area gold dashed
+    {
+      const v = PI / 4;
+      const x = pad.l + (v / (2 * PI)) * gInW;
+      gctx.strokeStyle = 'rgba(255,215,0,0.75)'; gctx.lineWidth = 1.5;
+      gctx.setLineDash([4, 3]);
+      gctx.beginPath(); gctx.moveTo(x, pad.t); gctx.lineTo(x, pad.t + gInH); gctx.stroke();
+      gctx.setLineDash([]);
+    }
+
+    // Area curve
+    gctx.beginPath();
+    for (let i = 0; i < CURVE_N; i++) {
+      const x = pad.l + (i / CURVE_N) * gInW;
+      const y = pad.t + gInH - (areaCurve[i] / maxV) * gInH;
+      if (i === 0) gctx.moveTo(x, y); else gctx.lineTo(x, y);
+    }
+    gctx.strokeStyle = '#60c8ff'; gctx.lineWidth = 1.8; gctx.stroke();
+
+    // Fill under curve
+    gctx.lineTo(pad.l + gInW, pad.t + gInH); gctx.lineTo(pad.l, pad.t + gInH); gctx.closePath();
+    gctx.fillStyle = 'rgba(96,200,255,0.06)'; gctx.fill();
+
+    // Current theta marker
+    const cx2 = pad.l + (theta / (2 * PI)) * gInW;
+    const idx = Math.round((theta / (2 * PI)) * CURVE_N) % CURVE_N;
+    const cy2 = pad.t + gInH - (areaCurve[idx] / maxV) * gInH;
+    gctx.beginPath(); gctx.arc(cx2, cy2, 4.5, 0, 2 * PI);
+    gctx.fillStyle = '#fff'; gctx.fill();
+    gctx.strokeStyle = '#60c8ff'; gctx.lineWidth = 2; gctx.stroke();
+
+    // Vertical current line
+    gctx.beginPath(); gctx.moveTo(cx2, pad.t); gctx.lineTo(cx2, pad.t + gInH);
+    gctx.strokeStyle = 'rgba(255,255,255,0.25)'; gctx.lineWidth = 1; gctx.stroke();
+
+    // X axis labels
+    gctx.fillStyle = 'rgba(255,255,255,0.4)'; gctx.font = '9px JetBrains Mono, monospace'; gctx.textAlign = 'center';
+    [['pi/2', PI/2], ['pi', PI], ['3pi/2', 3*PI/2], ['2pi', 2*PI]].forEach(([l, v]) => {
+      const x = pad.l + (v / (2*PI)) * gInW;
+      gctx.fillText(l, x, pad.t + gInH + 13);
+    });
+
+    // Y axis label
+    gctx.fillStyle = 'rgba(255,255,255,0.3)'; gctx.font = '9px JetBrains Mono, monospace'; gctx.textAlign = 'right';
+    gctx.fillText(maxV.toFixed(1), pad.l - 2, pad.t + 8);
+    gctx.fillText('0', pad.l - 2, pad.t + gInH);
+
+    // Labels on special lines
+    gctx.fillStyle = 'rgba(255,78,106,0.85)'; gctx.font = '8px JetBrains Mono, monospace'; gctx.textAlign = 'center';
+    [PI/2, 3*PI/2].forEach(v => {
+      const x = pad.l + (v / (2*PI)) * gInW;
+      gctx.fillText('B=C', x, pad.t + 4);
+    });
+    gctx.fillStyle = 'rgba(255,215,0,0.9)';
+    const xMax = pad.l + (PI/4 / (2*PI)) * gInW;
+    gctx.fillText('max', xMax, pad.t + 4);
+  }
+
+  // =========================================================
+  // UI UPDATE
+  // =========================================================
+  function updateUI() {
+    const { ax, ay, bx, by, cx, cy } = pts(theta);
+    const area = triangleArea(ax, ay, bx, by, cx, cy);
+    const col = isCollinear(ax, ay, bx, by, cx, cy);
+    const bcO = bcOverlap(bx, by, cx, cy);
+    const isMax = Math.abs(theta - PI/4) < 0.04 || Math.abs(theta - PI/4 - 2*PI) < 0.04;
+
+    // Coordinates
+    document.getElementById('coordA').innerHTML = coordStr(ax, ay, theta);
+    document.getElementById('coordB').innerHTML = coordStr(bx, by, theta);
+    document.getElementById('coordC').innerHTML = coordStr(cx, cy, theta);
+
+    // Area
+    if (area > maxArea) { maxArea = area; maxAreaTheta = theta; }
+    const areaEl = document.getElementById('area-val');
+    areaEl.textContent = area.toFixed(4);
+    areaEl.className = isMax ? 'maxima' : '';
+    const sp = nearestSpecial(maxAreaTheta || 0);
+    document.getElementById('area-max-val').textContent = maxArea.toFixed(4) + (sp ? ' (θ≈' + sp.tex + ')' : '');
+
+    // Analysis mode
+    if (analysisMode && !col) {
+      const bcLen = dist2d(bx, by, cx, cy);
+      const foot = footOfPerp(ax, ay, bx, by, cx, cy);
+      const hLen = dist2d(ax, ay, foot.x, foot.y);
+      const c_ = Math.cos(theta), s_ = Math.sin(theta);
+
+      // BC: B=(1+sin,cos), C=(-1-sin,cos) => BC_x = 2+2sin, BC_y = 0
+      const bcExact = '2(1 + sin\u03b8) = ' + (2 + 2 * s_).toFixed(4);
+      const bcHint = '|BC| = 2(1+sin\u03b8)';
+
+      document.getElementById('ana-bc').textContent = bcLen.toFixed(4);
+      document.getElementById('ana-bc-eq').textContent = bcHint;
+
+      document.getElementById('ana-h').textContent = hLen.toFixed(4);
+      // Height: A=(2sin,1+2cos), line y=cos => h = |1+2cos - cos| = |1+cos|
+      const hExact = '|1 + cos\u03b8| = ' + Math.abs(1 + c_).toFixed(4);
+      document.getElementById('ana-h-eq').textContent = 'h = |1 + cos\u03b8|';
+
+      const areaExact = '(1+sin\u03b8)(1+cos\u03b8)';
+      document.getElementById('ana-area').textContent = area.toFixed(4);
+      document.getElementById('ana-area-eq').textContent = 'S = ' + areaExact;
+    }
+
+    // Status badge
+    const badge = document.getElementById('status-badge');
+    const colO = document.getElementById('collinear-overlay');
+    const maxO = document.getElementById('maxarea-overlay');
+
+    if (bcO) {
+      badge.textContent = 'B, C \uc911\uccb9\uc73c\ub85c \uc778\ud55c \uc77c\uc9c1\uc120 \ubc1c\uc0dd';
+      badge.className = 'bc-overlap';
+      colO.className = 'active';
+      maxO.className = '';
+    } else if (col) {
+      badge.textContent = 'A, B, C \uc77c\uc9c1\uc120!';
+      badge.className = 'collinear';
+      colO.className = 'active';
+      maxO.className = '';
+    } else if (isMax) {
+      badge.textContent = '\u25c6 \ub113\uc774 \ucd5c\ub300 (theta = pi/4) \u25c6';
+      badge.className = 'maxarea';
+      colO.className = '';
+      maxO.className = 'active';
+    } else {
+      badge.className = '';
+      colO.className = '';
+      maxO.className = '';
+    }
+
+    // Event log
+    if (bcO && !lastBCOverlapState) {
+      addLog('bc-overlap', '\ubc84C \uc911\ucca9 \uc77c\uc9c1\uc120', theta);
+    }
+    if (col && !bcO && !lastCollinearState) {
+      addLog('collinear', '\uc77c\uc9c1\uc120', theta);
+    }
+    if (isMax && !lastMaxAreaState) {
+      addLog('maxarea', '\ub113\uc774 \ucd5c\ub300', theta);
+    }
+    lastCollinearState = col;
+    lastBCOverlapState = bcO;
+    lastMaxAreaState = isMax;
+
+    // Theta special
+    const sp2 = nearestSpecial(theta);
+    document.getElementById('theta-special').textContent = sp2 ? '= ' + sp2.tex : '';
+
+    // Slider gradient
+    const sl = document.getElementById('thetaSlider');
+    const pct = ((theta / (2 * PI)) * 100).toFixed(1) + '%';
+    sl.style.setProperty('--pct', pct);
+    sl.value = Math.round(theta * 100);
+    document.getElementById('thetaVal').textContent = theta.toFixed(3) + ' rad';
+  }
+
+  function addLog(type, label, t) {
+    const sp = nearestSpecial(t);
+    const tStr = sp ? sp.tex : t.toFixed(3) + ' rad';
+    const item = document.createElement('div');
+    item.className = 'log-item ' + type;
+    item.innerHTML = '<span class="log-theta">\u03b8 = ' + tStr + '</span><br>' + label;
+    const log = document.getElementById('event-log');
+    const empty = document.getElementById('log-empty');
+    if (empty) empty.remove();
+    log.insertBefore(item, log.firstChild);
+    if (log.children.length > 30) log.removeChild(log.lastChild);
+    eventLog.push({ type, label, t });
+  }
+
+  // =========================================================
+  // ANIMATION
+  // =========================================================
+  function animate(ts) {
+    if (!playing) return;
+    if (lastTime === null) { lastTime = ts; }
+    const dt = (ts - lastTime) / 1000;
+    lastTime = ts;
+    const speed = parseFloat(document.getElementById('speedSlider').value) / 8;
+    theta += speed * dt * 1.2;
+    if (theta > 2 * PI) theta -= 2 * PI;
+    draw();
+    updateUI();
+    drawGraph();
+    animId = requestAnimationFrame(animate);
+  }
+
+  document.getElementById('playBtn').addEventListener('click', () => {
+    playing = !playing;
+    const btn = document.getElementById('playBtn');
+    if (playing) {
+      btn.textContent = 'PAUSE'; btn.classList.add('active');
+      lastTime = null;
+      animId = requestAnimationFrame(animate);
+    } else {
+      btn.textContent = 'PLAY'; btn.classList.remove('active');
+      if (animId) cancelAnimationFrame(animId);
+    }
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    theta = 0;
+    playing = false;
+    const btn = document.getElementById('playBtn');
+    btn.textContent = 'PLAY'; btn.classList.remove('active');
+    if (animId) cancelAnimationFrame(animId);
+    lastCollinearState = false; lastBCOverlapState = false; lastMaxAreaState = false;
+    draw(); updateUI(); drawGraph();
+  });
+
+  document.getElementById('thetaSlider').addEventListener('input', function() {
+    theta = parseInt(this.value) / 100;
+    draw(); updateUI(); drawGraph();
+  });
+
+  document.getElementById('speedSlider').addEventListener('input', function() {
+    const v = parseFloat(this.value) / 8;
+    document.getElementById('speedVal').textContent = 'x' + v.toFixed(1);
+  });
+
+  document.getElementById('analysisBtn').addEventListener('click', () => {
+    analysisMode = !analysisMode;
+    const btn = document.getElementById('analysisBtn');
+    const panel = document.getElementById('analysis-panel');
+    btn.classList.toggle('active', analysisMode);
+    btn.textContent = analysisMode ? '\ub113\uc774 \ubd84\uc11d \uc911' : '\ub113\uc774 \ubd84\uc11d \ubaa8\ub4dc';
+    panel.classList.toggle('visible', analysisMode);
+    draw(); updateUI();
+  });
+
+  // =========================================================
+  // INIT
+  // =========================================================
+  window.addEventListener('resize', resize);
+  resize();
+  draw();
+  updateUI();
+  drawGraph();
+})();
+</script>
+</body>
+</html>

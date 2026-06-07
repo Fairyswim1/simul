@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>f(x) = (x^2 + 3x + a)(x + 1)^2 시뮬레이터</title>
+  <style>
+    :root {
+      --bg: #f7f7fb;
+      --panel: #ffffff;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: #d1d5db;
+      --accent: #2563eb;
+      --root: #dc2626;
+      --extreme: #7c3aed;
+      --green: #059669;
+      --bad: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      overflow-x: hidden;
+    }
+    header {
+      padding: 22px 20px 12px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      line-height: 1.3;
+    }
+    .subtitle {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 15px;
+    }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 20px 32px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(310px, 0.85fr);
+      gap: 18px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+      overflow: hidden;
+      min-width: 0;
+    }
+    .graph-wrap { padding: 14px; }
+    canvas {
+      width: 100%;
+      height: 620px;
+      display: block;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+    }
+    .controls {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+    label { font-weight: 700; }
+    input[type="range"] {
+      width: 100%;
+      min-width: 0;
+    }
+    input[type="number"] {
+      width: 100px;
+      max-width: 100%;
+      padding: 8px 9px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: var(--accent);
+      white-space: nowrap;
+    }
+    button.secondary { background: #4b5563; }
+    button.boundary { background: #0f766e; }
+    button:hover { filter: brightness(0.95); }
+    .mini {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .panel {
+      padding: 16px 18px;
+      border-top: 1px solid #e5e7eb;
+      min-width: 0;
+    }
+    .panel:first-child { border-top: 0; }
+    h2 {
+      font-size: 18px;
+      margin: 0 0 10px;
+    }
+    .formula {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #f3f4f6;
+      padding: 10px 12px;
+      border-radius: 12px;
+      line-height: 1.55;
+      overflow-x: auto;
+      font-size: 13px;
+      max-width: 100%;
+    }
+    .list {
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .item {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 9px 10px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      margin-right: 6px;
+    }
+    .tag.root { background: var(--root); }
+    .tag.ext { background: var(--extreme); }
+    .tag.good { background: var(--green); }
+    .tag.warn { background: var(--bad); }
+    .checkline {
+      padding: 11px 12px;
+      border-radius: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      line-height: 1.5;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+    }
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: var(--muted);
+      padding: 10px 2px 0;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      display: inline-block;
+      border-radius: 999px;
+      margin-right: 5px;
+      vertical-align: -1px;
+    }
+    .blue { background: var(--accent); }
+    .red { background: var(--root); }
+    .purple { background: var(--extreme); }
+    .slider-zone {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+      min-width: 0;
+    }
+    .slider-zone input[type="range"] { height: 36px; }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 12px;
+      border-radius: 999px;
+      background: #dbeafe;
+      border: 1px solid #bfdbfe;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-top: -7px;
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 12px;
+      border-radius: 999px;
+      background: #dbeafe;
+      border: 1px solid #bfdbfe;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; padding: 10px 14px 24px; }
+      header { padding: 18px 14px 8px; }
+      canvas { height: 540px; }
+    }
+    @media (max-width: 480px) {
+      .slider-zone { grid-template-columns: 1fr; }
+      input[type="number"] { width: 100%; }
+      button { flex: 1 1 auto; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>f(x) = (x^2 + 3x + a)(x + 1)^2 시뮬레이터</h1>
+    
+  </header>
+
+  <main>
+    <section class="card graph-wrap">
+      <canvas id="graph" width="1000" height="700"></canvas>
+      <div class="legend">
+        <span><i class="dot blue"></i>그래프 f(x)</span>
+        <span><i class="dot red"></i>실근</span>
+        <span><i class="dot purple"></i>극값</span>
+      </div>
+    </section>
+
+    <aside class="card">
+      <div class="controls">
+        <label for="aRange">a 값</label>
+        <div class="slider-zone">
+          <input id="aRange" type="range" min="0" max="4" step="0.0001" value="1.6" />
+          <input id="aNumber" type="number" min="0" max="4" step="0.0001" value="1.6" />
+        </div>
+        <div class="row">
+          <button id="playBtn">▶ 자동 재생</button>
+          <button class="secondary" id="resetBtn">초기화</button>
+        </div>
+        <div class="row">
+          <button class="boundary" data-a="2">a = 2</button>
+          <button class="boundary" data-a="2.25">a = 9/4</button>
+          <button class="boundary" data-a="2.28125">a = 73/32</button>
+        </div>
+        <div class="row">
+          <button class="secondary" data-window="full">전체 범위 0~4</button>
+          <button class="secondary" data-window="fail">불만족 구간 확대</button>
+        </div>
+        <div class="mini">
+          x = β에서 최솟값을 가진다고 할 때, x &lt; β에서 f가 단조감소하는 a의 범위를 찾는 문제입니다.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>핵심 식</h2>
+        <div class="formula">
+          f(x) = (x² + 3x + a)(x + 1)²<br />
+          f'(x) = (x + 1)(4x² + 11x + 2a + 3)<br />
+          4x² + 11x + 2a + 3 = 0의 판별식: Δ = 73 - 32a
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>현재 상태</h2>
+        <div id="info" class="list"></div>
+      </div>
+
+      <div class="panel">
+        <h2>(3)번 구간 판정</h2>
+        <div id="caseCheck" class="checkline"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('graph');
+    const ctx = canvas.getContext('2d');
+    const aRange = document.getElementById('aRange');
+    const aNumber = document.getElementById('aNumber');
+    const info = document.getElementById('info');
+    const caseCheck = document.getElementById('caseCheck');
+    const playBtn = document.getElementById('playBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let playing = false;
+    let direction = 1;
+    let lastTime = 0;
+
+    const X_MIN = -4;
+    const X_MAX = 1;
+    const Y_MIN = -4;
+    const Y_MAX = 4;
+    const EPS = 1e-8;
+
+    function f(x, a) {
+      return (x*x + 3*x + a) * (x + 1) * (x + 1);
+    }
+
+    function fp(x, a) {
+      return (x + 1) * (4*x*x + 11*x + 2*a + 3);
+    }
+
+    function fmt(v) {
+      if (Math.abs(v) < 1e-7) return '0';
+      return Number(v).toFixed(4).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+    }
+
+    function uniqueSorted(values) {
+      const arr = values.filter(v => Number.isFinite(v)).sort((x, y) => x - y);
+      const out = [];
+      for (const v of arr) {
+        if (!out.length || Math.abs(v - out[out.length - 1]) > 1e-5) out.push(v);
+      }
+      return out;
+    }
+
+    function rootsOfF(a) {
+      const roots = [-1];
+      const D = 9 - 4*a;
+      if (D > EPS) {
+        const s = Math.sqrt(D);
+        roots.push((-3 - s) / 2, (-3 + s) / 2);
+      } else if (Math.abs(D) <= EPS) {
+        roots.push(-1.5);
+      }
+      return uniqueSorted(roots);
+    }
+
+    function criticalPoints(a) {
+      const pts = [-1];
+      const D = 73 - 32*a;
+      if (D > EPS) {
+        const s = Math.sqrt(D);
+        pts.push((-11 - s) / 8, (-11 + s) / 8);
+      } else if (Math.abs(D) <= EPS) {
+        pts.push(-11/8);
+      }
+      return uniqueSorted(pts).map(x => {
+        const left = fp(x - 1e-4, a);
+        const right = fp(x + 1e-4, a);
+        let type = '정지점';
+        if (left < 0 && right > 0) type = '극소';
+        if (left > 0 && right < 0) type = '극대';
+        return { x, y: f(x, a), type };
+      });
+    }
+
+    function betaPoint(a) {
+      // β는 단순한 '아무 극솟점'이 아니라 최솟값을 갖는 x좌표로 잡는다.
+      // a ≤ 9/4에서는 왼쪽 극솟점이 최솟값이고,
+      // 9/4 < a에서는 x = -1에서 f(x)=0이 최솟값이다.
+      const mins = criticalPoints(a).filter(p => p.type === '극소').sort((p,q) => p.x - q.x);
+      if (!mins.length) return null;
+      if (a <= 9/4 + 1e-7) return mins[0];
+      const minusOne = mins.find(p => Math.abs(p.x + 1) < 1e-5);
+      return minusOne || mins.reduce((best, p) => p.y < best.y ? p : best, mins[0]);
+    }
+
+    function conditionHolds(a, beta) {
+      // (3)의 조건: x < β에서 단조감소하고, x = β에서 최솟값을 가져야 한다.
+      // 풀이의 경계값은 a = 9/4, a = 73/32이다.
+      return a <= 9/4 + 1e-7 || a >= 73/32 - 1e-7;
+    }
+
+    function classifyCase(a) {
+      const beta = betaPoint(a);
+      if (!beta) return { ok: false, text: 'β가 될 최솟점이 없습니다.' };
+      const ok = conditionHolds(a, beta);
+      if (ok) {
+        return {
+          ok: true,
+          text: '조건 만족: a ≤ 9/4 또는 a ≥ 73/32에 해당합니다.'
+        };
+      }
+      return {
+        ok: false,
+        text: '조건 불만족: 9/4 < a < 73/32에서는 최솟점 β 이전에 증가 구간이 생깁니다.'
+      };
+    }
+
+    function sx(x) {
+      const W = canvas.width;
+      const M = 36;
+      return M + (x - X_MIN) / (X_MAX - X_MIN) * (W - 2*M);
+    }
+
+    function sy(y) {
+      const H = canvas.height;
+      const M = 36;
+      return H - M - (y - Y_MIN) / (Y_MAX - Y_MIN) * (H - 2*M);
+    }
+
+    function draw(a) {
+      const W = canvas.width;
+      const H = canvas.height;
+      const M = 36;
+
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      const beta = betaPoint(a);
+      const caseInfo = classifyCase(a);
+      if (beta) {
+        ctx.fillStyle = caseInfo.ok ? 'rgba(5, 150, 105, 0.12)' : 'rgba(220, 38, 38, 0.12)';
+        const right = Math.max(M, Math.min(W - M, sx(beta.x)));
+        ctx.fillRect(M, M, right - M, H - 2*M);
+        ctx.strokeStyle = caseInfo.ok ? 'rgba(5, 150, 105, 0.78)' : 'rgba(220, 38, 38, 0.78)';
+        ctx.setLineDash([6, 5]);
+        ctx.beginPath(); ctx.moveTo(right, M); ctx.lineTo(right, H-M); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#eef2f7';
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '12px system-ui';
+      for (let x = Math.ceil(X_MIN); x <= Math.floor(X_MAX); x++) {
+        ctx.beginPath(); ctx.moveTo(sx(x), M); ctx.lineTo(sx(x), H-M); ctx.stroke();
+        ctx.fillText(String(x), sx(x)-4, sy(0)+18);
+      }
+      for (let y = -4; y <= 4; y += 1) {
+        ctx.beginPath(); ctx.moveTo(M, sy(y)); ctx.lineTo(W-M, sy(y)); ctx.stroke();
+        ctx.fillText(String(y), 20, sy(y)+4);
+      }
+
+      ctx.strokeStyle = '#9ca3af';
+      ctx.lineWidth = 1.4;
+      if (Y_MIN <= 0 && Y_MAX >= 0) {
+        ctx.beginPath(); ctx.moveTo(M, sy(0)); ctx.lineTo(W-M, sy(0)); ctx.stroke();
+      }
+      if (X_MIN <= 0 && X_MAX >= 0) {
+        ctx.beginPath(); ctx.moveTo(sx(0), M); ctx.lineTo(sx(0), H-M); ctx.stroke();
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(M, M, W - 2*M, H - 2*M);
+      ctx.clip();
+
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i <= 1400; i++) {
+        const x = X_MIN + (X_MAX - X_MIN) * i / 1400;
+        const y = f(x, a);
+        const px = sx(x), py = sy(y);
+        if (!started) { ctx.moveTo(px, py); started = true; }
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      rootsOfF(a).forEach(x => {
+        if (x < X_MIN || x > X_MAX) return;
+        const px = sx(x), py = sy(0);
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath(); ctx.arc(px, py, 5.5, 0, Math.PI*2); ctx.fill();
+      });
+
+      criticalPoints(a).forEach(p => {
+        if (p.x < X_MIN || p.x > X_MAX || p.y < Y_MIN || p.y > Y_MAX) return;
+        const px = sx(p.x), py = sy(p.y);
+        ctx.fillStyle = '#7c3aed';
+        ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
+      });
+
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      roundRect(ctx, M+8, M+8, 210, 48, 12, true, false);
+      ctx.fillStyle = '#111827';
+      ctx.font = 'bold 17px system-ui';
+      ctx.fillText(`a = ${fmt(a)}`, M+22, M+36);
+
+      updateInfo(a);
+    }
+
+    function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(x+r, y);
+      ctx.arcTo(x+w, y, x+w, y+h, r);
+      ctx.arcTo(x+w, y+h, x, y+h, r);
+      ctx.arcTo(x, y+h, x, y, r);
+      ctx.arcTo(x, y, x+w, y, r);
+      ctx.closePath();
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    }
+
+    function updateInfo(a) {
+      const roots = rootsOfF(a).map(x => fmt(x)).join(', ');
+      const beta = betaPoint(a);
+      const c = classifyCase(a);
+      const betaText = beta ? `β = ${fmt(beta.x)}` : 'β 없음';
+
+      info.innerHTML = `
+        <div class="item"><span class="tag root">근</span>x = ${roots}</div>
+        <div class="item"><span class="tag ext">β</span>${betaText}</div>
+      `;
+      caseCheck.innerHTML = `<span class="tag ${c.ok ? 'good' : 'warn'}">판정</span>${c.text}`;
+    }
+
+    function setA(v) {
+      const min = Number(aRange.min);
+      const max = Number(aRange.max);
+      const a = Math.max(min, Math.min(max, Number(v)));
+      aRange.value = a;
+      aNumber.value = fmt(a);
+      draw(a);
+    }
+
+    aRange.addEventListener('input', e => setA(e.target.value));
+    aNumber.addEventListener('input', e => setA(e.target.value));
+    resetBtn.addEventListener('click', () => setA(1.6));
+    document.querySelectorAll('button[data-a]').forEach(btn => {
+      btn.addEventListener('click', () => setA(btn.dataset.a));
+    });
+
+    document.querySelectorAll('button[data-window]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.window === 'fail') {
+          aRange.min = 2.22;
+          aRange.max = 2.31;
+          aRange.step = 0.00001;
+          aNumber.min = 2.22;
+          aNumber.max = 2.31;
+          aNumber.step = 0.00001;
+          setA(2.265625);
+        } else {
+          aRange.min = 0;
+          aRange.max = 4;
+          aRange.step = 0.0001;
+          aNumber.min = 0;
+          aNumber.max = 4;
+          aNumber.step = 0.0001;
+          setA(Math.min(4, Math.max(0, Number(aNumber.value))));
+        }
+      });
+    });
+
+    playBtn.addEventListener('click', () => {
+      playing = !playing;
+      playBtn.textContent = playing ? '⏸ 정지' : '▶ 자동 재생';
+      lastTime = performance.now();
+      if (playing) requestAnimationFrame(tick);
+    });
+
+    function tick(t) {
+      if (!playing) return;
+      const dt = Math.min(0.05, (t - lastTime) / 1000);
+      lastTime = t;
+      let a = Number(aRange.value) + direction * dt * 0.8;
+      const min = Number(aRange.min);
+      const max = Number(aRange.max);
+      if (a >= max) { a = max; direction = -1; }
+      if (a <= min) { a = min; direction = 1; }
+      setA(a);
+      requestAnimationFrame(tick);
+    }
+
+    draw(Number(aRange.value));
+  </script>
+</body>
+</html>

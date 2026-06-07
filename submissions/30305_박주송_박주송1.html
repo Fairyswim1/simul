@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>정사각형 OPQR 자취 및 방정식 시뮬레이터</title>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 640px;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+            margin-bottom: 15px;
+        }
+        .controls {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            background-color: #f1f3f5;
+            padding: 12px;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+        .control-group input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+        }
+        input[type="range"] {
+            width: 100px;
+        }
+        input[type="number"] {
+            width: 50px;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+        }
+        button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        /* 정보 표시 대시보드 스타일 */
+        .info-board {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            background: #fff;
+            border: 2px solid #e9ecef;
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.03);
+            box-sizing: border-box;
+        }
+        .info-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.9rem;
+            border-right: 1px solid #eee;
+            padding-left: 10px;
+        }
+        .info-column:last-child {
+            border-right: none;
+        }
+        .info-column strong {
+            font-size: 1rem;
+            margin-bottom: 2px;
+        }
+        .math-text {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            font-size: 0.9rem;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            width: 100%;
+        }
+        .legend span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-box {
+            width: 14px;
+            height: 14px;
+            display: inline-block;
+            border-radius: 3px;
+        }
+        .dash-box {
+            width: 20px;
+            height: 0px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>선분 QR 통과 영역 및 자취 방정식 시뮬레이터</h1>
+    
+    <div class="container">
+        <canvas id="simCanvas" width="600" height="450"></canvas>
+        
+        <div class="info-board">
+            <div class="info-column" style="color: #000; padding-left: 0;">
+                <strong>■ 점 P (기준점)</strong>
+                <div>현재 좌표: <span id="coordP" class="math-text">(0.00, 0.00)</span></div>
+                <div>자취 공식: <span id="locusP" class="math-text"></span></div>
+            </div>
+            <div class="info-column" style="color: #2b8a3e;">
+                <strong>■ 점 R (90도 회전)</strong>
+                <div>현재 좌표: <span id="coordR" class="math-text">(0.00, 0.00)</span></div>
+                <div>자취 공식: <span id="locusR" class="math-text"></span></div>
+            </div>
+            <div class="info-column" style="color: #1c7ed6;">
+                <strong>■ 점 Q (대각선점)</strong>
+                <div>현재 좌표: <span id="coordQ" class="math-text">(0.00, 0.00)</span></div>
+                <div>자취 공식: <span id="locusQ" class="math-text"></span></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="playBtn">일시정지</button>
+            
+            <div class="control-group">
+                <label for="thetaSlider">θ 값:</label>
+                <input type="range" id="thetaSlider" min="0" max="6.2831853" step="0.01" value="0">
+            </div>
+
+            <div class="control-group">
+                <label for="aInput">a 값:</label>
+                <input type="number" id="aInput" value="1.0" step="0.1" min="0.3" max="2.2">
+            </div>
+
+            <div class="control-group">
+                <input type="checkbox" id="showRLocus">
+                <label for="showRLocus">R 자취 표시</label>
+            </div>
+
+            <div class="control-group">
+                <input type="checkbox" id="showQLocus">
+                <label for="showQLocus">Q 자취 표시</label>
+            </div>
+        </div>
+
+        <div class="legend">
+            <span><div class="color-box" style="background: black;"></div> 점 P 자취</span>
+            <span><div class="dash-box" style="border-top: 2px dashed green;"></div> 점 R 자취</span>
+            <span><div class="dash-box" style="border-top: 2px dashed blue;"></div> 점 Q 자취</span>
+            <span><div class="color-box" style="background: rgba(128, 0, 128, 0.6);"></div> 선분 QR 통과 영역</span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const thetaSlider = document.getElementById('thetaSlider');
+        const aInput = document.getElementById('aInput');
+        const playBtn = document.getElementById('playBtn');
+        const showRLocus = document.getElementById('showRLocus');
+        const showQLocus = document.getElementById('showQLocus');
+        
+        // DOM 엘리먼트 맵핑
+        const coordP = document.getElementById('coordP');
+        const coordR = document.getElementById('coordR');
+        const coordQ = document.getElementById('coordQ');
+        const locusP = document.getElementById('locusP');
+        const locusR = document.getElementById('locusR');
+        const locusQ = document.getElementById('locusQ');
+
+        const scale = 80; 
+        const originX = 300; 
+        const originY = 280; // 하단 패널 공간 확보를 위해 중심 살짝 위로 조정
+
+        let theta = 0;
+        let isPlaying = true;
+        let animationId;
+
+        function toC(x, y) {
+            return { cx: originX + x, cy: originY - y };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let aVal = parseFloat(aInput.value) || 1.0;
+            let a = aVal * scale; 
+
+            // 1. 축 그리기
+            ctx.beginPath();
+            ctx.strokeStyle = '#eee';
+            ctx.lineWidth = 1;
+            ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY);
+            ctx.moveTo(originX, 0); ctx.lineTo(originX, canvas.height);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#666';
+            ctx.font = '13px Arial';
+            ctx.fillText('O (0, 0)', originX - 50, originY + 18);
+
+            // 2. 자취선 그리기
+            // P 자취 - 검정 실선
+            ctx.setLineDash([]); 
+            let c1 = toC(a, 0);
+            ctx.beginPath(); ctx.arc(c1.cx, c1.cy, a, 0, Math.PI * 2); 
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)'; 
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // R, Q 자취 토글 렌더링
+            ctx.setLineDash([4, 4]); 
+            ctx.lineWidth = 1.5;
+
+            if (showRLocus.checked) {
+                let c2 = toC(0, a);
+                ctx.beginPath(); ctx.arc(c2.cx, c2.cy, a, 0, Math.PI * 2); 
+                ctx.strokeStyle = 'rgba(0, 128, 0, 0.5)'; 
+                ctx.stroke();
+            }
+
+            if (showQLocus.checked) {
+                let c3 = toC(a, a);
+                ctx.beginPath(); ctx.arc(c3.cx, c3.cy, a * Math.sqrt(2), 0, Math.PI * 2); 
+                ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)'; 
+                ctx.stroke();
+            }
+            ctx.setLineDash([]); 
+
+            // 3. 선분 QR 통과 영역 축적 렌더링
+            ctx.strokeStyle = 'rgba(128, 0, 128, 0.4)'; 
+            ctx.lineWidth = 2; 
+            for (let t = 0; t <= theta; t += 0.01) {
+                let px = a + a * Math.cos(t);
+                let py = a * Math.sin(t);
+                let rx = -py;
+                let ry = px;
+                let qx = px + rx;
+                let qy = py + ry;
+
+                let rc = toC(rx, ry);
+                let qc = toC(qx, qy);
+
+                ctx.beginPath();
+                ctx.moveTo(rc.cx, rc.cy);
+                ctx.lineTo(qc.cx, qc.cy);
+                ctx.stroke();
+            }
+
+            // 4. 현재 좌표 계산 및 도형 렌더링
+            let px = a + a * Math.cos(theta);
+            let py = a * Math.sin(theta);
+            let rx = -py;
+            let ry = px;
+            let qx = px + rx;
+            let qy = py + ry;
+
+            let pC = toC(px, py);
+            let rC = toC(rx, ry);
+            let qC = toC(qx, qy);
+            let oC = toC(0, 0);
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 1.5;
+            ctx.moveTo(oC.cx, oC.cy);
+            ctx.lineTo(pC.cx, pC.cy);
+            ctx.lineTo(qC.cx, qC.cy);
+            ctx.lineTo(rC.cx, rC.cy);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'purple';
+            ctx.lineWidth = 4;
+            ctx.moveTo(rC.cx, rC.cy);
+            ctx.lineTo(qC.cx, qC.cy);
+            ctx.stroke();
+
+            const drawPoint = (pt, color, label) => {
+                ctx.beginPath(); ctx.arc(pt.cx, pt.cy, 6, 0, Math.PI * 2);
+                ctx.fillStyle = color; ctx.fill();
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = '#000'; ctx.font = 'bold 14px sans-serif';
+                ctx.fillText(label, pt.cx + 10, pt.cy - 10);
+            };
+            drawPoint(pC, 'black', 'P');
+            drawPoint(rC, 'green', 'R');
+            drawPoint(qC, 'blue', 'Q');
+
+            // 5. 하단 텍스트 정보 실시간 업데이트
+            let p_mathX = (px / scale).toFixed(2);
+            let p_mathY = (py / scale).toFixed(2);
+            let r_mathX = (rx / scale).toFixed(2);
+            let r_mathY = (ry / scale).toFixed(2);
+            let q_mathX = (qx / scale).toFixed(2);
+            let q_mathY = (qy / scale).toFixed(2);
+
+            coordP.textContent = `(${p_mathX}, ${p_mathY})`;
+            coordR.textContent = `(${r_mathX}, ${r_mathY})`;
+            coordQ.textContent = `(${q_mathX}, ${q_mathY})`;
+
+            // [추가] 사용자가 입력한 a값에 따라 변하는 동적 자취의 방정식 계산
+            let aSquared = (aVal * aVal).toFixed(2);
+            let twoASquared = (2 * aVal * aVal).toFixed(2);
+            let aFormatted = aVal.toFixed(2);
+
+            locusP.textContent = `(x - ${aFormatted})² + y² = ${aSquared}`;
+            locusR.textContent = `x² + (y - ${aFormatted})² = ${aSquared}`;
+            locusQ.textContent = `(x - ${aFormatted})² + (y - ${aFormatted})² = ${twoASquared}`;
+
+            if (isPlaying) {
+                theta += 0.015;
+                if (theta > Math.PI * 2) theta = 0; 
+                thetaSlider.value = theta;
+            }
+        }
+
+        function loop() {
+            draw();
+            animationId = requestAnimationFrame(loop);
+        }
+
+        // 이벤트 제어
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playBtn.textContent = isPlaying ? '일시정지' : '재생';
+        });
+
+        thetaSlider.addEventListener('input', (e) => {
+            theta = parseFloat(e.target.value);
+            isPlaying = false; playBtn.textContent = '재생';
+            draw(); 
+        });
+
+        aInput.addEventListener('input', () => {
+            let val = parseFloat(aInput.value);
+            if (val < 0.1) aInput.value = 0.1;
+            if (val > 3.0) aInput.value = 3.0;
+            if (!isPlaying) draw();
+        });
+
+        showRLocus.addEventListener('change', () => { if (!isPlaying) draw(); });
+        showQLocus.addEventListener('change', () => { if (!isPlaying) draw(); });
+
+        loop();
+    </script>
+</body>
+</html>

@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S(a) 영역 면적 최솟값 시뮬레이터</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJax for Math equations rendering (Stable v3) -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            background: #4f46e5;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="border-b border-slate-800 pb-6 mb-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <span class="px-3 py-1 text-xs font-semibold bg-indigo-500/10 text-indigo-400 rounded-full border border-indigo-500/20">수학 II / 미적분 시각화</span>
+                    <h1 class="text-3xl font-bold mt-2 text-white">연립부등식 영역의 넓이 $S(a)$ 최적화</h1>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-play" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium rounded-lg transition shadow-lg shadow-indigo-600/20">
+                        <svg id="play-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span id="play-text">자동 탐색 일시정지</span>
+                    </button>
+                    <button id="btn-solve" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-medium rounded-lg transition shadow-lg shadow-emerald-600/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>최솟값(S'(a)=0) 찾기</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left Panel: Interactive Visualizations -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                <!-- Visual Canvas Card -->
+                <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-slate-200 flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 bg-indigo-500 rounded-full"></span>
+                            xy-평면 기하학적 영역 시각화
+                        </h2>
+                        <span class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-md border border-slate-700">고정 적분 구간: $x \in [2.0, 6.0]$</span>
+                    </div>
+                    <div class="canvas-container bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800/80">
+                        <canvas id="canvas-main" class="w-full h-full cursor-crosshair"></canvas>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-4 text-xs text-slate-400 justify-center border-t border-slate-800/50 pt-4">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-0.5 bg-yellow-400 block"></span>
+                            <span>곡선 $y = \frac{x \ln 2}{\ln x}$</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-0.5 bg-indigo-400 block"></span>
+                            <span>직선 $y = a$</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 bg-indigo-500/20 border border-indigo-400/50 block rounded-sm"></span>
+                            <span>영역 $S(a)$ (적분 대상 면적)</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 bg-rose-500 rounded-full block"></span>
+                            <span>곡선의 극소점 $x = e \approx 2.718$</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- S(a) Area Graph Card -->
+                <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-slate-200 flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
+                            a 및 S(a) 축에 따른 넓이 변화 그래프
+                        </h2>
+                    </div>
+                    <div class="canvas-container bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800/80" style="aspect-ratio: 16 / 7;">
+                        <canvas id="canvas-area" class="w-full h-full"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Controls & Explanations -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                <!-- Parameter Controls -->
+                <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl flex flex-col gap-5">
+                    <h3 class="text-md font-semibold text-slate-200 border-b border-slate-800 pb-2">실시간 제어 및 수치 분석</h3>
+                    
+                    <!-- Slider a -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-indigo-300">매개변수 a 값</span>
+                            <span class="text-lg font-mono font-bold text-white bg-slate-800 px-2.5 py-0.5 rounded border border-slate-700" id="val-a">2.000</span>
+                        </div>
+                        <input type="range" id="slider-a" min="1.0" max="3.5" step="0.001" value="2.0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                        <div class="flex justify-between text-xs text-slate-500 mt-2">
+                            <span>a = 1.0</span>
+                            <span class="text-indigo-400">드래그 시 자동재생 일시정지</span>
+                            <span>a = 3.5</span>
+                        </div>
+                    </div>
+
+                    <!-- Realtime Statistics -->
+                    <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-800 text-sm flex flex-col gap-2.5">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">현재 면적 S(a):</span>
+                            <span class="font-mono font-bold text-emerald-400 text-base" id="stat-area">0.0000</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">현재 미분계수 S'(a):</span>
+                            <span class="font-mono font-bold text-rose-400" id="stat-derivative">0.000</span>
+                        </div>
+                        <div class="flex justify-between items-center border-t border-slate-800/80 pt-2.5 mt-1">
+                            <span class="text-slate-400">넓이가 최소가 되는 최적 a:</span>
+                            <span class="font-mono font-bold text-yellow-400" id="stat-opt-a">1.884</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mathematical Solution Box -->
+                <div class="bg-slate-800/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl flex flex-col gap-4">
+                    <h3 class="text-md font-semibold text-slate-200 border-b border-slate-800 pb-1.5">수학적 핵심 원리</h3>
+                    <div class="text-sm text-slate-300 leading-relaxed flex flex-col gap-4">
+                        <div>
+                            <p class="font-semibold text-indigo-300 text-xs uppercase tracking-wider mb-1">1. 부등식의 정리</p>
+                            <p class="text-xs text-slate-400">
+                                $(x^y - 2^x)(x^a - x^y) \ge 0$ 에서 로그를 취하면 아래 부등식을 얻습니다:
+                            </p>
+                            <div class="my-1.5 text-center bg-slate-900/40 py-1 rounded border border-slate-800/80">
+                                $(y - f(x))(y - a) \le 0$
+                            </div>
+                            <p class="text-xs text-slate-400">
+                                따라서 $y$ 영역은 곡선 $f(x)$와 직선 $y = a$ 사이로 제한됩니다.
+                            </p>
+                        </div>
+
+                        <div class="border-t border-slate-800/50 pt-3">
+                            <p class="font-semibold text-indigo-300 text-xs uppercase tracking-wider mb-1">2. 넓이 함수 $S(a)$ 정의</p>
+                            <p class="text-xs text-slate-400">
+                                고정된 구간 $[2, 6]$에서 영역의 두께 $|a - f(x)|$를 적분한 값입니다:
+                            </p>
+                            <div class="my-1.5 text-center bg-slate-900/40 py-1 rounded border border-slate-800/80">
+                                $S(a) = \int_{2}^{6} |a - f(x)| dx$
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-800/50 pt-3">
+                            <p class="font-semibold text-indigo-300 text-xs uppercase tracking-wider mb-1">3. 기하학적 최소 조건</p>
+                            <p class="text-xs text-slate-400">
+                                $S(a)$를 $a$에 대해 미분하면 다음과 같습니다:
+                            </p>
+                            <div class="my-1.5 text-center bg-slate-900/40 py-1 rounded border border-slate-800/80 text-xs">
+                                $S'(a) = \int_{2}^{6} \operatorname{sgn}(a - f(x)) dx = 0$
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1">
+                                즉, 구간 $[2, 6]$ 중 <span class="text-yellow-400 font-medium">$f(x) < a$인 구간의 총 길이</span>와 <span class="text-indigo-400 font-medium">$f(x) > a$인 구간의 총 길이</span>가 정확히 각각 <span class="text-emerald-400 font-semibold">2</span>로 서로 같아질 때 넓이가 최소가 됩니다.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Script Implementation -->
+    <script>
+        // DOM Elements
+        const canvasMain = document.getElementById('canvas-main');
+        const canvasArea = document.getElementById('canvas-area');
+        const ctxMain = canvasMain.getContext('2d');
+        const ctxArea = canvasArea.getContext('2d');
+
+        const sliderA = document.getElementById('slider-a');
+        const valA = document.getElementById('val-a');
+
+        const statArea = document.getElementById('stat-area');
+        const statDerivative = document.getElementById('stat-derivative');
+        const statOptA = document.getElementById('stat-opt-a');
+
+        const btnPlay = document.getElementById('btn-play');
+        const btnSolve = document.getElementById('btn-solve');
+        const playIcon = document.getElementById('play-icon');
+        const playText = document.getElementById('play-text');
+
+        // Fixed simulation range as requested by user [2.0, 6.0]
+        const X_MIN = 2.0;
+        const X_MAX = 6.0;
+
+        // Simulation State (Starts playing automatically on load)
+        let state = {
+            a: 2.0,
+            isPlaying: true,
+            animationDirection: 1, // 1: increasing, -1: decreasing
+            animationSpeed: 0.006,
+            calculatedOptimum: 1.8842 // S(a) minimum value for [2, 6]
+        };
+
+        // Mathematical Function: f(x) = (x * ln 2) / ln x
+        function f(x) {
+            if (x <= 1) return 0;
+            return (x * Math.log(2)) / Math.log(x);
+        }
+
+        // Calculate S(a) using numerical integration (Trapezoidal rule)
+        function calculateS(a, xmin, xmax) {
+            const steps = 300;
+            const dx = (xmax - xmin) / steps;
+            let sum = 0;
+            for (let i = 0; i < steps; i++) {
+                const x1 = xmin + i * dx;
+                const x2 = x1 + dx;
+                const y1 = Math.abs(a - f(x1));
+                const y2 = Math.abs(a - f(x2));
+                sum += 0.5 * (y1 + y2) * dx;
+            }
+            return sum;
+        }
+
+        // Calculate S'(a) = Length of (a > f(x)) - Length of (a < f(x))
+        function calculateDerivative(a, xmin, xmax) {
+            const steps = 300;
+            const dx = (xmax - xmin) / steps;
+            let sum = 0;
+            for (let i = 0; i < steps; i++) {
+                const x = xmin + (i + 0.5) * dx;
+                const fx = f(x);
+                if (a > fx) {
+                    sum += dx;
+                } else if (a < fx) {
+                    sum -= dx;
+                }
+            }
+            return sum;
+        }
+
+        // Precise solver to find minimum of S(a)
+        function findOptimalA(xmin, xmax) {
+            let low = 1.0;
+            let high = 3.5;
+            let optA = (low + high) / 2;
+
+            for (let iter = 0; iter < 45; iter++) {
+                optA = (low + high) / 2;
+                const d = calculateDerivative(optA, xmin, xmax);
+                if (Math.abs(d) < 0.00001) break;
+                if (d > 0) {
+                    high = optA;
+                } else {
+                    low = optA;
+                }
+            }
+            return optA;
+        }
+
+        // Canvas Responsive Resize Helper
+        function resizeCanvas(canvas) {
+            const rect = canvas.parentNode.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+        }
+
+        // Draw xy-plane
+        function drawMainVisualization() {
+            resizeCanvas(canvasMain);
+            const w = canvasMain.width;
+            const h = canvasMain.height;
+            ctxMain.clearRect(0, 0, w, h);
+            ctxMain.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const cssW = w / window.devicePixelRatio;
+            const cssH = h / window.devicePixelRatio;
+
+            const padding = { top: 30, right: 30, bottom: 40, left: 55 };
+            const graphW = cssW - padding.left - padding.right;
+            const graphH = cssH - padding.top - padding.bottom;
+
+            // Coordinates System Viewport bounds
+            const xViewport = { min: 1.0, max: 7.0 };
+            const yViewport = { min: 0.0, max: 4.0 };
+
+            function toScreenX(x) {
+                return padding.left + ((x - xViewport.min) / (xViewport.max - xViewport.min)) * graphW;
+            }
+            function toScreenY(y) {
+                return padding.top + (1 - (y - yViewport.min) / (yViewport.max - yViewport.min)) * graphH;
+            }
+
+            // Draw grid lines
+            ctxMain.strokeStyle = '#1e293b';
+            ctxMain.lineWidth = 1;
+            ctxMain.fillStyle = '#64748b';
+            ctxMain.font = '11px monospace';
+
+            // X-axis ticks & labels
+            for (let x = Math.ceil(xViewport.min); x <= Math.floor(xViewport.max); x++) {
+                const sx = toScreenX(x);
+                ctxMain.beginPath();
+                ctxMain.moveTo(sx, padding.top);
+                ctxMain.lineTo(sx, padding.top + graphH);
+                ctxMain.stroke();
+                ctxMain.fillText(x.toString(), sx - 4, padding.top + graphH + 20);
+            }
+
+            // Y-axis ticks & labels
+            for (let y = Math.ceil(yViewport.min); y < yViewport.max; y++) {
+                const sy = toScreenY(y);
+                ctxMain.beginPath();
+                ctxMain.moveTo(padding.left, sy);
+                ctxMain.lineTo(padding.left + graphW, sy);
+                ctxMain.stroke();
+                ctxMain.fillText(y.toFixed(1), padding.left - 38, sy + 4);
+            }
+
+            // Main boundaries
+            ctxMain.strokeStyle = '#475569';
+            ctxMain.lineWidth = 2;
+            ctxMain.beginPath();
+            ctxMain.moveTo(padding.left, padding.top);
+            ctxMain.lineTo(padding.left, padding.top + graphH);
+            ctxMain.moveTo(padding.left, padding.top + graphH);
+            ctxMain.lineTo(padding.left + graphW, padding.top + graphH);
+            ctxMain.stroke();
+
+            // Label axes
+            ctxMain.fillStyle = '#94a3b8';
+            ctxMain.font = 'bold 12px sans-serif';
+            ctxMain.fillText('x', padding.left + graphW + 10, padding.top + graphH + 4);
+            ctxMain.fillText('y', padding.left - 10, padding.top - 12);
+
+            // Colored Shaded Area of integration S(a) in [2.0, 6.0]
+            const steps = 300;
+            const stepSize = (X_MAX - X_MIN) / steps;
+
+            ctxMain.fillStyle = 'rgba(99, 102, 241, 0.25)';
+            ctxMain.strokeStyle = 'rgba(99, 102, 241, 0.6)';
+            ctxMain.lineWidth = 1;
+
+            ctxMain.beginPath();
+            let started = false;
+            for (let i = 0; i <= steps; i++) {
+                const x = X_MIN + i * stepSize;
+                const fx = f(x);
+                const sx = toScreenX(x);
+                const sy = toScreenY(fx);
+                if (!started) {
+                    ctxMain.moveTo(sx, sy);
+                    started = true;
+                } else {
+                    ctxMain.lineTo(sx, sy);
+                }
+            }
+            for (let i = steps; i >= 0; i--) {
+                const x = X_MIN + i * stepSize;
+                const sx = toScreenX(x);
+                const sy = toScreenY(state.a);
+                ctxMain.lineTo(sx, sy);
+            }
+            ctxMain.closePath();
+            ctxMain.fill();
+            ctxMain.stroke();
+
+            // Plot curve f(x)
+            ctxMain.strokeStyle = '#facc15';
+            ctxMain.lineWidth = 3;
+            ctxMain.beginPath();
+            let first = true;
+            for (let x = 1.1; x <= xViewport.max; x += 0.02) {
+                const fx = f(x);
+                const sx = toScreenX(x);
+                const sy = toScreenY(fx);
+                if (first) {
+                    ctxMain.moveTo(sx, sy);
+                    first = false;
+                } else {
+                    ctxMain.lineTo(sx, sy);
+                }
+            }
+            ctxMain.stroke();
+
+            // Vertical limits indicators [2, 6]
+            ctxMain.strokeStyle = 'rgba(244, 63, 94, 0.5)';
+            ctxMain.lineWidth = 1.5;
+            ctxMain.setLineDash([4, 4]);
+
+            ctxMain.beginPath();
+            ctxMain.moveTo(toScreenX(X_MIN), padding.top);
+            ctxMain.lineTo(toScreenX(X_MIN), padding.top + graphH);
+            ctxMain.moveTo(toScreenX(X_MAX), padding.top);
+            ctxMain.lineTo(toScreenX(X_MAX), padding.top + graphH);
+            ctxMain.stroke();
+            ctxMain.setLineDash([]);
+
+            // Label bounds
+            ctxMain.fillStyle = '#f43f5e';
+            ctxMain.font = 'bold 10px monospace';
+            ctxMain.fillText('x = 2.0', toScreenX(X_MIN) - 20, padding.top - 8);
+            ctxMain.fillText('x = 6.0', toScreenX(X_MAX) - 20, padding.top - 8);
+
+            // Horizontal line y=a
+            ctxMain.strokeStyle = '#818cf8';
+            ctxMain.lineWidth = 2.5;
+            ctxMain.beginPath();
+            ctxMain.moveTo(padding.left, toScreenY(state.a));
+            ctxMain.lineTo(padding.left + graphW, toScreenY(state.a));
+            ctxMain.stroke();
+
+            // Line indicator label
+            ctxMain.fillStyle = '#818cf8';
+            ctxMain.beginPath();
+            ctxMain.arc(padding.left + graphW, toScreenY(state.a), 5, 0, 2 * Math.PI);
+            ctxMain.fill();
+            ctxMain.font = 'bold 11px sans-serif';
+            ctxMain.fillText(`y = a (${state.a.toFixed(3)})`, padding.left + graphW - 105, toScreenY(state.a) - 8);
+
+            // Critical point of the function x = e
+            const xCritical = Math.E;
+            const yCritical = f(xCritical);
+            ctxMain.fillStyle = '#f43f5e';
+            ctxMain.beginPath();
+            ctxMain.arc(toScreenX(xCritical), toScreenY(yCritical), 4.5, 0, 2 * Math.PI);
+            ctxMain.fill();
+            ctxMain.strokeStyle = '#ffffff';
+            ctxMain.lineWidth = 1;
+            ctxMain.stroke();
+
+            ctxMain.font = '10px sans-serif';
+            ctxMain.fillStyle = '#f43f5e';
+            ctxMain.fillText(`극소 (e, ${yCritical.toFixed(3)})`, toScreenX(xCritical) - 30, toScreenY(yCritical) + 16);
+        }
+
+        // Draw S(a) Curve and show the exact coordinate mapping
+        function drawAreaVisualization() {
+            resizeCanvas(canvasArea);
+            const w = canvasArea.width;
+            const h = canvasArea.height;
+            ctxArea.clearRect(0, 0, w, h);
+            ctxArea.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const cssW = w / window.devicePixelRatio;
+            const cssH = h / window.devicePixelRatio;
+
+            const padding = { top: 25, right: 30, bottom: 35, left: 55 };
+            const graphW = cssW - padding.left - padding.right;
+            const graphH = cssH - padding.top - padding.bottom;
+
+            const aMin = 1.0;
+            const aMax = 3.5;
+            const dataPoints = [];
+            let maxAreaVal = 0;
+            let minAreaVal = Infinity;
+            
+            const steps = 100;
+            for (let i = 0; i <= steps; i++) {
+                const sampleA = aMin + (i / steps) * (aMax - aMin);
+                const sa = calculateS(sampleA, X_MIN, X_MAX);
+                dataPoints.push({ a: sampleA, val: sa });
+                if (sa > maxAreaVal) maxAreaVal = sa;
+                if (sa < minAreaVal) minAreaVal = sa;
+            }
+
+            // Fixed beautiful margins around data range
+            const yMin = Math.max(0, minAreaVal - 0.5);
+            const yMax = maxAreaVal + 0.5;
+
+            function toScreenX(a) {
+                return padding.left + ((a - aMin) / (aMax - aMin)) * graphW;
+            }
+            function toScreenY(v) {
+                return padding.top + (1 - (v - yMin) / (yMax - yMin)) * graphH;
+            }
+
+            // Grid Layout
+            ctxArea.strokeStyle = '#1e293b';
+            ctxArea.lineWidth = 1;
+            ctxArea.fillStyle = '#64748b';
+            ctxArea.font = '10px monospace';
+
+            // X-grid
+            for (let a = 1.0; a <= 3.5; a += 0.5) {
+                const sx = toScreenX(a);
+                ctxArea.beginPath();
+                ctxArea.moveTo(sx, padding.top);
+                ctxArea.lineTo(sx, padding.top + graphH);
+                ctxArea.stroke();
+                ctxArea.fillText(a.toFixed(1), sx - 8, padding.top + graphH + 18);
+            }
+
+            // Y-grid
+            const yStep = (yMax - yMin) / 4;
+            for (let i = 0; i <= 4; i++) {
+                const y = yMin + i * yStep;
+                const sy = toScreenY(y);
+                ctxArea.beginPath();
+                ctxArea.moveTo(padding.left, sy);
+                ctxArea.lineTo(padding.left + graphW, sy);
+                ctxArea.stroke();
+                ctxArea.fillText(y.toFixed(2), padding.left - 42, sy + 4);
+            }
+
+            // Axes
+            ctxArea.strokeStyle = '#475569';
+            ctxArea.lineWidth = 1.5;
+            ctxArea.beginPath();
+            ctxArea.moveTo(padding.left, padding.top);
+            ctxArea.lineTo(padding.left, padding.top + graphH);
+            ctxArea.moveTo(padding.left, padding.top + graphH);
+            ctxArea.lineTo(padding.left + graphW, padding.top + graphH);
+            ctxArea.stroke();
+
+            // Label axes with a and S(a)
+            ctxArea.fillStyle = '#94a3b8';
+            ctxArea.font = 'bold 11px sans-serif';
+            ctxArea.fillText('a', padding.left + graphW + 12, padding.top + graphH + 4);
+            ctxArea.fillText('S(a)', padding.left - 12, padding.top - 10);
+
+            // Render the S(a) Curve
+            ctxArea.strokeStyle = '#10b981';
+            ctxArea.lineWidth = 3;
+            ctxArea.beginPath();
+            ctxArea.moveTo(toScreenX(dataPoints[0].a), toScreenY(dataPoints[0].val));
+            for (let i = 1; i < dataPoints.length; i++) {
+                ctxArea.lineTo(toScreenX(dataPoints[i].a), toScreenY(dataPoints[i].val));
+            }
+            ctxArea.stroke();
+
+            // S(a) global minimum visual line (Optimal point indicator)
+            ctxArea.strokeStyle = 'rgba(234, 179, 8, 0.4)';
+            ctxArea.lineWidth = 1.5;
+            ctxArea.setLineDash([4, 4]);
+            ctxArea.beginPath();
+            ctxArea.moveTo(toScreenX(state.calculatedOptimum), padding.top);
+            ctxArea.lineTo(toScreenX(state.calculatedOptimum), padding.top + graphH);
+            ctxArea.stroke();
+            ctxArea.setLineDash([]);
+
+            // Current state coordinate marker dot
+            const currentS = calculateS(state.a, X_MIN, X_MAX);
+            const curX = toScreenX(state.a);
+            const curY = toScreenY(currentS);
+
+            ctxArea.fillStyle = '#6366f1';
+            ctxArea.beginPath();
+            ctxArea.arc(curX, curY, 6.5, 0, 2 * Math.PI);
+            ctxArea.fill();
+            ctxArea.strokeStyle = '#ffffff';
+            ctxArea.lineWidth = 1.5;
+            ctxArea.stroke();
+
+            // Values indicator next to tracking dot
+            ctxArea.fillStyle = '#ffffff';
+            ctxArea.font = 'bold 10px monospace';
+            ctxArea.fillText(`S(${state.a.toFixed(3)}) = ${currentS.toFixed(4)}`, curX + 10, curY - 5);
+        }
+
+        // Central update call
+        function updateAll() {
+            // Raw dynamic updates (preventing MathJax typesetting lag)
+            valA.textContent = state.a.toFixed(3);
+
+            // Compute optimal a
+            state.calculatedOptimum = findOptimalA(X_MIN, X_MAX);
+            statOptA.textContent = state.calculatedOptimum.toFixed(4);
+
+            // Get current area S(a)
+            const currentAreaVal = calculateS(state.a, X_MIN, X_MAX);
+            statArea.textContent = currentAreaVal.toFixed(4);
+
+            // Get derivative S'(a)
+            const currentD = calculateDerivative(state.a, X_MIN, X_MAX);
+            statDerivative.textContent = (currentD >= 0 ? "+" : "") + currentD.toFixed(3);
+            if (Math.abs(currentD) < 0.01) {
+                statDerivative.className = "font-mono font-bold text-emerald-400";
+            } else {
+                statDerivative.className = "font-mono font-bold text-rose-400";
+            }
+
+            // Draw canvasses
+            drawMainVisualization();
+            drawAreaVisualization();
+        }
+
+        // User Interactive Controls
+        sliderA.addEventListener('input', (e) => {
+            state.a = parseFloat(e.target.value);
+            // Pause animation when user manually interacts
+            if (state.isPlaying) {
+                stopAnimation();
+            }
+            updateAll();
+        });
+
+        // Animation Thread Engine
+        let animationFrameId = null;
+        function animate() {
+            if (!state.isPlaying) return;
+
+            state.a += state.animationSpeed * state.animationDirection;
+            
+            if (state.a >= 3.4) {
+                state.a = 3.4;
+                state.animationDirection = -1;
+            } else if (state.a <= 1.1) {
+                state.a = 1.1;
+                state.animationDirection = 1;
+            }
+
+            sliderA.value = state.a;
+            updateAll();
+
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // Handle Play/Stop
+        function startAnimation() {
+            state.isPlaying = true;
+            playText.textContent = "자동 탐색 일시정지";
+            playIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+            animate();
+        }
+
+        function stopAnimation() {
+            state.isPlaying = false;
+            playText.textContent = "자동 탐색 시작";
+            playIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+        }
+
+        btnPlay.addEventListener('click', () => {
+            if (state.isPlaying) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        });
+
+        btnSolve.addEventListener('click', () => {
+            if (state.isPlaying) {
+                stopAnimation();
+            }
+            state.a = state.calculatedOptimum;
+            sliderA.value = state.a;
+            updateAll();
+        });
+
+        window.addEventListener('resize', () => {
+            updateAll();
+        });
+
+        // On Load trigger
+        window.onload = function() {
+            updateAll();
+            // Start automatic flow on load
+            startAnimation();
+        }
+    </script>
+</body>
+</html>

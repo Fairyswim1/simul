@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 수학세미나 I - 16번 문제 시뮬레이션</title>
+    <style>
+        /* 전체 페이지 디자인 */
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 30px 15px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #1a237e;
+            font-weight: 800;
+            margin-top: 0;
+            margin-bottom: 25px;
+            letter-spacing: -0.5px;
+        }
+
+        /* 컨트롤 패널 */
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border: 1px solid #e9ecef;
+        }
+        .controls label {
+            font-weight: 700;
+            font-size: 1.1em;
+            color: #2b2d42;
+            display: flex;
+            justify-content: space-between;
+        }
+        #thetaValue { color: #d32f2f; }
+
+        /* 커스텀 슬라이더 디자인 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            margin: 15px 0;
+            background: transparent;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            background: #dee2e6;
+            border-radius: 4px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #3f51b5;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        /* 캔버스 영역 */
+        .canvas-container {
+            text-align: center;
+            margin: 0 0 25px 0;
+        }
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* 결과값 패널 */
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .result-card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            text-align: center;
+        }
+        .result-card .title {
+            font-size: 0.9em;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .result-card .value {
+            font-size: 1.4em;
+            color: #0f172a;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .vector-box {
+            background: #edf2f7;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 1.25em;
+            color: #1e3a8a;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* ★ 수학 수식(분수 및 벡터) CSS 화장 ★ */
+        .math-text { font-family: 'Cambria Math', 'Times New Roman', serif; }
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 0.2em;
+            font-size: 0.85em;
+        }
+        .frac .num {
+            padding: 0 0.3em;
+            border-bottom: 2px solid currentColor;
+            line-height: 1.2;
+        }
+        .frac .den {
+            padding: 0 0.3em;
+            line-height: 1.2;
+        }
+        .vec {
+            position: relative;
+            display: inline-block;
+            font-weight: bold;
+            font-style: italic;
+            padding-top: 0.4em;
+            margin: 0 0.1em;
+        }
+        .vec::before {
+            content: '→';
+            position: absolute;
+            top: -0.4em;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7em;
+            font-weight: normal;
+            font-style: normal;
+        }
+        .approx-val {
+            font-size: 0.6em;
+            color: #94a3b8;
+            font-weight: normal;
+            font-family: 'Malgun Gothic', sans-serif;
+        }
+        .highlight { color: #e11d48; font-weight: bold; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>16번 문제 기하 시뮬레이터</h2>
+    
+    <div class="controls">
+        <label for="thetaSlider">
+            <span>각도 θ (∠PAB) 조절</span>
+            <span id="thetaValue">45.0°</span>
+        </label>
+        <input type="range" id="thetaSlider" min="0.01" max="1.56" step="any" value="0.785398">
+        <p style="margin:0; font-size:0.85em; color:#6c757d; text-align:center;">
+            슬라이더를 움직여보세요. 15°, 30°, 45°, 60°, 75° 근처로 가면 정확한 값으로 자동 고정됩니다.
+        </p>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="simCanvas" width="600" height="380"></canvas>
+    </div>
+
+    <div id="resultsBox"></div>
+
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const thetaSlider = document.getElementById('thetaSlider');
+    const thetaValueDisplay = document.getElementById('thetaValue');
+    const resultsBox = document.getElementById('resultsBox');
+
+    const centerX = 300;
+    const centerY = 190;
+    const scale = 140; 
+
+    // 분수 HTML을 생성해주는 헬퍼 함수
+    function makeFrac(num, den) {
+        return `<span class="frac math-text"><span class="num">${num}</span><span class="den">${den}</span></span>`;
+    }
+
+    // 벡터 변수를 생성해주는 헬퍼 함수 (예: AR 화살표)
+    function makeVec(name) {
+        return `<span class="vec math-text">${name}</span>`;
+    }
+
+    // 특수각에 대한 정확한 식 (분수 헬퍼 함수 적용)
+    const specialAngles = [
+        {
+            deg: 15, rad: Math.PI / 12,
+            lenAQStr: makeFrac('√6 + √2', '2'),
+            areaStr: makeFrac('1', '4'),
+            coeffABStr: makeFrac('√6 + √2 + 2', '4'),
+            coeffAPStr: makeFrac('√6 - √2', '2')
+        },
+        {
+            deg: 30, rad: Math.PI / 6,
+            lenAQStr: '<span class="math-text">√3</span>',
+            areaStr: makeFrac('√3', '4'),
+            coeffABStr: makeFrac('√3 + 1', '2'),
+            coeffAPStr: makeFrac('√3', '3')
+        },
+        {
+            deg: 45, rad: Math.PI / 4,
+            lenAQStr: '<span class="math-text">√2</span>',
+            areaStr: makeFrac('1', '2'),
+            coeffABStr: makeFrac('√2 + 1', '2'),
+            coeffAPStr: makeFrac('√2', '2')
+        },
+        {
+            deg: 60, rad: Math.PI / 3,
+            lenAQStr: '<span class="math-text">1</span>',
+            areaStr: makeFrac('√3', '4'),
+            coeffABStr: '1',
+            coeffAPStr: '1'
+        },
+        {
+            deg: 75, rad: 5 * Math.PI / 12,
+            lenAQStr: makeFrac('√6 - √2', '2'),
+            areaStr: makeFrac('1', '4'),
+            coeffABStr: makeFrac('√6 - √2 + 2', '4'),
+            coeffAPStr: makeFrac('√6 + √2', '2')
+        }
+    ];
+
+    function mapX(x) { return centerX + x * scale; }
+    function mapY(y) { return centerY - y * scale; }
+
+    function drawCanvasGrid() {
+        ctx.beginPath();
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1;
+        // 모눈종이 효과
+        for(let i=0; i<canvas.width; i+=20) { ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); }
+        for(let i=0; i<canvas.height; i+=20) { ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); }
+        ctx.stroke();
+        
+        // X, Y 축
+        ctx.beginPath();
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1.5;
+        ctx.moveTo(0, centerY); ctx.lineTo(canvas.width, centerY);
+        ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height);
+        ctx.stroke();
+    }
+
+    function draw() {
+        const theta = parseFloat(thetaSlider.value);
+        const thetaDeg = (theta * 180 / Math.PI).toFixed(1);
+        thetaValueDisplay.innerText = thetaDeg + '°';
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawCanvasGrid(); // 배경 격자 그리기
+
+        const Ax = -1, Ay = 0;
+        const Bx = 1,  By = 0;
+        const Px = Math.cos(2 * theta);
+        const Py = Math.sin(2 * theta);
+        const lenAP = 2 * Math.cos(theta);
+        const Qx = -1 + lenAP; 
+        const Qy = 0;
+
+        const vx = Px - Qx;
+        const vy = Py - Qy;
+        const dotQV = Qx * vx + Qy * vy;
+        const lenV2 = vx * vx + vy * vy;
+        const t2 = -2 * dotQV / lenV2 - 1; 
+        const Rx = Qx + t2 * vx;
+        const Ry = Qy + t2 * vy;
+
+        // 원 C
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, scale, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 지름 AB
+        ctx.beginPath();
+        ctx.moveTo(mapX(Ax), mapY(Ay));
+        ctx.lineTo(mapX(Bx), mapY(By));
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 삼각형 AQR (면적 강조)
+        ctx.beginPath();
+        ctx.moveTo(mapX(Ax), mapY(Ay));
+        ctx.lineTo(mapX(Qx), mapY(Qy));
+        ctx.lineTo(mapX(Rx), mapY(Ry));
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; 
+        ctx.fill();
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 직선 PQ
+        ctx.beginPath();
+        ctx.moveTo(mapX(Px), mapY(Py));
+        ctx.lineTo(mapX(Rx), mapY(Ry));
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]); 
+
+        // 선분 AP
+        ctx.beginPath();
+        ctx.moveTo(mapX(Ax), mapY(Ay));
+        ctx.lineTo(mapX(Px), mapY(Py));
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        function drawPoint(x, y, label, color) {
+            ctx.beginPath();
+            ctx.arc(mapX(x), mapY(y), 5, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = '#1e293b';
+            ctx.fillText(label, mapX(x) - 5, mapY(y) - 12);
+        }
+
+        drawPoint(Ax, Ay, 'A', '#334155');
+        drawPoint(Bx, By, 'B', '#334155');
+        drawPoint(Px, Py, 'P', '#3b82f6');
+        drawPoint(Qx, Qy, 'Q', '#f59e0b');
+        drawPoint(Rx, Ry, 'R', '#e11d48');
+
+        // 값 계산
+        const areaAQR = 0.5 * lenAP * Math.abs(Ry);
+        const coeffAB = Math.cos(theta) + 0.5;
+        const coeffAP = 1 / (2 * Math.cos(theta));
+
+        // 기본 렌더링 (소수점)
+        let displayLenAQ = `<span class="math-text">${lenAP.toFixed(4)}</span>`;
+        let displayArea = `<span class="math-text">${areaAQR.toFixed(4)}</span>`;
+        let vectorText = `${makeVec('AR')} = ( <span class="math-text">${coeffAB.toFixed(3)}</span> ) ${makeVec('AB')} - ( <span class="math-text">${coeffAP.toFixed(3)}</span> ) ${makeVec('AP')}`;
+        let maxMsg = "";
+
+        // 특수각 스냅 시 렌더링 (분수 및 루트)
+        for (let sa of specialAngles) {
+            if (Math.abs(theta - sa.rad) < 0.001) {
+                displayLenAQ = `${sa.lenAQStr} <span class="approx-val">(≒ ${lenAP.toFixed(3)})</span>`;
+                
+                // 따옴표 충돌이 발생했던 부분을 백틱(`)을 사용해 안전하게 수정했습니다.
+                if (sa.deg === 45) {
+                    maxMsg = `<br><span class="highlight">★ 넓이 최대 지점</span>`;
+                }
+                displayArea = `${sa.areaStr} <span class="approx-val">(≒ ${areaAQR.toFixed(3)})</span>${maxMsg}`;
+
+                if (sa.deg === 60) {
+                    vectorText = `${makeVec('AR')} = ${makeVec('AB')} - ${makeVec('AP')}`;
+                } else {
+                    vectorText = `${makeVec('AR')} = <span style="margin-right:0.3em;">${sa.coeffABStr}</span>${makeVec('AB')} - <span style="margin-right:0.3em;">${sa.coeffAPStr}</span>${makeVec('AP')}`;
+                }
+                break;
+            }
+        }
+
+        // 결과창 HTML 주입
+        resultsBox.innerHTML = `
+            <div class="results-grid">
+                <div class="result-card">
+                    <div class="title">선분 AQ 길이</div>
+                    <div class="value">${displayLenAQ}</div>
+                </div>
+                <div class="result-card">
+                    <div class="title">삼각형 AQR 넓이</div>
+                    <div class="value">${displayArea}</div>
+                </div>
+            </div>
+            
+            <div class="vector-box">
+                <div style="font-size: 0.7em; color: #64748b; margin-bottom: 8px; font-weight: bold;">[벡터 관계식]</div>
+                ${vectorText}
+            </div>
+        `;
+    }
+
+    // 다중 스냅(Snap) 이벤트 리스너
+    thetaSlider.addEventListener('input', function(e) {
+        let currentTheta = parseFloat(e.target.value);
+        const snapThreshold = 0.03; 
+
+        for (let sa of specialAngles) {
+            if (Math.abs(currentTheta - sa.rad) < snapThreshold) {
+                e.target.value = sa.rad;
+                break; 
+            }
+        }
+        draw();
+    });
+    
+    // 초기 실행
+    draw();
+</script>
+
+</body>
+</html>

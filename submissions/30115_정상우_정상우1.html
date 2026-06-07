@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>수직이등분선 l 정밀 시뮬레이션 (선분 AP 추가)</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f8f9fa; padding: 20px; }
+        canvas { background-color: white; border: 2px solid #333; border-radius: 4px; cursor: crosshair; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .dashboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 800px; margin-bottom: 15px; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; }
+        .data-card { text-align: center; }
+        .data-card label { display: block; font-size: 12px; color: #666; margin-bottom: 5px; font-weight: bold; }
+        .data-card span { font-family: 'Consolas', monospace; font-size: 14px; color: #000; font-weight: 600; }
+        .controls { margin-top: 20px; display: flex; align-items: center; gap: 15px; width: 800px; flex-wrap: wrap; justify-content: center; }
+        .input-group { display: flex; align-items: center; gap: 8px; background: #eee; padding: 5px 10px; border-radius: 5px; }
+        input[type=number] { width: 60px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type=range] { width: 200px; }
+        button { padding: 10px 18px; cursor: pointer; border-radius: 6px; border: none; background: #228be6; color: white; font-weight: bold; }
+        button:hover { background: #1c7ed6; }
+        .btn-reset { background: #fa5252; }
+        .btn-reset:hover { background: #e03131; }
+    </style>
+</head>
+<body>
+
+    <h2>선분 AP의 수직이등분선 l 자취 탐구</h2>
+
+    <div class="dashboard">
+        <div class="data-card">
+            <label>점 P (원 위의 동점)</label>
+            <span id="coordP">P(0.00, 0.00)</span>
+        </div>
+        <div class="data-card">
+            <label>점 M (AP의 중점)</label>
+            <span id="coordM">M(2.00, 0.00)</span>
+        </div>
+        <div class="data-card">
+            <label>직선 l (수직이등분선)</label>
+            <span id="eqL">x = 2.00</span>
+        </div>
+    </div>
+
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <div class="controls">
+        <button id="playBtn" onclick="toggleAnimate()">자동 재생 정지</button>
+        
+        <div class="input-group">
+            <label>각도 입력(θ):</label>
+            <input type="number" id="angleNum" value="0" min="0" max="360" step="1" oninput="syncAngle(this.value)">
+            <span>°</span>
+        </div>
+
+        <div class="input-group">
+            <input type="range" id="angleSlider" min="0" max="360" step="0.1" value="0" oninput="syncAngle(this.value)">
+        </div>
+
+        <button class="btn-reset" onclick="resetEverything()">자취 초기화 (P원점)</button>
+    </div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const scale = 40;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    let thetaDeg = 0; // 초기 각도 0도 (P가 원점)
+    let lines = [];
+    let isRunning = true;
+
+    const Ax = 4, Ay = 0;
+    const Bx = -4, By = 0;
+    const r = 4;
+
+    const toCanvasX = (x) => centerX + x * scale;
+    const toCanvasY = (y) => centerY - y * scale;
+
+    function drawSystem() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. 그리드 및 축
+        ctx.strokeStyle = '#f1f3f5';
+        ctx.beginPath();
+        for(let i = -10; i <= 10; i++) {
+            ctx.moveTo(toCanvasX(i), 0); ctx.lineTo(toCanvasX(i), canvas.height);
+            ctx.moveTo(0, toCanvasY(i)); ctx.lineTo(canvas.width, toCanvasY(i));
+        }
+        ctx.stroke();
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY); ctx.lineTo(canvas.width, centerY); // x축
+        ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height); // y축
+        ctx.stroke();
+
+        // 2. 점 P의 경로 (원)
+        ctx.setLineDash([2, 4]);
+        ctx.strokeStyle = '#adb5bd';
+        ctx.beginPath();
+        ctx.arc(toCanvasX(Bx), toCanvasY(By), r * scale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 3. 자취 그리기
+        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = 'rgba(34, 139, 230, 0.15)';
+        lines.forEach(l => {
+            ctx.beginPath(); ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2); ctx.stroke();
+        });
+
+        // 현재 데이터 계산
+        const rad = (thetaDeg * Math.PI) / 180;
+        const Px = Bx + r * Math.cos(rad);
+        const Py = By + r * Math.sin(rad);
+        const Mx = (Ax + Px) / 2;
+        const My = (Ay + Py) / 2;
+
+        const dx = Px - Ax;
+        const dy = Py - Ay;
+        let x1, y1, x2, y2, eqStr;
+
+        if (Math.abs(dy) < 0.0001) {
+            x1 = toCanvasX(Mx); y1 = 0; x2 = toCanvasX(Mx); y2 = canvas.height;
+            eqStr = `x = ${Mx.toFixed(2)}`;
+        } else {
+            const m_perp = -dx / dy;
+            const drawX1 = -15, drawX2 = 15;
+            x1 = toCanvasX(drawX1); y1 = toCanvasY(m_perp * (drawX1 - Mx) + My);
+            x2 = toCanvasX(drawX2); y2 = toCanvasY(m_perp * (drawX2 - Mx) + My);
+            const intercept = -m_perp * Mx + My;
+            eqStr = `y = ${m_perp.toFixed(2)}x ${intercept >= 0 ? '+' : '-'} ${Math.abs(intercept).toFixed(2)}`;
+        }
+
+        // [추가] 선분 AP 그리기 (희미하게)
+        ctx.setLineDash([5, 5]); // 점선 설정
+        ctx.strokeStyle = 'rgba(108, 117, 125, 0.4)'; // 연한 회색 (희미하게), 투명도 0.4
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(toCanvasX(Ax), toCanvasY(Ay));
+        ctx.lineTo(toCanvasX(Px), toCanvasY(Py));
+        ctx.stroke();
+        ctx.setLineDash([]); // 점선 설정 해제
+
+        // 4. 수직이등분선 l 그리기 및 라벨
+        ctx.lineWidth = 2; ctx.strokeStyle = '#228be6';
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        ctx.fillStyle = '#228be6'; ctx.fillText("l", x1 + 10, y1 + 20);
+
+        // 5. 점 및 라벨 표시
+        ctx.font = "bold 14px Arial";
+        
+        // 정점 B (-4, 0)
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(toCanvasX(Bx), toCanvasY(By), 4, 0, Math.PI*2); ctx.fill();
+        ctx.fillText("B(-4,0)", toCanvasX(Bx)-45, toCanvasY(By)+20);
+
+        // 정점 A (4, 0)
+        ctx.fillStyle = '#f03e3e';
+        ctx.beginPath(); ctx.arc(toCanvasX(Ax), toCanvasY(Ay), 4, 0, Math.PI*2); ctx.fill();
+        ctx.fillText("A(4,0)", toCanvasX(Ax)+10, toCanvasY(Ay)+20);
+
+        // 동점 P
+        ctx.fillStyle = '#37b24d';
+        ctx.beginPath(); ctx.arc(toCanvasX(Px), toCanvasY(Py), 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillText(`P(${Px.toFixed(1)},${Py.toFixed(1)})`, toCanvasX(Px)-10, toCanvasY(Py)-15);
+
+        // 중점 M
+        ctx.fillStyle = '#fcc419';
+        ctx.beginPath(); ctx.arc(toCanvasX(Mx), toCanvasY(My), 5, 0, Math.PI*2); ctx.fill();
+        ctx.fillText(`M`, toCanvasX(Mx)+10, toCanvasY(My)-10);
+
+        // 대시보드 업데이트
+        document.getElementById('coordP').innerText = `P(${Px.toFixed(2)}, ${Py.toFixed(2)})`;
+        document.getElementById('coordM').innerText = `M(${Mx.toFixed(2)}, ${My.toFixed(2)})`;
+        document.getElementById('eqL').innerText = eqStr;
+
+        if (isRunning) {
+            thetaDeg = (thetaDeg + 0.5) % 360;
+            updateUIControls();
+            lines.push({x1, y1, x2, y2});
+            if(lines.length > 800) lines.shift();
+        }
+        requestAnimationFrame(drawSystem);
+    }
+
+    function syncAngle(val) {
+        thetaDeg = parseFloat(val);
+        updateUIControls();
+    }
+
+    function updateUIControls() {
+        document.getElementById('angleSlider').value = thetaDeg;
+        document.getElementById('angleNum').value = Math.floor(thetaDeg);
+    }
+
+    function toggleAnimate() {
+        isRunning = !isRunning;
+        document.getElementById('playBtn').innerText = isRunning ? "자동 재생 정지" : "자동 재생 시작";
+    }
+
+    function resetEverything() {
+        lines = [];
+        thetaDeg = 0; // P가 원점(0,0)으로 오게 함
+        updateUIControls();
+    }
+
+    drawSystem();
+</script>
+</body>
+</html>

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제31회 모의고사 수리논술 시뮬레이터</title>
+    
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            max-width: 1050px;
+            width: 100%;
+        }
+        .left-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .right-panel {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        .controls {
+            margin-top: 20px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        input[type="range"] {
+            flex: 1;
+            cursor: pointer;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.action-btn {
+            background-color: #28a745;
+        }
+        button.action-btn:hover {
+            background-color: #218838;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            background: white;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f1f3f5;
+            font-weight: bold;
+        }
+        .info-box {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .info-box p {
+            margin: 5px 0;
+        }
+        .highlight {
+            color: #d9534f;
+            font-weight: bold;
+        }
+        h3 {
+            margin-top: 0;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+            color: #007bff;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="left-panel">
+        <canvas id="sim-canvas" width="500" height="500"></canvas>
+        <div class="controls">
+            <div class="slider-group">
+                <button id="play-btn">▶ 자동 재생</button>
+                <input type="range" id="t-slider" min="0" max="6.2831853" step="0.01" value="0">
+                <span id="t-display" style="width: 70px; font-weight: bold;">t = 0.00</span>
+            </div>
+            <div class="info-box">
+                <p><strong>점 A의 위치:</strong> (<span id="ax-display">3.00</span>, <span id="ay-display">0.00</span>)</p>
+                <p><strong>점 B의 위치:</strong> (<span id="bx-display">4.00</span>, <span id="by-display">0.00</span>)</p>
+                <p><strong>현재까지 그려진 곡선의 길이:</strong> <span id="length-display" class="highlight">0.00</span></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div>
+            <h3>점 B의 매개변수 방정식</h3>
+            <div class="info-box">
+                <p>\( x(t) = 3\cos t + \cos 3t \)</p>
+                <p>\( y(t) = 3\sin t - \sin 3t \)</p>
+            </div>
+        </div>
+
+        <div>
+            <h3>속력이 0이 되는 시각 기록</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>순번</th>
+                        <th>시각 (t)</th>
+                    </tr>
+                </thead>
+                <tbody id="zero-speed-table">
+                    </tbody>
+            </table>
+        </div>
+
+        <div>
+            <h3>영역의 넓이</h3>
+            <button id="area-btn" class="action-btn" style="width: 100%;">영역의 넓이 구하기</button>
+            <div id="area-output" class="info-box" style="margin-top: 10px; display: none;">
+                </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('sim-canvas');
+    const ctx = canvas.getContext('2d');
+    const tSlider = document.getElementById('t-slider');
+    const tDisplay = document.getElementById('t-display');
+    const playBtn = document.getElementById('play-btn');
+    const lengthDisplay = document.getElementById('length-display');
+    
+    const axDisplay = document.getElementById('ax-display');
+    const ayDisplay = document.getElementById('ay-display');
+    const bxDisplay = document.getElementById('bx-display');
+    const byDisplay = document.getElementById('by-display');
+
+    const SCALE = 50; 
+    const MAX_T = 2 * Math.PI;
+    let t = 0;
+    let isPlaying = false;
+    let animationId;
+    let lastTime = 0;
+
+    const zeroSpeeds = [
+        { t: 0, label: "0" },
+        { t: Math.PI / 2, label: "π/2" },
+        { t: Math.PI, label: "π" },
+        { t: Math.PI * 1.5, label: "3π/2" },
+        { t: Math.PI * 2, label: "2π" }
+    ];
+
+    playBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        if (isPlaying) {
+            playBtn.textContent = '⏸ 일시정지';
+            if(t >= MAX_T) t = 0;
+            lastTime = performance.now();
+            loop(lastTime);
+        } else {
+            playBtn.textContent = '▶ 자동 재생';
+            cancelAnimationFrame(animationId);
+        }
+    });
+
+    tSlider.addEventListener('input', (e) => {
+        t = parseFloat(e.target.value);
+        updateAll();
+    });
+
+    function loop(currentTime) {
+        if (!isPlaying) return;
+        const dt = (currentTime - lastTime) / 1000;
+        lastTime = currentTime;
+
+        t += 0.8 * dt; 
+        
+        if (t >= MAX_T) {
+            t = MAX_T;
+            isPlaying = false;
+            playBtn.textContent = '▶ 자동 재생';
+            updateAll();
+            return;
+        }
+
+        updateAll();
+        animationId = requestAnimationFrame(loop);
+    }
+
+    function getCurveLength(currentTime) {
+        let period = Math.PI / 2;
+        let n = Math.floor(currentTime / period);
+        let rem = currentTime % period;
+        return n * 6 + 3 * (1 - Math.cos(2 * rem));
+    }
+
+    function drawGridAndAxes() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+
+        ctx.strokeStyle = '#eee';
+        ctx.lineWidth = 1;
+        for (let i = -5; i <= 5; i++) {
+            ctx.beginPath(); ctx.moveTo(i * SCALE, -250); ctx.lineTo(i * SCALE, 250); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-250, i * SCALE); ctx.lineTo(250, i * SCALE); ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#aaa';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-250, 0); ctx.lineTo(250, 0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -250); ctx.lineTo(0, 250); ctx.stroke();
+
+        ctx.fillStyle = '#666';
+        ctx.font = '12px Arial';
+        ctx.fillText('x', 235, 15);
+        ctx.fillText('y', 5, -235);
+        ctx.fillText('O', -15, 15);
+        ctx.fillText('3', 3 * SCALE + 5, 15);
+        ctx.fillText('-3', -3 * SCALE - 20, 15);
+        ctx.fillText('3', 5, -3 * SCALE - 5);
+
+        ctx.strokeStyle = '#bbb';
+        ctx.beginPath();
+        ctx.arc(0, 0, 3 * SCALE, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    function drawScene() {
+        drawGridAndAxes();
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+
+        const ax = 3 * Math.cos(t);
+        const ay = 3 * Math.sin(t);
+
+        const bx = 3 * Math.cos(t) + Math.cos(3 * t);
+        const by = 3 * Math.sin(t) - Math.sin(3 * t);
+
+        ctx.strokeStyle = '#d9534f';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i <= t; i += 0.02) {
+            let px = 3 * Math.cos(i) + Math.cos(3 * i);
+            let py = 3 * Math.sin(i) - Math.sin(3 * i);
+            if (i === 0) ctx.moveTo(px * SCALE, -py * SCALE);
+            else ctx.lineTo(px * SCALE, -py * SCALE);
+        }
+        ctx.lineTo(bx * SCALE, -by * SCALE);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#007bff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(ax * SCALE, -ay * SCALE, 1 * SCALE, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(ax * SCALE, -ay * SCALE); ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(0,123,255,0.7)';
+        ctx.beginPath(); ctx.moveTo(ax * SCALE, -ay * SCALE); ctx.lineTo(bx * SCALE, -by * SCALE); ctx.stroke();
+
+        ctx.fillStyle = '#007bff';
+        ctx.beginPath(); ctx.arc(ax * SCALE, -ay * SCALE, 4, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillStyle = '#333';
+        ctx.fillText('A', ax * SCALE - 15, -ay * SCALE - 10);
+
+        ctx.fillStyle = '#d9534f';
+        ctx.beginPath(); ctx.arc(bx * SCALE, -by * SCALE, 5, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillText('B', bx * SCALE + 10, -by * SCALE - 10);
+
+        ctx.restore();
+
+        axDisplay.textContent = ax.toFixed(2);
+        ayDisplay.textContent = ay.toFixed(2);
+        bxDisplay.textContent = bx.toFixed(2);
+        byDisplay.textContent = by.toFixed(2);
+    }
+
+    function updateTable() {
+        const tbody = document.getElementById('zero-speed-table');
+        tbody.innerHTML = '';
+        let count = 1;
+        
+        zeroSpeeds.forEach(item => {
+            if (t >= item.t - 0.01) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${count++}</td><td style="color:#d9534f; font-weight:bold;">${item.label}</td>`;
+                tbody.appendChild(tr);
+            }
+        });
+    }
+
+    function updateAll() {
+        tSlider.value = t;
+        tDisplay.textContent = `t = ${t.toFixed(2)}`;
+        
+        drawScene();
+        
+        const currentLength = getCurveLength(t);
+        lengthDisplay.textContent = currentLength.toFixed(2);
+        
+        updateTable();
+    }
+
+    // 영역의 넓이 구하기 (주기성 활용 제1사분면 기준 적분, LaTeX 오류 수정)
+    document.getElementById('area-btn').addEventListener('click', () => {
+        const areaOutput = document.getElementById('area-output');
+        areaOutput.style.display = 'block';
+        
+        areaOutput.innerHTML = `
+            <p style="margin-bottom: 5px;"><strong>계산 전개식:</strong></p>
+            <div style="font-size: 13px; overflow-x: auto; margin-bottom: 15px;">
+            $$\\begin{aligned}
+            S &= 4 \\int_{0}^{4} y \\, dx = 4 \\int_{\\frac{\\pi}{2}}^{0} y(t) x'(t) dt \\\\
+            &= 4 \\int_{0}^{\\frac{\\pi}{2}} y(t) \\{ -x'(t) \\} dt \\\\
+            &= 4 \\int_{0}^{\\frac{\\pi}{2}} (3\\sin t - \\sin 3t)(3\\sin t + 3\\sin 3t) dt \\\\
+            &= 12 \\int_{0}^{\\frac{\\pi}{2}} (3\\sin^2 t + 2\\sin t \\sin 3t - \\sin^2 3t) dt \\\\
+            &= 12 \\left( \\frac{3\\pi}{4} + 0 - \\frac{\\pi}{4} \\right) = 6\\pi
+            \\end{aligned}$$
+            </div>
+            <p><strong>최종 계산 결과:</strong> <span class="highlight">\\(6\\pi\\)</span></p>
+            <p style="font-size:12px; color:#666; margin-top:10px;">* 곡선이 \\(x\\)축, \\(y\\)축에 대해 대칭이므로 제1사분면(\\(0 \\le t \\le \\frac{\\pi}{2}\\))의 넓이를 구해 4배 하였습니다.</p>
+        `;
+        
+        if (window.MathJax) {
+            MathJax.typesetPromise([areaOutput]).catch(function (err) {
+                console.error('MathJax Rendering Error:', err.message);
+            });
+        }
+    });
+
+    updateAll();
+</script>
+
+</body>
+</html>

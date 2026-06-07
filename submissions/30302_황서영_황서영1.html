@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수학 구슬 상태 전이 시뮬레이터</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+    body {
+      font-family: 'Inter', 'Noto Sans KR', sans-serif;
+      background-color: #0f172a;
+      color: #f1f5f9;
+    }
+    .bead {
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .bead-w {
+      background: radial-gradient(circle at 35% 35%, #ffffff 0%, #e2e8f0 40%, #cbd5e1 70%, #94a3b8 100%);
+      box-shadow: 0 4px 10px rgba(255, 255, 255, 0.15), inset -2px -2px 6px rgba(0,0,0,0.1);
+      color: #1e293b;
+    }
+    .bead-b {
+      background: radial-gradient(circle at 35% 35%, #475569 0%, #334155 30%, #1e293b 70%, #0f172a 100%);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset -2px -2px 6px rgba(0,0,0,0.6), inset 2px 2px 6px rgba(255,255,255,0.05);
+      color: #f1f5f9;
+    }
+    .bead-flip {
+      animation: flip-anim 0.8s ease-in-out;
+    }
+    @keyframes flip-anim {
+      0% { transform: scale(1); filter: brightness(1); }
+      30% { transform: scale(1.25) rotateY(90deg); filter: brightness(2) saturate(2); box-shadow: 0 0 25px rgba(239, 68, 68, 0.8); }
+      70% { transform: scale(1.25) rotateY(90deg); filter: brightness(2) saturate(2); box-shadow: 0 0 25px rgba(239, 68, 68, 0.8); }
+      100% { transform: scale(1) rotateY(0deg); filter: brightness(1); }
+    }
+    .flash-highlight {
+      animation: pulse-ring 1s infinite alternate;
+    }
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0px rgba(59, 130, 246, 0.7); }
+      100% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
+    }
+    .flip-target {
+      animation: target-ring 1s infinite alternate;
+    }
+    @keyframes target-ring {
+      0% { box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.7); }
+      100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+    }
+    .state-card-active {
+      border-color: #f59e0b !important;
+      background-color: rgba(245, 158, 11, 0.1) !important;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+      transform: scale(1.02);
+    }
+    /* 스크롤바 디자인 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+  <!-- 네비게이션 헤더 -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-500/20">
+          <i class="fa-solid fa-circle-nodes text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            수학 구슬 상태 전이 시뮬레이터
+            <span class="text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-medium">수업 수행평가용 v2.0</span>
+          </h1>
+          <p class="text-xs text-slate-400 mt-0.5">도쿄대학 수학 기출 확률 문제 풀이 보조 도구</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-slate-400">규칙 시각화 & 대수적 점화식 분석기</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 레이아웃 -->
+  <main class="flex-grow max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- 왼쪽: 시뮬레이션 제어 및 구슬 시각화 + 무작위 확률 검증 (8컬럼) -->
+    <div class="lg:col-span-8 flex flex-col gap-6">
+      
+      <!-- 규칙 요약 카드 -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl pointer-events-none"></div>
+        <h2 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-circle-info text-blue-400"></i> 구슬 배열의 전이 규칙 (핵심 조건)
+        </h2>
+        <div class="text-xs leading-relaxed text-slate-400 space-y-2">
+          <p>
+            기본적으로 처음에 흰 구슬 두 개 <span class="px-1.5 py-0.5 bg-slate-800 text-white border border-slate-700 rounded text-[10px] font-bold">W</span> <span class="px-1.5 py-0.5 bg-slate-800 text-white border border-slate-700 rounded text-[10px] font-bold">W</span> 가 놓인 상태에서 시행이 시작됩니다.
+          </p>
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1">
+            <p class="font-medium text-slate-300">★ 연쇄 반전 규칙:</p>
+            <p>새로 놓은 구슬 <span class="text-blue-400 font-bold">A_k</span>가 바로 왼쪽 구슬 <span class="text-slate-200 font-bold">A_{k-1}</span>과 <strong class="text-amber-400">색이 다르고</strong>, 새로 놓은 구슬로부터 왼쪽으로 두 번째 구슬 <span class="text-slate-200 font-bold">A_{k-2}</span>와 <strong class="text-emerald-400">색이 일치할 때</strong></p>
+            <p class="text-red-400 font-medium">➡️ 바로 왼쪽 구슬 <span class="font-bold">A_{k-1}</span>의 색을 반대로 뒤집습니다 (W ⇄ B).</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 실시간 구슬 배열 시각화 영역 -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between min-h-[380px] relative">
+        
+        <!-- 상태 표시줄 -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+          <div class="flex items-center gap-2 text-sm font-semibold text-slate-200">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            현재 구슬 배열 상태 (총 <span id="bead-count-text" class="text-blue-400 font-bold">2</span>개)
+          </div>
+          <div class="flex gap-4 text-xs text-slate-400">
+            <div>W(흰): <span id="stat-w-count" class="font-semibold text-slate-200">2</span>개</div>
+            <div>B(검): <span id="stat-b-count" class="font-semibold text-slate-200">0</span>개</div>
+          </div>
+        </div>
+
+        <!-- 규칙 매칭 상세 안내 배너 (실시간 변화 분석) -->
+        <div id="rule-analysis-banner" class="bg-blue-950/40 border border-blue-900/50 rounded-xl p-3 text-xs text-slate-300 mb-4 min-h-[48px] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-blue-400 animate-bounce"></i>
+            <span id="analysis-text">동전을 던지거나 구슬을 직접 배치해 변화를 관찰하세요.</span>
+          </div>
+          <span id="step-by-step-indicator" class="hidden text-[10px] px-2 py-0.5 bg-blue-800 text-blue-100 rounded-full font-bold">분석 완료</span>
+        </div>
+
+        <!-- 구슬 나열 컨테이너 (좌우 스크롤 가능) -->
+        <div id="beads-container" class="flex items-center justify-start gap-5 py-8 px-4 overflow-x-auto min-h-[140px] border border-slate-800/50 rounded-xl bg-slate-950/50 mb-6 relative">
+          <!-- 기본 구슬이 자바스크립트로 자동 생성됩니다. -->
+        </div>
+
+        <!-- 제어 버튼 영역 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+          
+          <!-- 버튼 1: 자동 확률 시행 (동전 던지기) -->
+          <button id="btn-coin-toss" class="relative group overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-blue-500/20 active:scale-95 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-coins text-lg group-hover:rotate-45 transition-transform"></i>
+            동전 던지기 (시행)
+          </button>
+
+          <!-- 버튼 2: 직접 선택 삽입 패널 -->
+          <div class="grid grid-cols-2 gap-2">
+            <button id="btn-add-w" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold py-3 px-2 rounded-xl active:scale-95 transition flex items-center justify-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded-full bg-white shadow-inner inline-block"></span>
+              흰색(W) 추가
+            </button>
+            <button id="btn-add-b" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold py-3 px-2 rounded-xl active:scale-95 transition flex items-center justify-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded-full bg-slate-900 border border-slate-700 shadow-inner inline-block"></span>
+              검은색(B) 추가
+            </button>
+          </div>
+
+          <!-- 버튼 3: 전체 초기화 -->
+          <button id="btn-reset" class="bg-slate-800 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/60 border border-slate-700 text-slate-400 font-semibold py-3 px-4 rounded-xl active:scale-95 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-rotate-left"></i>
+            전체 초기화
+          </button>
+          
+        </div>
+
+        <!-- 2번 요구사항: 동전 던지기 무작위 확률 신뢰성 검증 패널 -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-scale-balanced text-amber-500 animate-pulse"></i> 동전 무작위 난수 검증기 (독립 확률 1/2 검증)
+            </h4>
+            <span class="text-[10px] text-slate-400">Math.random() 실시간 누적치</span>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <!-- 수치 요약 -->
+            <div class="text-[11px] text-slate-400 space-y-1 border-r border-slate-800 pr-2">
+              <div>총 던진 횟수: <span id="coin-total-count" class="font-bold text-slate-200">0</span>회</div>
+              <div class="flex justify-between">
+                <span>앞면(흰색 W):</span>
+                <span id="coin-w-stat" class="font-semibold text-slate-200">0회 (0.0%)</span>
+              </div>
+              <div class="flex justify-between">
+                <span>뒷면(검은색 B):</span>
+                <span id="coin-b-stat" class="font-semibold text-slate-200">0회 (0.0%)</span>
+              </div>
+            </div>
+            
+            <!-- 실시간 동적 대칭 게이지바 -->
+            <div class="md:col-span-2 space-y-1.5">
+              <div class="flex justify-between text-[10px] text-slate-400">
+                <span class="text-white font-medium">앞면 (흰 구슬)</span>
+                <span class="text-slate-400 font-medium">뒷면 (검은 구슬)</span>
+              </div>
+              
+              <!-- 게이지 바 메인 컨테이너 -->
+              <div class="w-full h-4 bg-slate-800 rounded-full overflow-hidden flex relative">
+                <!-- 앞면 비율 영역 -->
+                <div id="gauge-w" class="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300" style="width: 50%;"></div>
+                <!-- 뒷면 비율 영역 -->
+                <div id="gauge-b" class="h-full bg-slate-700 transition-all duration-300" style="width: 50%;"></div>
+                
+                <!-- 중앙선 (50% 타겟 데드라인) -->
+                <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-red-500/80 z-10" title="이론상 1/2 기준선"></div>
+              </div>
+              <p class="text-[9px] text-slate-500 leading-tight">
+                * 독립적인 각 시행에서 난수 분배가 한쪽으로 쏠리지 않고 던진 횟수가 누적될수록 중앙의 빨간선(50%)에 실시간 수렴하게 됩니다.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 1번 요구사항: 점화식 수학적 힌트 제공 패널 (WW, WB, BW, BB 상태 추적) -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+        <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-lightbulb text-amber-400"></i> 점화식 논리 전개 및 수학적 힌트 (스스로 푸는 단서)
+        </h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+          오른쪽 두 개의 구슬 상태가 점화식을 수립하는 절대적인 상태 변수입니다. 현재 내 배열의 <strong>가장 오른쪽 두 구슬</strong> 상태에 맞게 실시간 전이 흐름이 자동 강조됩니다.
+        </p>
+
+        <!-- 상태 하이라이트 그리드 (4가지 상태 정의) -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          
+          <div id="state-ww" class="border border-slate-800 bg-slate-950 p-3 rounded-xl transition-all duration-300 flex flex-col items-center">
+            <span class="text-[10px] text-slate-400 font-semibold mb-1">상태 S₁ (WW)</span>
+            <div class="flex gap-1 my-1">
+              <span class="w-4 h-4 rounded-full bg-white shadow inline-block"></span>
+              <span class="w-4 h-4 rounded-full bg-white shadow inline-block"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 text-center">확률: <span class="font-bold text-blue-400">$1-Q_n-P_n$</span></p>
+          </div>
+
+          <div id="state-wb" class="border border-slate-800 bg-slate-950 p-3 rounded-xl transition-all duration-300 flex flex-col items-center">
+            <span class="text-[10px] text-slate-400 font-semibold mb-1">상태 S₂ (WB)</span>
+            <div class="flex gap-1 my-1">
+              <span class="w-4 h-4 rounded-full bg-white shadow inline-block"></span>
+              <span class="w-4 h-4 rounded-full bg-slate-900 border border-slate-700 shadow inline-block"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 text-center">확률: <span class="font-bold text-emerald-400">$P_n$</span></p>
+          </div>
+
+          <div id="state-bw" class="border border-slate-800 bg-slate-950 p-3 rounded-xl transition-all duration-300 flex flex-col items-center">
+            <span class="text-[10px] text-slate-400 font-semibold mb-1">상태 S₃ (BW)</span>
+            <div class="flex gap-1 my-1">
+              <span class="w-4 h-4 rounded-full bg-slate-900 border border-slate-700 shadow inline-block"></span>
+              <span class="w-4 h-4 rounded-full bg-white shadow inline-block"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 text-center">확률: <span class="font-bold text-emerald-400">$Q_n$</span></p>
+          </div>
+
+          <div id="state-bb" class="border border-slate-800 bg-slate-950 p-3 rounded-xl transition-all duration-300 flex flex-col items-center">
+            <span class="text-[10px] text-slate-400 font-semibold mb-1">상태 S₄ (BB)</span>
+            <div class="flex gap-1 my-1">
+              <span class="w-4 h-4 rounded-full bg-slate-900 border border-slate-700 shadow inline-block"></span>
+              <span class="w-4 h-4 rounded-full bg-slate-900 border border-slate-700 shadow inline-block"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1 text-center">확률: <span class="font-bold text-red-400">$0$ (불가능)</span></p>
+          </div>
+
+        </div>
+
+        <!-- 점화식 유도 핵심 메커니즘 힌트 본문 -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-300 space-y-2">
+          <div class="flex items-center gap-1 text-blue-400 font-semibold mb-1">
+            <i class="fa-solid fa-graduation-cap"></i> 점화식($P_{n+1}, Q_{n+1}$)을 설계하는 4가지 전이 규칙의 비밀:
+          </div>
+          <p class="text-[11px] leading-relaxed text-slate-400">
+            임의의 $n$번째 시행 후 가장 우측 두 구슬의 상태에 따라 다음 $n+1$번째 시행의 전이 확률이 결정됩니다.
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] pt-1">
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800/80">
+              <p class="font-semibold text-amber-400">1. $S_1(WW)$에서 출발할 때:</p>
+              <ul class="list-disc list-inside mt-1 text-slate-400 space-y-0.5">
+                <li><span class="text-white">W 던짐</span> ➡️ <span class="text-white">WWW</span>가 되며 반전 없음 ➡️ <span class="text-blue-400">WW상태</span>로 복귀</li>
+                <li><span class="text-white">B 던짐</span> ➡️ <span class="text-white">WWB</span> ➡️ <strong class="text-red-400">연쇄반전! WBB</strong> ➡️ <span class="text-amber-400">BB상태</span>로 전이</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800/80">
+              <p class="font-semibold text-emerald-400">2. $S_2(WB)$에서 출발할 때:</p>
+              <ul class="list-disc list-inside mt-1 text-slate-400 space-y-0.5">
+                <li><span class="text-white">W 던짐</span> ➡️ <span class="text-white">WBW</span> ➡️ <strong class="text-red-400">연쇄반전! WWW</strong> ➡️ <span class="text-blue-400">WW상태</span>로 전이</li>
+                <li><span class="text-white">B 던짐</span> ➡️ <span class="text-white">WBB</span>가 되며 반전 없음 ➡️ <span class="text-amber-400">BB상태</span>로 전이</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800/80">
+              <p class="font-semibold text-emerald-400">3. $S_3(BW)$에서 출발할 때:</p>
+              <ul class="list-disc list-inside mt-1 text-slate-400 space-y-0.5">
+                <li><span class="text-white">W 던짐</span> ➡️ <span class="text-white">BWW</span>가 되며 반전 없음 ➡️ <span class="text-blue-400">WW상태</span>로 전이</li>
+                <li><span class="text-white">B 던짐</span> ➡️ <span class="text-white">BWB</span> ➡️ <strong class="text-red-400">연쇄반전! BBB</strong> ➡️ <span class="text-amber-400">BB상태</span>로 전이</li>
+              </ul>
+            </div>
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800/80">
+              <p class="font-semibold text-red-400">4. $S_4(BB)$에서 출발할 때:</p>
+              <ul class="list-disc list-inside mt-1 text-slate-400 space-y-0.5">
+                <li><span class="text-white">W 던짐</span> ➡️ <span class="text-white">BBW</span>가 되며 반전 없음 ➡️ <span class="text-emerald-400">BW상태</span>로 전이</li>
+                <li><span class="text-white">B 던짐</span> ➡️ <span class="text-white">BBB</span>가 되며 반전 없음 ➡️ <span class="text-amber-400">BB상태</span>로 복귀</li>
+              </ul>
+            </div>
+          </div>
+          <p class="text-[11px] font-medium text-blue-300 mt-2 bg-slate-900 p-2 rounded border border-slate-800">
+            💡 <strong class="text-white">이론 유도 점화식:</strong> 위 4가지 분석을 연립하면 $P_{n+1} = \frac{1}{2} P_n + \frac{1}{2} (1 - P_n - Q_n)$ 의 관계를 이끌어 낼 수 있으며 최종적으로 극한 비율이 모두 어떻게 $1/2$에 수렴할 수밖에 없는지 논리적으로 수식 전개가 가능합니다.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 오른쪽: 대규모 시뮬레이션 및 데이터 패널 (4컬럼) -->
+    <div class="lg:col-span-4 flex flex-col gap-6">
+      
+      <!-- 몬테카를로 대규모 자동 시뮬레이션 -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+        <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-calculator text-blue-500"></i> 몬테카를로 시뮬레이션
+        </h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-4">
+          수만 번의 독립적인 시행을 병렬로 처리하여 오른쪽에서 2번째 구슬이 흰색일 확률이 대수적으로 어느 한계값으로 수렴하는지 증명합니다.
+        </p>
+
+        <!-- 시뮬레이션 제어기 -->
+        <div class="space-y-4 bg-slate-950 p-4 rounded-xl border border-slate-800/80 mb-4">
+          <!-- 3번 요구사항: 1회 실험당 동전 투척 횟수 (구슬 배열 길이 L) 명확화 -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-2 flex justify-between">
+              <span>개별 실험당 동전 투척 횟수(L)</span>
+              <span id="range-value" class="text-blue-400 font-bold">100 번 던짐</span>
+            </label>
+            <input type="range" id="sim-steps-range" min="10" max="1000" step="10" value="100" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-medium">
+              <span>10회 던지기</span>
+              <span>500회 던지기</span>
+              <span>1000회 던지기</span>
+            </div>
+          </div>
+
+          <!-- 총 독립 연산 명시 구역 -->
+          <div class="bg-slate-900 p-3 rounded-lg border border-slate-800/60">
+            <div class="text-[11px] text-slate-400">
+              <span class="text-slate-300 font-medium">연산 규모 사전검토:</span>
+              <div class="mt-1 flex justify-between">
+                <span>실험 반복 횟수(M):</span>
+                <span id="label-num-experiments" class="font-semibold text-slate-200">1,000회</span>
+              </div>
+              <div class="flex justify-between text-emerald-400 font-semibold mt-1 pt-1 border-t border-slate-800">
+                <span>총 동전 던지기(L × M) 연산 수:</span>
+                <span id="label-total-coin-flips">100,000 회</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-2">
+            <button id="btn-run-sim" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs py-2.5 px-3 rounded-lg active:scale-95 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/10">
+              <i class="fa-solid fa-play"></i> 통계 실행 (M=1천)
+            </button>
+            <button id="btn-run-massive" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs py-2.5 px-3 rounded-lg active:scale-95 transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10">
+              <i class="fa-solid fa-bolt-lightning"></i> 극한 검증 (M=1만)
+            </button>
+          </div>
+        </div>
+
+        <!-- 실시간 누적 수치 결과 -->
+        <div class="space-y-2 text-xs">
+          <div class="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+            <span class="text-slate-400">실험한 구슬 배열 개수 (M)</span>
+            <span id="stat-total-runs" class="font-bold text-slate-200">0</span>
+          </div>
+          <div class="flex justify-between items-center py-1.5 border-b border-slate-800/80">
+            <span class="text-slate-400">우측 2번째가 <strong class="text-white">W</strong>가 된 횟수</span>
+            <span id="stat-w-second-count" class="font-bold text-slate-200">0</span>
+          </div>
+          <div class="flex justify-between items-center py-1.5">
+            <span class="text-slate-400">경험적 수렴 확률 <strong class="text-blue-400">P_n</strong></span>
+            <span id="stat-final-probability" class="font-extrabold text-blue-400 text-sm">0.00%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 누적 수렴 그래프 차트 -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex-grow flex flex-col">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-emerald-500"></i> 실시간 누적 확률 그래프
+          </h3>
+          <span class="text-[10px] text-slate-400">이론값 수렴선: 1/2 (50%)</span>
+        </div>
+        
+        <!-- 차트 캔버스 영역 -->
+        <div class="relative w-full h-44 bg-slate-950 border border-slate-800/80 rounded-xl overflow-hidden mb-3">
+          <canvas id="probability-chart" class="absolute inset-0 w-full h-full"></canvas>
+        </div>
+
+        <!-- 대칭 및 점화식 해설 -->
+        <div class="text-[11px] text-slate-400 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800/50">
+          <p class="font-semibold text-slate-300 mb-1 flex items-center gap-1">
+            <i class="fa-solid fa-graduation-cap text-indigo-400"></i> 점화식 이론적 단서:
+          </p>
+          수학적 귀납법과 상태 전이도를 분석해보면, $P_n$은 거듭할수록 <span class="text-emerald-400 font-bold">1/2</span>에 완벽하게 수렴함을 증명할 수 있습니다. 위 시뮬레이션의 극한 분석 결과가 $0.5$에 도달하는지 시각적으로 검토해 보세요.
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- 하단 라이선스 및 저작권 -->
+  <footer class="border-t border-slate-800 bg-slate-950 py-4 text-center text-xs text-slate-500">
+    <p>© 2026 수학 구슬 상태 전이 프로젝트. All Rights Reserved.</p>
+  </footer>
+
+  <!-- 앱 제어 및 물리 법칙 자바스크립트 소스 -->
+  <script>
+    // --- 초기 설정 및 전역 상태 ---
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'math-bead-simulator';
+    
+    // 현재 표시되고 있는 실시간 구슬 배열 (기본 두 개 W, W로 시작)
+    let beads = ['W', 'W'];
+    let isAnimating = false;
+
+    // 동전 무작위 난수 검증용 전역 카운터
+    let totalCoinsFlipped = 0;
+    let wCoinsFlipped = 0;
+    let bCoinsFlipped = 0;
+
+    // 통계 관리를 위한 전역 변수
+    let totalSimulationRuns = 0;
+    let wAtSecondPositionCount = 0;
+    let probabilityHistory = []; // 그래프 출력을 위한 히스토리 배열
+
+    // DOM 요소 캐싱
+    const beadsContainer = document.getElementById('beads-container');
+    const beadCountText = document.getElementById('bead-count-text');
+    const statWCount = document.getElementById('stat-w-count');
+    const statBCount = document.getElementById('stat-b-count');
+    const ruleAnalysisBanner = document.getElementById('rule-analysis-banner');
+    const analysisText = document.getElementById('analysis-text');
+    const stepByStepIndicator = document.getElementById('step-by-step-indicator');
+
+    const btnCoinToss = document.getElementById('btn-coin-toss');
+    const btnAddW = document.getElementById('btn-add-w');
+    const btnAddB = document.getElementById('btn-add-b');
+    const btnReset = document.getElementById('btn-reset');
+
+    // 동전 검증용 DOM
+    const coinTotalCount = document.getElementById('coin-total-count');
+    const coinWStat = document.getElementById('coin-w-stat');
+    const coinBStat = document.getElementById('coin-b-stat');
+    const gaugeW = document.getElementById('gauge-w');
+    const gaugeB = document.getElementById('gauge-b');
+
+    // 수학적 상태 카드들 DOM
+    const stateWWCard = document.getElementById('state-ww');
+    const stateWBCard = document.getElementById('state-wb');
+    const stateBWCard = document.getElementById('state-bw');
+    const stateBBCard = document.getElementById('state-bb');
+
+    // 시뮬레이터 제어용 DOM
+    const rangeSteps = document.getElementById('sim-steps-range');
+    const rangeValueText = document.getElementById('range-value');
+    const labelNumExperiments = document.getElementById('label-num-experiments');
+    const labelTotalCoinFlips = document.getElementById('label-total-coin-flips');
+    const btnRunSim = document.getElementById('btn-run-sim');
+    const btnRunMassive = document.getElementById('btn-run-massive');
+
+    const statTotalRuns = document.getElementById('stat-total-runs');
+    const statWSecondCount = document.getElementById('stat-w-second-count');
+    const statFinalProbability = document.getElementById('stat-final-probability');
+
+    const canvas = document.getElementById('probability-chart');
+    const ctx = canvas.getContext('2d');
+
+    // --- 이벤트 리스너 등록 ---
+    window.addEventListener('load', () => {
+      initApp();
+    });
+
+    // 윈도우 크기가 리사이즈될 때 캔버스 버퍼 다시 세팅 및 차트 업데이트
+    window.addEventListener('resize', () => {
+      drawChart();
+    });
+
+    // 슬라이더 바 변경 핸들러
+    rangeSteps.addEventListener('input', (e) => {
+      const steps = parseInt(e.target.value);
+      rangeValueText.innerText = `${steps} 번 던짐`;
+      updateSimulationPreview(steps, 1000);
+    });
+
+    // 동전 던지기 실행
+    btnCoinToss.addEventListener('click', () => {
+      if (isAnimating) return;
+      
+      // 2번 요건: Math.random() 확률 제어 및 철저한 로깅
+      const randValue = Math.random();
+      const coinResult = randValue < 0.5 ? 'W' : 'B';
+      
+      // 누적 난수 검증 값 갱신
+      totalCoinsFlipped++;
+      if (coinResult === 'W') {
+        wCoinsFlipped++;
+      } else {
+        bCoinsFlipped++;
+      }
+      updateCoinValidationStats();
+
+      processSingleStep(coinResult);
+    });
+
+    // 직접 흰 구슬 배치
+    btnAddW.addEventListener('click', () => {
+      if (isAnimating) return;
+      processSingleStep('W');
+    });
+
+    // 직접 검은 구슬 배치
+    btnAddB.addEventListener('click', () => {
+      if (isAnimating) return;
+      processSingleStep('B');
+    });
+
+    // 초기화 버튼
+    btnReset.addEventListener('click', () => {
+      if (isAnimating) return;
+      resetToDefault();
+    });
+
+    // 자동 소규모 시뮬레이션
+    btnRunSim.addEventListener('click', () => {
+      const steps = parseInt(rangeSteps.value);
+      runBatchSimulation(steps, 1000); // L = steps, M = 1000
+    });
+
+    // 대규모 1만회 극한 검증
+    btnRunMassive.addEventListener('click', () => {
+      const steps = parseInt(rangeSteps.value);
+      runBatchSimulation(steps, 10000); // L = steps, M = 10000
+    });
+
+    // --- 메인 함수 설계 및 구현 ---
+
+    function initApp() {
+      resetToDefault();
+      updateSimulationPreview(100, 1000);
+    }
+
+    // 3번 요구사항: 시뮬레이션 규모 미리보기
+    function updateSimulationPreview(L, M) {
+      labelNumExperiments.innerText = `${M.toLocaleString()}회`;
+      labelTotalCoinFlips.innerText = `${(L * M).toLocaleString()} 회`;
+    }
+
+    // 캔버스 사이즈 및 해상도 최적화 보정 (리셋 스케일 보완)
+    function setupCanvas() {
+      const parent = canvas.parentElement;
+      const width = parent.clientWidth || 300;
+      const height = parent.clientHeight || 176;
+
+      canvas.width = width * window.devicePixelRatio;
+      canvas.height = height * window.devicePixelRatio;
+      
+      // 스케일 값이 누적되어 깨지는 문제를 완벽히 방어하기 위해 누적 스케일을 리셋 후 다시 적용합니다.
+      ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+    }
+
+    // 초기 상태로 리셋
+    function resetToDefault() {
+      beads = ['W', 'W'];
+      totalSimulationRuns = 0;
+      wAtSecondPositionCount = 0;
+      probabilityHistory = [];
+      isAnimating = false;
+
+      // 동전 난수 검증 카운터 리셋
+      totalCoinsFlipped = 0;
+      wCoinsFlipped = 0;
+      bCoinsFlipped = 0;
+      updateCoinValidationStats();
+      
+      stepByStepIndicator.classList.add('hidden');
+      analysisText.innerHTML = "시뮬레이터가 초기화되었습니다. 흰 구슬 두 개가 기본 배치되었습니다.";
+      ruleAnalysisBanner.className = "bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 mb-4 min-h-[48px] flex items-center justify-between";
+
+      updateBeadDisplay();
+      updateSimulationStats();
+    }
+
+    // 2번 요구사항: 실시간 난수 분배 현황 표시기 업데이트
+    function updateCoinValidationStats() {
+      coinTotalCount.innerText = totalCoinsFlipped;
+      
+      if (totalCoinsFlipped > 0) {
+        const wRatio = (wCoinsFlipped / totalCoinsFlipped) * 100;
+        const bRatio = (bCoinsFlipped / totalCoinsFlipped) * 100;
+
+        coinWStat.innerText = `${wCoinsFlipped}회 (${wRatio.toFixed(1)}%)`;
+        coinBStat.innerText = `${bCoinsFlipped}회 (${bRatio.toFixed(1)}%)`;
+
+        gaugeW.style.width = `${wRatio}%`;
+        gaugeB.style.width = `${bRatio}%`;
+      } else {
+        coinWStat.innerText = "0회 (0.0%)";
+        coinBStat.innerText = "0회 (0.0%)";
+        gaugeW.style.width = "50%";
+        gaugeB.style.width = "50%";
+      }
+    }
+
+    // 1번 요구사항: 가장 우측의 두 구슬 상태 매칭 및 하이라이팅 기능
+    function highlightCurrentBeadsState() {
+      // 모든 상태 하이라이트 지우기
+      stateWWCard.className = "border border-slate-800 bg-slate-950 p-3 rounded-xl transition-all duration-300 flex flex-col items-center";
+      stateWBCard.className = "border border-slate-800 bg-slate-950 p-3 rounded-xl transition-all duration-300 flex flex-col items-center";
+      stateBWCard.className = "border border-slate-800 bg-slate-950 p-3 rounded-xl transition-all duration-300 flex flex-col items-center";
+      stateBBCard.className = "border border-slate-800 bg-slate-950 p-3 rounded-xl transition-all duration-300 flex flex-col items-center";
+
+      if (beads.length >= 2) {
+        const lastTwo = beads.slice(-2).join('');
+        
+        if (lastTwo === 'WW') {
+          stateWWCard.className = "border-2 p-3 rounded-xl transition-all duration-300 flex flex-col items-center state-card-active";
+        } else if (lastTwo === 'WB') {
+          stateWBCard.className = "border-2 p-3 rounded-xl transition-all duration-300 flex flex-col items-center state-card-active";
+        } else if (lastTwo === 'BW') {
+          stateBWCard.className = "border-2 p-3 rounded-xl transition-all duration-300 flex flex-col items-center state-card-active";
+        } else if (lastTwo === 'BB') {
+          stateBBCard.className = "border-2 p-3 rounded-xl transition-all duration-300 flex flex-col items-center state-card-active";
+        }
+      }
+    }
+
+    // 화면의 구슬 가로 렌더링
+    function updateBeadDisplay(highlightIndices = {}) {
+      beadsContainer.innerHTML = '';
+      
+      let wCount = 0;
+      let bCount = 0;
+
+      beads.forEach((color, idx) => {
+        if (color === 'W') wCount++;
+        if (color === 'B') bCount++;
+
+        const beadEl = document.createElement('div');
+        beadEl.className = `bead w-14 h-14 md:w-16 md:h-16 rounded-full flex-shrink-0 flex items-center justify-center font-black text-lg select-none relative transition-all duration-300`;
+        
+        // 색상 바인딩
+        if (color === 'W') {
+          beadEl.classList.add('bead-w');
+          beadEl.innerText = 'W';
+        } else {
+          beadEl.classList.add('bead-b');
+          beadEl.innerText = 'B';
+        }
+
+        // 특정 상태의 하이라이트 표시
+        if (highlightIndices.trigger === idx) {
+          beadEl.classList.add('flash-highlight');
+          const badge = document.createElement('span');
+          badge.className = 'absolute -top-3 bg-blue-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full';
+          badge.innerText = '새 구슬';
+          beadEl.appendChild(badge);
+        } else if (highlightIndices.target === idx) {
+          beadEl.classList.add('flip-target');
+          const badge = document.createElement('span');
+          badge.className = 'absolute -top-3 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-bounce';
+          badge.innerText = '반전됨!';
+          beadEl.appendChild(badge);
+        } else if (highlightIndices.compare === idx) {
+          const badge = document.createElement('span');
+          badge.className = 'absolute -top-3 bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full';
+          badge.innerText = '비교군';
+          beadEl.appendChild(badge);
+        }
+
+        // 인덱스 마킹 (하단 번호)
+        const idxBadge = document.createElement('span');
+        idxBadge.className = 'absolute -bottom-5 text-[10px] text-slate-500 font-semibold';
+        idxBadge.innerText = `${idx + 1}`;
+        beadEl.appendChild(idxBadge);
+
+        beadsContainer.appendChild(beadEl);
+      });
+
+      // 가로 스크롤을 항상 가장 오른쪽으로 밀어내기
+      setTimeout(() => {
+        beadsContainer.scrollLeft = beadsContainer.scrollWidth;
+      }, 50);
+
+      // 상단 단순 통계 갱신
+      beadCountText.innerText = beads.length;
+      statWCount.innerText = wCount;
+      statBCount.innerText = bCount;
+
+      // 실시간 상태 전이 매치 점검
+      highlightCurrentBeadsState();
+    }
+
+    // --- 단일 시행 단계 처리 및 규칙 적용 애니메이션 ---
+    function processSingleStep(newBeadColor) {
+      isAnimating = true;
+      disableControls(true);
+
+      // 1. 우선 새 구슬을 배열의 우측 끝에 추가
+      beads.push(newBeadColor);
+      const k = beads.length - 1; // 새 구슬의 인덱스
+      
+      // 시각적 업데이트 (일단 새 구슬이 추가된 단순 렌더링)
+      updateBeadDisplay({ trigger: k });
+      
+      // 분석 정보 출력
+      const formattedCoin = newBeadColor === 'W' ? '<span class="text-white font-bold">흰 구슬(W)</span>' : '<span class="text-slate-400 font-bold">검은 구슬(B)</span>';
+      analysisText.innerHTML = `시행 결과로 우측 끝에 ${formattedCoin}이 추가되었습니다. 연쇄 규칙을 탐색합니다.`;
+      ruleAnalysisBanner.className = "bg-blue-950 border border-blue-800 rounded-xl p-3 text-xs text-slate-300 mb-4 min-h-[48px] flex items-center justify-between";
+
+      // 최소 3개 이상일 때만 비교 규칙 작동
+      if (k >= 2) {
+        const A_k = beads[k];
+        const A_km1 = beads[k-1];
+        const A_km2 = beads[k-2];
+
+        // 규칙 검사: (A_k !== A_km1) 이고 (A_k === A_km2) 일 때, A_km1의 상태를 반전한다.
+        const condition1 = (A_k !== A_km1);
+        const condition2 = (A_k === A_km2);
+
+        setTimeout(() => {
+          if (condition1 && condition2) {
+            // 규칙 일치! 반전 시뮬레이션 개시
+            stepByStepIndicator.classList.remove('hidden');
+            stepByStepIndicator.innerText = "조건 성립";
+            stepByStepIndicator.className = "text-[10px] px-2 py-0.5 bg-red-800 text-red-100 rounded-full font-bold";
+            analysisText.innerHTML = `<strong>조건 성립!</strong> 새 구슬 <span class="text-blue-400">${A_k}</span>과 이전 구슬 <span class="text-yellow-400">${A_km1}</span>의 색이 다르고, 그 왼쪽 <span class="text-emerald-400">${A_km2}</span>와 색이 일치하므로 <span class="text-red-400">${k}번째 구슬(${A_km1})</span>이 반전됩니다.`;
+
+            // 타겟 구슬들 하이라이트 강조하여 시각화
+            updateBeadDisplay({ trigger: k, target: k-1, compare: k-2 });
+
+            // 잠시 후 실제 펄스 플립 적용 및 배열 데이터 수정
+            setTimeout(() => {
+              const prevContainer = beadsContainer.children[k-1];
+              if (prevContainer) {
+                prevContainer.classList.add('bead-flip');
+              }
+
+              // 실제 값 전이
+              beads[k-1] = (A_km1 === 'W') ? 'B' : 'W';
+
+              // 반전 후 상태 디스플레이 리프레시
+              setTimeout(() => {
+                updateBeadDisplay();
+                recordSingleSimulationStats();
+                endStep();
+              }, 800);
+
+            }, 1000);
+
+          } else {
+            // 규칙 조건 불일치
+            stepByStepIndicator.classList.remove('hidden');
+            stepByStepIndicator.innerText = "전이 없음";
+            stepByStepIndicator.className = "text-[10px] px-2 py-0.5 bg-slate-700 text-slate-300 rounded-full font-bold";
+            
+            let mismatchReason = "";
+            if (!condition1) {
+              mismatchReason = `새 구슬(${A_k})과 바로 왼쪽 구슬(${A_km1})의 색이 이미 일치합니다.`;
+            } else if (!condition2) {
+              mismatchReason = `새 구슬(${A_k})이 왼쪽에서 두 번째 구슬(${A_km2})과 색이 다릅니다.`;
+            }
+            analysisText.innerHTML = `연쇄 반전 조건이 충족되지 않아 구슬 상태를 유지합니다. <span class="text-slate-400 text-[11px]">(${mismatchReason})</span>`;
+            
+            recordSingleSimulationStats();
+            endStep();
+          }
+        }, 1200);
+
+      } else {
+        // 구슬 개수가 너무 적음
+        recordSingleSimulationStats();
+        endStep();
+      }
+    }
+
+    function endStep() {
+      isAnimating = false;
+      disableControls(false);
+    }
+
+    function disableControls(state) {
+      btnCoinToss.disabled = state;
+      btnAddW.disabled = state;
+      btnAddB.disabled = state;
+      btnReset.disabled = state;
+      btnRunSim.disabled = state;
+      btnRunMassive.disabled = state;
+
+      if (state) {
+        btnCoinToss.classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        btnCoinToss.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+
+    // --- 경험적 통계 관리 및 실시간 갱신 ---
+
+    function recordSingleSimulationStats() {
+      totalSimulationRuns++;
+      
+      // 오른쪽에서 2번째 구슬이 'W'인지 판정 (배열의 끝에서 두 번째 요소)
+      if (beads.length >= 2) {
+        const targetColor = beads[beads.length - 2];
+        if (targetColor === 'W') {
+          wAtSecondPositionCount++;
+        }
+      }
+
+      updateSimulationStats();
+    }
+
+    function updateSimulationStats() {
+      statTotalRuns.innerText = totalSimulationRuns;
+      statWSecondCount.innerText = wAtSecondPositionCount;
+      
+      if (totalSimulationRuns > 0) {
+        const ratio = (wAtSecondPositionCount / totalSimulationRuns) * 100;
+        statFinalProbability.innerText = `${ratio.toFixed(2)}%`;
+        
+        // 차트용 확률 히스토리 기록
+        probabilityHistory.push(ratio / 100);
+        if (probabilityHistory.length > 250) {
+          probabilityHistory.shift(); // 데이터가 너무 많아지면 메모리 관리를 위해 시프트
+        }
+      } else {
+        statFinalProbability.innerText = "0.00%";
+      }
+      drawChart();
+    }
+
+    // --- 꺾은선 누적 차트 그리기 (HTML5 Canvas 직접 렌더링) ---
+    function drawChart() {
+      setupCanvas(); // 리사이징 혹은 렌더링 타이밍 이슈를 원천 차단하기 위해 드로잉 시 마다 셋업
+
+      const width = canvas.width / window.devicePixelRatio;
+      const height = canvas.height / window.devicePixelRatio;
+
+      if (width <= 0 || height <= 0) return;
+
+      // 1. 배경 초기화 및 그라데이션 채우기
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, 0, width, height);
+
+      // 2. 격자 및 백분율 안내선 그리기
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+
+      const gridLevels = [0.25, 0.5, 0.75];
+      gridLevels.forEach(level => {
+        const y = height * (1 - level);
+        ctx.beginPath();
+        ctx.moveTo(35, y);
+        ctx.lineTo(width - 15, y);
+        ctx.stroke();
+
+        // 좌측 고해상도 한글 가이드 눈금선 텍스트
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px Inter';
+        ctx.fillText(`${(level * 100)}%`, 8, y + 3);
+      });
+
+      // 3. 50% 타겟 기준 수렴선 그리기 (빨간 점선)
+      const targetY = height * 0.5;
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]); // 점선 패턴 정의
+      ctx.beginPath();
+      ctx.moveTo(35, targetY);
+      ctx.lineTo(width - 15, targetY);
+      ctx.stroke();
+      ctx.setLineDash([]); // 다시 실선 형태로 복원
+
+      // 기준 수렴선 문구 표시
+      ctx.fillStyle = '#f87171';
+      ctx.font = '9px Noto Sans KR';
+      ctx.fillText('이론값 수렴기준선(50%)', width - 110, targetY - 5);
+
+      // 4. 확률 히스토리 꺾은선 렌더링
+      if (probabilityHistory.length > 0) {
+        ctx.strokeStyle = '#10b981'; // 에메랄드 그린 컬러 실선
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+
+        const paddingLeft = 40;
+        const totalPoints = Math.max(probabilityHistory.length, 2);
+        const stepX = (width - paddingLeft - 20) / (totalPoints - 1);
+
+        probabilityHistory.forEach((ratio, idx) => {
+          const x = paddingLeft + (idx * stepX);
+          const y = height * (1 - ratio); // 상하 좌표 변환 (Y가 0일 때 가장 위)
+          
+          if (idx === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+
+        // 5. 가장 최근 도달 위치(마지막 상태)에 전구 모양 하이라이트 효과 적용
+        const lastIdx = probabilityHistory.length - 1;
+        const lastX = paddingLeft + (lastIdx * stepX);
+        const lastRatio = probabilityHistory[lastIdx];
+        const lastY = height * (1 - lastRatio);
+
+        // 글로우 효과를 위한 그림자 설정
+        ctx.shadowColor = '#10b981';
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 스트로크 적용 및 그림자 원상태로 끄기
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.shadowBlur = 0; // 초기화
+      }
+    }
+
+    // --- 대규모 자동 일괄 몬테카를로 시뮬레이션 엔진 (L: 개별구슬길이, M: 실험횟수) ---
+    function runBatchSimulation(L, M) {
+      if (isAnimating) return;
+      isAnimating = true;
+      disableControls(true);
+
+      const totalCalculations = L * M;
+      updateSimulationPreview(L, M);
+
+      analysisText.innerHTML = `<span class="animate-pulse text-emerald-400 font-semibold"><i class="fa-solid fa-spinner animate-spin"></i> 대규모 몬테카를로 병렬 연산 작동 중... (L=${L}회씩 총 ${M.toLocaleString()}회 실험, 총 투척 수 ${totalCalculations.toLocaleString()}회)</span>`;
+      ruleAnalysisBanner.className = "bg-emerald-950 border border-emerald-800 rounded-xl p-3 text-xs text-slate-300 mb-4 min-h-[48px] flex items-center justify-between";
+
+      // 백그라운드 연산 부하 분산을 위해 비동기 타임아웃 이용
+      setTimeout(() => {
+        // 통계 리셋 후 대량 실행
+        totalSimulationRuns = 0;
+        wAtSecondPositionCount = 0;
+        probabilityHistory = [];
+
+        // 난수 검증 카운터도 병렬 업데이트
+        let batchTotalCoins = 0;
+        let batchWCoins = 0;
+        let batchBCoins = 0;
+
+        for (let experiment = 0; experiment < M; experiment++) {
+          // 각 실험은 흰 구슬 2개에서 출발
+          let virtualBeads = ['W', 'W'];
+
+          for (let throwIdx = 0; throwIdx < L; throwIdx++) {
+            const randVal = Math.random();
+            const randColor = randVal < 0.5 ? 'W' : 'B';
+            
+            batchTotalCoins++;
+            if (randColor === 'W') batchWCoins++;
+            else batchBCoins++;
+
+            virtualBeads.push(randColor);
+
+            const vk = virtualBeads.length - 1;
+            if (vk >= 2) {
+              const vA_k = virtualBeads[vk];
+              const vA_km1 = virtualBeads[vk-1];
+              const vA_km2 = virtualBeads[vk-2];
+
+              if (vA_k !== vA_km1 && vA_k === vA_km2) {
+                virtualBeads[vk-1] = (vA_km1 === 'W') ? 'B' : 'W';
+              }
+            }
+          }
+
+          // 한 배열 실험 완료 후 오른쪽에서 2번째 확인
+          totalSimulationRuns++;
+          if (virtualBeads.length >= 2) {
+            const checkColor = virtualBeads[virtualBeads.length - 2];
+            if (checkColor === 'W') {
+              wAtSecondPositionCount++;
+            }
+          }
+
+          // 차트 드로잉 최적화 포인트 기록 (데이터 수 최대 200개로 압축하여 렌더링 과부하 방지)
+          if (M < 200 || experiment % Math.floor(M / 150) === 0 || experiment === M - 1) {
+            probabilityHistory.push(wAtSecondPositionCount / totalSimulationRuns);
+          }
+        }
+
+        // 실체 구슬 상태 동기화 (과도한 돔 렉 방지를 위해 마지막 배열 상태의 최우측 15개 렌더링)
+        beads = ['W', 'W']; 
+        updateBeadDisplay();
+        
+        // 최종 데이터 바인딩
+        const finalRatio = (wAtSecondPositionCount / totalSimulationRuns) * 100;
+        statTotalRuns.innerText = totalSimulationRuns;
+        statWSecondCount.innerText = wAtSecondPositionCount;
+        statFinalProbability.innerText = `${finalRatio.toFixed(2)}%`;
+
+        // 난수 검증 카운터에도 병합 반영
+        totalCoinsFlipped += batchTotalCoins;
+        wCoinsFlipped += batchWCoins;
+        bCoinsFlipped += batchBCoins;
+        updateCoinValidationStats();
+
+        stepByStepIndicator.classList.remove('hidden');
+        stepByStepIndicator.innerText = "극한검증 성공";
+        stepByStepIndicator.className = "text-[10px] px-2 py-0.5 bg-emerald-800 text-emerald-100 rounded-full font-bold";
+        analysisText.innerHTML = `각 ${L}번 던진 구슬 배열을 총 <strong>${M.toLocaleString()}번</strong> 반복 실험했습니다 (총 ${totalCalculations.toLocaleString()}번 동전 투척). 최종 누적 확률은 <strong class="text-blue-400">${finalRatio.toFixed(2)}%</strong>입니다.`;
+        ruleAnalysisBanner.className = "bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 mb-4 min-h-[48px] flex items-center justify-between";
+
+        drawChart();
+        endStep();
+      }, 300);
+    }
+  </script>
+</body>
+</html>

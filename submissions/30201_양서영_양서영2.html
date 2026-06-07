@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>P(cosθ, cosθ, √2 sinθ) 회전체 시뮬레이터</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --panel:#fff; --text:#172033; --muted:#667085; --line:#e5e7eb;
+      --blue:#2563eb; --red:#dc2626; --green:#059669; --dark:#111827; --purple:#7c3aed;
+      --shadow:0 12px 30px rgba(15,23,42,.10); --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    header{max-width:1420px;margin:0 auto;padding:28px 22px 12px}
+    h1{margin:0 0 8px;font-size:clamp(24px,3vw,40px);letter-spacing:-.03em}
+    main{max-width:1420px;margin:0 auto;padding:14px 22px 38px;display:grid;gap:18px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .info{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .card-header{padding:18px 20px 12px;border-bottom:1px solid var(--line)}
+    .card-header h2{margin:0 0 6px;font-size:20px;letter-spacing:-.02em}
+    .card-header p{margin:0;color:var(--muted);font-size:14px;line-height:1.5}
+    .view{height:470px;position:relative;background:radial-gradient(circle at 50% 30%,#fff 0,#eef2ff 55%,#e7eaf0 100%)}
+    canvas{display:block;width:100%;height:100%}
+    .legend{position:absolute;left:14px;top:14px;background:rgba(255,255,255,.9);border:1px solid rgba(229,231,235,.92);border-radius:14px;padding:10px 12px;font-size:13px;color:#374151;line-height:1.65;pointer-events:none;backdrop-filter:blur(6px)}
+    .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+    .blue{background:var(--blue)}.red{background:var(--red)}.green{background:var(--green)}.gray{background:#6b7280}.purple{background:var(--purple)}
+    .controls{padding:16px 18px 18px;display:grid;gap:12px;border-top:1px solid var(--line)}
+    .row{display:grid;grid-template-columns:150px minmax(0,1fr) 100px;align-items:center;gap:10px;font-size:14px}
+    input[type=range]{width:100%;accent-color:var(--blue)}
+    .value{font-variant-numeric:tabular-nums;color:#111827;font-weight:800;text-align:right}
+    .btns{display:flex;gap:10px;flex-wrap:wrap}
+    button{border:0;background:var(--blue);color:white;border-radius:999px;padding:9px 14px;font-weight:800;cursor:pointer;box-shadow:0 6px 14px rgba(37,99,235,.22)}
+    button.ghost{background:#eef2ff;color:#1e40af;box-shadow:none}button.dark{background:#111827;box-shadow:none}
+    .note{font-size:13px;color:var(--muted);line-height:1.5}
+    .formula{padding:20px;line-height:1.75}.formula h2{margin:0 0 12px;font-size:20px}
+    .math{background:#f9fafb;border:1px solid var(--line);border-radius:14px;padding:14px 16px;overflow-x:auto;font-family:"Times New Roman",serif;font-size:18px;color:#111827}
+    @media(max-width:980px){.grid,.info{grid-template-columns:1fr}.view{height:400px}.row{grid-template-columns:120px minmax(0,1fr) 84px}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>점 P의 경로와 x축 회전 회전체 시뮬레이터</h1>
+</header>
+<main>
+  <section class="grid">
+    <article class="card">
+      <div class="card-header"><h2>1. θ에 따른 점 P의 공간 경로</h2><p>파란 곡선은 P(cosθ, cosθ, √2 sinθ)의 전체 경로, 빨간 점은 현재 θ에서의 P입니다.</p></div>
+      <div class="view"><canvas id="pathCanvas"></canvas><div class="legend"><div><span class="dot blue"></span>P의 경로</div><div><span class="dot red"></span>현재 P</div><div><span class="dot gray"></span>좌표축</div><div><span class="dot green"></span>시작점·끝점</div><div><span class="dot purple"></span>θ 각도</div></div></div>
+      <div class="controls">
+        <div class="row"><label>θ</label><input id="thetaSlider" type="range" min="0" max="1.57079632679" step="0.001" value="0.78539816339"><span id="thetaVal" class="value">π/4</span></div>
+        <div class="btns"><button id="playTheta">θ 자동 재생</button><button id="resetTheta" class="ghost">θ=0으로 초기화</button></div>
+        <div id="pointInfo" class="note"></div>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="card-header"><h2>2. 경로를 x축 둘레로 회전시킨 회전체</h2><p>회전각 φ를 늘리면 곡선이 x축 주위를 돌며 회전체 표면을 만듭니다.</p></div>
+      <div class="view"><canvas id="solidCanvas"></canvas><div class="legend"><div><span class="dot green"></span>생성된 회전체</div><div><span class="dot red"></span>원래 곡선</div><div><span class="dot blue"></span>현재 회전된 곡선</div></div></div>
+      <div class="controls">
+        <div class="row"><label>회전각 φ</label><input id="phiSlider" type="range" min="0" max="6.28318530718" step="0.01" value="6.28318530718"><span id="phiVal" class="value">2π</span></div>
+        <div class="btns"><button id="playPhi">φ 자동 재생</button><button id="fullPhi" class="ghost">전체 회전체</button></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="info">
+    <article class="card">
+      <div class="card-header"><h2>3. 부피 적분 시각화</h2><p>x 위치를 움직이면 그 위치의 원판 단면과 반지름 r(x)가 표시됩니다.</p></div>
+      <div class="view"><canvas id="sliceCanvas"></canvas><div class="legend"><div><span class="dot green"></span>회전체 단면 윤곽</div><div><span class="dot blue"></span>현재 원판</div><div><span class="dot red"></span>반지름 r(x)</div><div><span class="dot purple"></span>작은 원판들</div></div></div>
+      <div class="controls">
+        <div class="row"><label>단면 위치 x</label><input id="xSlider" type="range" min="0" max="1" step="0.001" value="0.5"><span id="xVal" class="value">0.500</span></div>
+        <div class="btns"><button id="playX">x 자동 재생</button><button id="showDisks" class="dark">작은 원판들 표시</button></div>
+        <div id="sliceInfo" class="note"></div>
+      </div>
+    </article>
+
+    <article class="card formula">
+      <h2>4. 적분 계산 과정</h2>
+      <div class="math">
+        원판 단면적:<br>
+        A(x) = πr(x)² = π(2 − x²)<br><br>
+        회전체 부피:<br>
+        V = ∫<sub>0</sub><sup>1</sup> A(x) dx<br>
+        &nbsp;&nbsp;= ∫<sub>0</sub><sup>1</sup> π(2 − x²) dx<br>
+        &nbsp;&nbsp;= π[2x − x³/3]<sub>0</sub><sup>1</sup><br>
+        &nbsp;&nbsp;= π(2 − 1/3)<br>
+        &nbsp;&nbsp;= <b>5π/3</b>
+      </div>
+    </article>
+  </section>
+</main>
+
+<script>
+(() => {
+  const PI=Math.PI, TAU=2*PI, SQRT2=Math.sqrt(2);
+  const $=id=>document.getElementById(id);
+  const sliders={theta:$('thetaSlider'),phi:$('phiSlider'),x:$('xSlider')};
+  const labels={theta:$('thetaVal'),phi:$('phiVal'),x:$('xVal')};
+  const pointInfo=$('pointInfo'), sliceInfo=$('sliceInfo');
+  let playTheta=false, playPhi=false, playX=false, showDisks=false;
+
+  function P(t){return {x:Math.cos(t), y:Math.cos(t), z:SQRT2*Math.sin(t)}}
+  function rotX(p,a){return {x:p.x, y:p.y*Math.cos(a)-p.z*Math.sin(a), z:p.y*Math.sin(a)+p.z*Math.cos(a)}}
+  function rOfX(x){return Math.sqrt(2-x*x)}
+  function fmtPi(v){
+    if(Math.abs(v)<.012)return '0'; if(Math.abs(v-PI/4)<.012)return 'π/4'; if(Math.abs(v-PI/2)<.012)return 'π/2';
+    if(Math.abs(v-PI)<.025)return 'π'; if(Math.abs(v-TAU)<.025)return '2π'; return v.toFixed(2);
+  }
+
+  function setupCanvas(id){
+    const c=$(id), ctx=c.getContext('2d');
+    function resize(){const r=c.getBoundingClientRect(), d=window.devicePixelRatio||1; c.width=Math.max(1,Math.floor(r.width*d)); c.height=Math.max(1,Math.floor(r.height*d)); ctx.setTransform(d,0,0,d,0,0)}
+    resize(); window.addEventListener('resize',resize); return {c,ctx};
+  }
+  const path=setupCanvas('pathCanvas'), solid=setupCanvas('solidCanvas'), slice=setupCanvas('sliceCanvas');
+
+  function projectFactory(canvas, scale=135, ox=0, oy=0){
+    const w=canvas.getBoundingClientRect().width, h=canvas.getBoundingClientRect().height;
+    const cx=w/2+ox, cy=h/2+oy;
+    return p=>({x:cx+scale*(p.x*0.95+p.y*0.55), y:cy+scale*(-p.z+p.y*0.25-p.x*0.10)});
+  }
+  function clear(ctx,canvas){const r=canvas.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height)}
+  function line(ctx, pts, color, width=2, alpha=1){
+    if(pts.length<2)return; ctx.save(); ctx.globalAlpha=alpha; ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke(); ctx.restore();
+  }
+  function dashedLine(ctx, pts, color, width=1.5, alpha=1){
+    if(pts.length<2)return; ctx.save(); ctx.globalAlpha=alpha; ctx.strokeStyle=color; ctx.lineWidth=width; ctx.setLineDash([5,5]); ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y); ctx.stroke(); ctx.restore();
+  }
+  function circle(ctx,p,r,color,alpha=1,fill=true){ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU); if(fill){ctx.fillStyle=color;ctx.fill()}else{ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke()}ctx.restore()}
+  function text(ctx,s,x,y,color='#111827',size=13){ctx.save();ctx.fillStyle=color;ctx.font=`700 ${size}px system-ui`;ctx.lineWidth=3;ctx.strokeStyle='rgba(255,255,255,.92)';ctx.strokeText(s,x,y);ctx.fillText(s,x,y);ctx.restore()}
+  function drawAxes(ctx,proj){
+    const axes=[[{x:-.15,y:0,z:0},{x:1.75,y:0,z:0},'x'],[{x:0,y:-1.6,z:0},{x:0,y:1.6,z:0},'y'],[{x:0,y:0,z:-.05},{x:0,y:0,z:1.8},'z']];
+    axes.forEach(([a,b,l])=>{const A=proj(a),B=proj(b);line(ctx,[A,B],'#374151',1.4,.9);circle(ctx,B,3,'#374151');text(ctx,l,B.x+5,B.y-5)});
+  }
+
+  function drawPath(){
+    const {c,ctx}=path; clear(ctx,c); const proj=projectFactory(c,145,-25,30); drawAxes(ctx,proj);
+    const plane=[[0,0,0],[1.1,1.1,0],[1.1,1.1,1.45],[0,0,1.45]].map(([x,y,z])=>proj({x,y,z}));
+    ctx.save(); ctx.globalAlpha=.14; ctx.fillStyle='#6b7280'; ctx.beginPath(); ctx.moveTo(plane[0].x,plane[0].y); plane.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.restore();
+    const pts=[]; for(let i=0;i<=160;i++)pts.push(proj(P((PI/2)*i/160))); line(ctx,pts,'#2563eb',4);
+
+    const start=P(0), end=P(PI/2), ps=proj(start), pe=proj(end);
+    circle(ctx,ps,6,'#059669'); circle(ctx,pe,6,'#059669');
+    text(ctx,'시작 θ=0, P=(1,1,0)',ps.x+10,ps.y-10,'#047857',13);
+    text(ctx,'끝 θ=π/2, P=(0,0,√2)',pe.x+10,pe.y-10,'#047857',13);
+
+    const t=+sliders.theta.value, p=P(t), pp=proj(p); circle(ctx,pp,7,'#dc2626');
+
+    const O={x:0,y:0,z:0};
+    const u={x:1/Math.sqrt(2), y:1/Math.sqrt(2), z:0};
+    const k={x:0,y:0,z:1};
+    const baseRayEnd={x:0.74*u.x, y:0.74*u.y, z:0};
+    const opDir={x:0.74*Math.cos(t)*u.x, y:0.74*Math.cos(t)*u.y, z:0.74*Math.sin(t)};
+    dashedLine(ctx,[proj(O),proj(baseRayEnd)],'#7c3aed',1.8,.85);
+    dashedLine(ctx,[proj(O),proj(opDir)],'#7c3aed',1.8,.85);
+    const arc=[];
+    for(let i=0;i<=48;i++){
+      const a=t*i/48;
+      arc.push(proj({x:0.28*Math.cos(a)*u.x, y:0.28*Math.cos(a)*u.y, z:0.28*Math.sin(a)}));
+    }
+    line(ctx,arc,'#7c3aed',2.6,.98);
+    const midA=t/2, mid=proj({x:0.38*Math.cos(midA)*u.x, y:0.38*Math.cos(midA)*u.y, z:0.38*Math.sin(midA)});
+    text(ctx,'θ',mid.x+4,mid.y-4,'#6d28d9',16);
+
+    labels.theta.textContent=fmtPi(t); pointInfo.innerHTML=`현재 P ≈ (${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}) &nbsp; | &nbsp; x²+y²+z² = ${(p.x*p.x+p.y*p.y+p.z*p.z).toFixed(3)}`;
+  }
+
+  function drawSolid(){
+    const {c,ctx}=solid; clear(ctx,c); const proj=projectFactory(c,118,-35,20); drawAxes(ctx,proj);
+    const phiMax=+sliders.phi.value; labels.phi.textContent=fmtPi(phiMax);
+    for(let i=0;i<=16;i++){
+      const t=(PI/2)*i/16, base=P(t), pts=[];
+      for(let j=0;j<=100;j++){const a=phiMax*j/100; pts.push(proj(rotX(base,a)))}
+      line(ctx,pts,'#059669',i%4===0?1.4:.8,i%4===0?.42:.22);
+    }
+    const count=Math.max(2,Math.min(18,Math.ceil(phiMax/(TAU/18))));
+    for(let j=0;j<=count;j++){
+      const a=phiMax*j/count, pts=[];
+      for(let i=0;i<=90;i++)pts.push(proj(rotX(P((PI/2)*i/90),a)));
+      line(ctx,pts,'#059669',1.1,.28);
+    }
+    const original=[]; for(let i=0;i<=120;i++)original.push(proj(P((PI/2)*i/120))); line(ctx,original,'#dc2626',3,.9);
+    const current=[]; for(let i=0;i<=120;i++)current.push(proj(rotX(P((PI/2)*i/120),phiMax))); line(ctx,current,'#2563eb',3,.95);
+  }
+
+  function drawSlice(){
+    const {c,ctx}=slice; clear(ctx,c); const proj=projectFactory(c,118,-35,24); drawAxes(ctx,proj);
+    for(let j=0;j<14;j++){
+      const a=TAU*j/14, pts=[];
+      for(let i=0;i<=100;i++)pts.push(proj(rotX(P((PI/2)*i/100),a)));
+      line(ctx,pts,'#059669',1,.24);
+    }
+    for(let i=0;i<=14;i++){
+      const x=i/14, r=rOfX(x), pts=[];
+      for(let j=0;j<=96;j++){const a=TAU*j/96; pts.push(proj({x,y:r*Math.cos(a),z:r*Math.sin(a)}))}
+      line(ctx,pts,'#059669',.9,.16);
+    }
+    if(showDisks){for(let k=0;k<=10;k++)drawDisk(k/10,'#7c3aed',.11)}
+    const x=+sliders.x.value; drawDisk(x,'#2563eb',.34); labels.x.textContent=x.toFixed(3);
+    const r=rOfX(x), O=proj({x,y:0,z:0}), R=proj({x,y:r,z:0}); line(ctx,[O,R],'#dc2626',3,.95); circle(ctx,O,4,'#111827'); circle(ctx,R,5,'#dc2626');
+    const x0=proj({x:0,y:0,z:0}), x1=proj({x:1,y:0,z:0});
+    circle(ctx,x0,5,'#059669'); circle(ctx,x1,5,'#059669');
+    text(ctx,'x=0, 적분 시작',x0.x-78,x0.y+22,'#047857',13);
+    text(ctx,'x=1, 적분 끝',x1.x+8,x1.y+22,'#047857',13);
+    dashedLine(ctx,[x0,x1],'#047857',2,.7);
+    text(ctx,'적분 범위: 0 ≤ x ≤ 1',18,c.getBoundingClientRect().height-20,'#047857',13);
+    const area=PI*r*r, partial=PI*(2*x-x*x*x/3); sliceInfo.innerHTML=`r(x)=√(2−x²) ≈ ${r.toFixed(3)}, &nbsp; A(x)=π(2−x²) ≈ ${area.toFixed(3)}, &nbsp; 0부터 x까지 누적 부피 ≈ ${partial.toFixed(3)}`;
+
+    function drawDisk(x,color,alpha){
+      const r=rOfX(x), pts=[]; for(let j=0;j<=120;j++){const a=TAU*j/120; pts.push(proj({x,y:r*Math.cos(a),z:r*Math.sin(a)}))}
+      ctx.save(); ctx.globalAlpha=alpha; ctx.fillStyle=color; ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y)); ctx.closePath(); ctx.fill(); ctx.restore();
+      line(ctx,pts,color,2,Math.min(.9,alpha+.15));
+    }
+  }
+
+  function redraw(){drawPath();drawSolid();drawSlice()}
+  sliders.theta.addEventListener('input',drawPath); sliders.phi.addEventListener('input',drawSolid); sliders.x.addEventListener('input',drawSlice);
+  $('playTheta').onclick=e=>{playTheta=!playTheta;e.target.textContent=playTheta?'θ 일시정지':'θ 자동 재생'};
+  $('resetTheta').onclick=()=>{sliders.theta.value=0;drawPath()};
+  $('playPhi').onclick=e=>{playPhi=!playPhi;e.target.textContent=playPhi?'φ 일시정지':'φ 자동 재생'};
+  $('fullPhi').onclick=()=>{sliders.phi.value=TAU;drawSolid()};
+  $('playX').onclick=e=>{playX=!playX;e.target.textContent=playX?'x 일시정지':'x 자동 재생'};
+  $('showDisks').onclick=e=>{showDisks=!showDisks;e.target.textContent=showDisks?'작은 원판들 숨기기':'작은 원판들 표시';drawSlice()};
+  window.addEventListener('resize',()=>setTimeout(redraw,80));
+  let last=performance.now();
+  function tick(now){
+    const dt=Math.min(.04,(now-last)/1000); last=now;
+    if(playTheta){let v=+sliders.theta.value+dt*.7;if(v>PI/2)v=0;sliders.theta.value=v;drawPath()}
+    if(playPhi){let v=+sliders.phi.value+dt*1.55;if(v>TAU)v=0;sliders.phi.value=v;drawSolid()}
+    if(playX){let v=+sliders.x.value+dt*.42;if(v>1)v=0;sliders.x.value=v;drawSlice()}
+    requestAnimationFrame(tick);
+  }
+  redraw(); requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

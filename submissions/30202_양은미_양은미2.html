@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>열매 탐구 시뮬레이터 v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+KR:wght@400;600;700&display=swap');
+:root{
+  --bg:#070910;--sur:#0d1020;--sur2:#141728;--sur3:#1b2038;
+  --acc:#22d3ee;--acc-g:rgba(34,211,238,.2);
+  --red:#fb7185;--red-g:rgba(251,113,133,.15);
+  --gold:#fbbf24;--gold-g:rgba(251,191,36,.2);
+  --vi:#a78bfa;--vi-g:rgba(167,139,250,.2);
+  --grn:#4ade80;--grn-g:rgba(74,222,128,.15);
+  --gray:#252a40;--gray-t:#4b5670;
+  --txt:#dde3f0;--txt2:#8b9ab5;--txt3:#3d4d65;
+  --bdr:#1a2035;--r:8px;--rl:13px;
+  --mono:'IBM Plex Mono',monospace;--sans:'Noto Sans KR',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:13px;line-height:1.6;min-height:100vh}
+.hdr{background:var(--sur);border-bottom:1px solid var(--bdr);padding:11px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:50}
+.hdr-logo{width:26px;height:26px;background:linear-gradient(135deg,var(--acc),var(--vi));border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:700;font-size:11px;color:#fff;flex-shrink:0}
+.hdr-title{font-size:15px;font-weight:700;font-family:var(--mono);background:linear-gradient(90deg,var(--acc),var(--vi));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hdr-sub{font-size:11px;color:var(--txt2)}
+.hdr-ver{margin-left:auto;font-size:10px;background:var(--sur2);border:1px solid var(--bdr);border-radius:20px;padding:3px 10px;color:var(--gold);font-family:var(--mono)}
+.wrap{max-width:1300px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+.row2{display:grid;grid-template-columns:3fr 2fr;gap:12px}
+.card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px}
+.ctitle{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--txt2);margin-bottom:11px;display:flex;align-items:center;gap:7px}
+.ctitle::before{content:'';width:3px;height:11px;background:var(--acc);border-radius:2px;flex-shrink:0}
+/* config */
+.pcfg{display:flex;flex-wrap:wrap;gap:9px;align-items:stretch}
+.pbox{flex:1;min-width:160px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--r);padding:9px 13px}
+.plabel{font-size:10px;color:var(--txt3);font-family:var(--mono);margin-bottom:3px}
+.pval{font-family:var(--mono);font-size:13px}
+select{background:var(--sur2);border:1px solid var(--bdr);color:var(--txt);padding:8px 12px;border-radius:var(--r);font-family:var(--sans);font-size:13px;cursor:pointer;outline:none;min-width:220px}
+select:focus{border-color:var(--acc)}
+/* grid */
+.mgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.mc{background:var(--sur2);border:1.5px solid var(--gray);border-radius:var(--r);padding:9px 4px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s,color .2s;font-family:var(--mono);font-size:12px;user-select:none}
+.mc:hover{border-color:var(--acc);transform:translateY(-1px)}
+.mc.fruit{background:rgba(34,211,238,.08);border-color:var(--acc);color:var(--acc)}
+.mc.not-fruit{background:var(--red-g);border-color:var(--red);color:var(--red)}
+.mc.unknown{border-color:var(--gray);color:var(--txt2)}
+.mc .sdot{width:5px;height:5px;border-radius:50%;background:var(--gray-t);margin:4px auto 0}
+.mc.fruit .sdot{background:var(--acc)}.mc.not-fruit .sdot{background:var(--red)}
+@keyframes fruitPulse{0%{box-shadow:0 0 0 0 rgba(34,211,238,0);transform:scale(1)}35%{box-shadow:0 0 22px 7px rgba(34,211,238,.65);transform:scale(1.06)}70%{box-shadow:0 0 14px 4px rgba(34,211,238,.35);transform:scale(1.02)}100%{box-shadow:0 0 8px 1px rgba(34,211,238,.1);transform:scale(1)}}
+.mc.just-fruit{animation:fruitPulse 1.2s ease-out forwards}
+/* buttons */
+.btn{background:var(--sur2);border:1px solid var(--bdr);color:var(--txt);padding:7px 13px;border-radius:var(--r);cursor:pointer;font-family:var(--sans);font-size:12px;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--sur3);border-color:var(--acc)}
+.btn-p{background:rgba(34,211,238,.1);border-color:var(--acc);color:var(--acc)}
+.btn-p:hover{background:rgba(34,211,238,.2)}
+.btn-gold{background:var(--gold-g);border-color:var(--gold);color:var(--gold)}
+.btn-gold:hover{background:rgba(251,191,36,.3)}
+.btn-d{background:var(--red-g);border-color:var(--red);color:var(--red)}
+.btn-d:hover{background:rgba(251,113,133,.25)}
+.btn-vi{background:var(--vi-g);border-color:var(--vi);color:var(--vi)}
+.btn-vi:hover{background:rgba(167,139,250,.3)}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+/* sliders */
+.srow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.slbl{font-family:var(--mono);font-size:12px;color:var(--txt2);text-align:right;flex-shrink:0}
+input[type=range]{flex:1;accent-color:var(--acc);cursor:pointer;height:4px}
+.sval{font-family:var(--mono);font-size:12px;text-align:right;flex-shrink:0;min-width:44px}
+/* pvals */
+.pvals{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+.pvals3{grid-template-columns:1fr 1fr 1fr}
+.pvbox{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--r);padding:7px 9px;text-align:center}
+.pvname{font-size:10px;font-family:var(--mono);color:var(--txt2)}
+.pvnum{font-size:14px;font-family:var(--mono);font-weight:600;margin-top:2px;transition:color .2s}
+.pvnum.iszero{color:var(--gold)}.pvnum.nz{color:var(--txt)}
+/* alert */
+.zalert{display:none;margin-top:9px;padding:9px 13px;border-radius:var(--r);background:var(--gold-g);border:1px solid var(--gold);color:var(--gold);font-size:12px;line-height:1.6}
+.zalert.vis{display:block;animation:gpulse 2s ease-in-out infinite}
+@keyframes gpulse{0%,100%{box-shadow:0 0 5px var(--gold-g)}50%{box-shadow:0 0 18px var(--gold-g)}}
+/* info box */
+.ibox{background:var(--sur2);border-left:3px solid var(--acc);padding:8px 12px;border-radius:0 var(--r) var(--r) 0;font-size:12px;margin-top:8px;color:var(--txt2);line-height:1.5}
+.ibox.warn{border-left-color:var(--gold);color:#c9a93a}
+.ibox.ok{border-left-color:var(--grn);color:var(--grn)}
+/* constraint chain */
+.cchain{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--r);padding:11px 14px;margin-bottom:10px}
+.cchain-title{font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.cchain-step{display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;font-family:var(--mono);font-size:11px;line-height:1.5}
+.cchain-num{background:var(--acc);color:#000;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0;margin-top:1px}
+.cchain-num.gold{background:var(--gold)}
+.cchain-txt{color:var(--txt)}
+.cchain-auto{color:var(--gold);font-weight:600}
+/* z=0 values */
+.zval-box{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--r);padding:9px 12px;margin-top:9px}
+.zval-row{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;margin-bottom:3px}
+.zval-name{color:var(--txt2)}
+.zval-num{color:var(--txt);transition:color .2s}
+.zval-num.iszero{color:var(--gold)}
+.zval-auto{color:var(--gray-t);font-size:11px}
+/* a-controls */
+.abox{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--r);padding:11px 14px;margin-top:10px}
+.aval-big{font-family:var(--mono);font-size:22px;font-weight:700;text-align:center;padding:4px 0;transition:color .3s}
+.aval-big.crit{color:var(--gold)}
+.play-row{display:flex;gap:7px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.speed-row{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:11px;color:var(--txt2)}
+/* critical banner */
+.crit-banner{display:none;margin-top:8px;padding:9px 13px;border-radius:var(--r);background:rgba(251,191,36,.15);border:1.5px solid var(--gold);color:var(--gold);font-size:12px;line-height:1.6;animation:gpulse 1s ease-in-out infinite}
+.crit-banner.vis{display:block}
+/* zero log */
+.zlog{margin-top:8px;max-height:100px;overflow-y:auto}
+.zli{font-family:var(--mono);font-size:10px;padding:3px 7px;background:var(--sur2);margin-bottom:3px;border-radius:4px;border-left:2px solid var(--gold);color:var(--txt2)}
+/* cascade panel */
+.cascade-current{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;margin-top:10px;min-height:120px}
+.cs-num{font-size:10px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.cs-title{font-size:13px;font-weight:700;color:var(--acc);margin-bottom:5px}
+.cs-formula{font-family:var(--mono);font-size:12px;color:var(--gold);margin-bottom:5px;line-height:1.6;word-break:break-all}
+.cs-result{font-family:var(--mono);font-size:11px;color:var(--grn);margin-bottom:6px}
+.cs-why{font-size:11px;color:var(--txt2);line-height:1.5;border-top:1px solid var(--bdr);padding-top:6px;margin-top:2px}
+.cs-why::before{content:'💡 ';color:var(--gold)}
+.cascade-hist{margin-top:9px;max-height:100px;overflow-y:auto}
+.chi{font-family:var(--mono);font-size:10px;padding:3px 7px;background:var(--sur2);margin-bottom:3px;border-radius:4px;border-left:2px solid var(--grn);color:var(--txt2)}
+.prog-bar{height:4px;background:var(--gray);border-radius:2px;overflow:hidden;margin-top:8px}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--vi));width:0%;transition:width .6s ease}
+.complete-msg{display:none;padding:12px 14px;border-radius:var(--r);background:var(--grn-g);border:1.5px solid var(--grn);color:var(--grn);font-size:13px;font-weight:700;text-align:center;margin-top:9px}
+.complete-msg.vis{display:block;animation:gpulse 2s ease-in-out infinite}
+/* canvas panel */
+canvas{border:1px solid var(--bdr);border-radius:var(--r);display:block}
+.clegend{font-size:10px;color:var(--txt2);margin-top:5px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.ldot{display:inline-block;width:10px;height:3px;border-radius:1px;vertical-align:middle;margin-right:3px}
+/* modal */
+.mo-ov{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.mo-ov.hide{display:none}
+.mo{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rl);padding:20px;max-width:820px;width:100%;max-height:86vh;overflow-y:auto}
+.mo-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;padding-bottom:10px;border-bottom:1px solid var(--bdr)}
+.mo-ttl{font-size:15px;font-weight:700;font-family:var(--mono);color:var(--acc)}
+.mo-close{background:none;border:none;color:var(--txt2);cursor:pointer;font-size:20px;padding:2px 7px;line-height:1}
+.sbadge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;font-family:var(--mono)}
+.sbadge.fruit{background:rgba(34,211,238,.12);color:var(--acc);border:1px solid var(--acc)}
+.sbadge.nfruit{background:var(--red-g);color:var(--red);border:1px solid var(--red)}
+.rbox{background:var(--sur2);border-radius:var(--r);padding:12px 15px;margin-top:9px}
+.rbox-t{font-size:10px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.drow{font-family:var(--mono);font-size:13px;margin-bottom:3px}
+.mcont2{overflow-x:auto;margin-top:9px}
+.mtbl{border-collapse:collapse;font-family:var(--mono);font-size:9px;min-width:500px}
+.mtbl td,.mtbl th{padding:2px 5px;text-align:center;border:1px solid var(--bdr)}
+.mtbl th{background:var(--sur2);color:var(--txt2);font-size:8px}
+.mtbl .pg{background:rgba(34,211,238,.06);color:var(--acc)}
+.mtbl .nz{color:var(--txt)}.mtbl .zc{color:var(--txt3)}
+.mtbl .rhs{background:rgba(251,191,36,.07);color:var(--gold);font-weight:600}
+hr.div{border:none;border-top:1px solid var(--bdr);margin:10px 0}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--gray);border-radius:3px}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-logo">𝑓</div>
+  <div>
+    <div class="hdr-title">열매 탐구 시뮬레이터</div>
+    <div class="hdr-sub">선형사상 φ: V₂³ → V₄ 의 Image 분석 — 대수적 제약 + 연쇄 도출</div>
+  </div>
+  <span class="hdr-ver">v2.0</span>
+</header>
+
+<div class="wrap">
+
+<!-- ═══ CONFIG ═══ -->
+<div class="card">
+  <div class="ctitle">다항식 설정</div>
+  <div class="pcfg">
+    <select id="probSel" onchange="switchProblem()">
+      <option value="1">(1)번 문항 — 인수분해 & 공통영점 탐색</option>
+      <option value="2">(2)번 문항 — 매개변수 a 탐구 (a=-1 임계점 발견)</option>
+      <option value="3">(3)번 문항 — 연쇄 열매 도출 과정 (a=1 고정)</option>
+    </select>
+    <div class="pbox"><div class="plabel">p₁</div><div class="pval" id="p1f">—</div></div>
+    <div class="pbox"><div class="plabel">p₂</div><div class="pval" id="p2f">—</div></div>
+    <div class="pbox"><div class="plabel">p₃</div><div class="pval" id="p3f">—</div></div>
+  </div>
+</div>
+
+<!-- ═══ MAIN 2 COLS ═══ -->
+<div class="row2">
+
+  <!-- LEFT: monomial grid -->
+  <div class="card">
+    <div class="ctitle">
+      차수 4 기본 단항식 (15개)
+      <span style="margin-left:auto;display:flex;gap:9px;font-size:10px;color:var(--txt2);text-transform:none;letter-spacing:0;font-weight:400">
+        <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--acc);vertical-align:middle;margin-right:3px"></span>열매</span>
+        <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);vertical-align:middle;margin-right:3px"></span>비열매</span>
+        <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--gray-t);vertical-align:middle;margin-right:3px"></span>미확정</span>
+      </span>
+    </div>
+    <div class="mgrid" id="mgrid"></div>
+
+    <!-- 문제 3 cascade controls -->
+    <div id="cascCtrl" style="display:none;margin-top:10px;padding:10px 12px;background:var(--sur2);border-radius:var(--r);border:1px solid var(--bdr)">
+      <div style="font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px">연쇄 도출 제어</div>
+      <div class="btnrow" style="margin-top:0">
+        <button class="btn btn-vi" id="cascPlayBtn" onclick="toggleCascPlay()">▶ 자동 재생</button>
+        <button class="btn btn-p" onclick="stepCascNext()">⏭ 다음 단계</button>
+        <button class="btn btn-d" onclick="resetCasc()">↺ 초기화</button>
+      </div>
+      <div class="speed-row">
+        <span>속도:</span>
+        <input type="range" id="cascSpeed" min="3" max="20" step="1" value="8" style="flex:1;height:3px">
+        <span id="cascSpeedVal" style="font-family:var(--mono);width:36px;text-align:right">0.8s</span>
+      </div>
+      <div class="prog-bar" style="margin-top:6px"><div class="prog-fill" id="progFill"></div></div>
+      <div style="font-size:10px;color:var(--txt2);text-align:right;margin-top:3px" id="progTxt">0 / 5 단계</div>
+    </div>
+
+    <div class="btnrow" id="mainBtns">
+      <button class="btn btn-p" id="analyzeBtn" onclick="analyzeAll()">🔬 전체 rank 분석</button>
+      <button class="btn" onclick="applyZero()">📍 공통영점 판정</button>
+      <button class="btn btn-d" onclick="resetGrid()">↺ 초기화</button>
+    </div>
+    <div class="ibox" id="infoBox">카드를 클릭하면 해당 단항식을 상세 분석합니다.</div>
+    <div style="font-size:10px;color:var(--txt3);margin-top:5px" id="rankInfo"></div>
+  </div>
+
+  <!-- RIGHT: problem 1 probe -->
+  <div class="card" id="rP1">
+    <div class="ctitle">공통영점 탐색기 (3D)</div>
+    <div class="srow"><div class="slbl" style="width:16px">x</div><input type="range" id="sx" min="-30" max="30" step="1" value="10" oninput="updateProbe1()"><div class="sval" id="xv">1.0</div></div>
+    <div class="srow"><div class="slbl" style="width:16px">y</div><input type="range" id="sy" min="-30" max="30" step="1" value="10" oninput="updateProbe1()"><div class="sval" id="yv">1.0</div></div>
+    <div class="srow"><div class="slbl" style="width:16px">z</div><input type="range" id="sz" min="-30" max="30" step="1" value="20" oninput="updateProbe1()"><div class="sval" id="zv">2.0</div></div>
+    <div class="pvals pvals3">
+      <div class="pvbox"><div class="pvname">p₁(P)</div><div class="pvnum" id="v1">—</div></div>
+      <div class="pvbox"><div class="pvname">p₂(P)</div><div class="pvnum" id="v2">—</div></div>
+      <div class="pvbox"><div class="pvname">p₃(P)</div><div class="pvnum" id="v3">—</div></div>
+    </div>
+    <div class="zalert" id="za1">✨ <strong>공통영점!</strong> P=(<span id="zc1"></span>)<br><span style="font-size:10px">r(P)≠0인 단항식은 열매 불가</span></div>
+    <hr class="div">
+    <div style="font-size:10px;color:var(--txt2);margin-bottom:6px">⚡ 빠른 설정</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <button class="btn" onclick="setP1(1,1,2)">(1,1,2)</button>
+      <button class="btn" onclick="setP1(0,0,1)">(0,0,1)</button>
+      <button class="btn" onclick="setP1(0,0,0)">(0,0,0)</button>
+    </div>
+    <div class="zlog" id="zlog1"><div style="font-size:10px;color:var(--txt3);padding:3px">발견된 공통영점이 여기에 기록됩니다.</div></div>
+  </div>
+
+  <!-- RIGHT: problem 2 panel -->
+  <div class="card" id="rP2" style="display:none">
+    <div class="ctitle">대수적 제약 조건 + z=0 탐침</div>
+
+    <!-- Constraint chain -->
+    <div class="cchain">
+      <div class="cchain-title">p₃ = z² 제약 전파</div>
+      <div class="cchain-step">
+        <div class="cchain-num">1</div>
+        <div class="cchain-txt">p₃(x,y,z) = z² = 0 이어야 함</div>
+      </div>
+      <div class="cchain-step">
+        <div class="cchain-num">2</div>
+        <div class="cchain-txt">∴ <span class="cchain-auto">z ≡ 0 자동 결정</span> (실수 영역)</div>
+      </div>
+      <div class="cchain-step">
+        <div class="cchain-num gold">3</div>
+        <div class="cchain-txt"><span class="cchain-auto">문제 z=0 평면 위 2D로 환원!</span><br>p₁(x,y,<b>0</b>), p₂(x,y,<b>0</b>) 분석만 필요</div>
+      </div>
+    </div>
+
+    <!-- 2D probe -->
+    <div style="font-size:11px;color:var(--txt2);margin-bottom:5px">z=0 평면 탐침 (x, y 조절)</div>
+    <div class="srow"><div class="slbl" style="width:16px">x</div><input type="range" id="px2" min="-25" max="25" step="1" value="10" oninput="updateProbe2()"><div class="sval" id="px2v">1.0</div></div>
+    <div class="srow"><div class="slbl" style="width:16px">y</div><input type="range" id="py2" min="-25" max="25" step="1" value="10" oninput="updateProbe2()"><div class="sval" id="py2v">1.0</div></div>
+
+    <div class="zval-box">
+      <div class="zval-row"><span class="zval-name">p₁(x, y, 0)</span><span class="zval-num" id="pv1">—</span></div>
+      <div class="zval-row"><span class="zval-name">p₂(x, y, 0)</span><span class="zval-num" id="pv2">—</span></div>
+      <div class="zval-row"><span class="zval-name">p₃(x, y, 0)</span><span class="zval-auto">= z² = 0 (자동)</span></div>
+    </div>
+    <div class="zalert" id="za2">✨ <strong>비자명 공통영점!</strong><br>P = (<span id="zc2"></span>, 0)<br><span style="font-size:10px">r(P)≠0인 단항식은 모두 열매 불가</span></div>
+
+    <hr class="div">
+
+    <!-- a-controls -->
+    <div class="abox">
+      <div style="font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px">매개변수 a 조작</div>
+      <div class="srow">
+        <div class="slbl" style="width:14px">a</div>
+        <input type="range" id="asl" min="-200" max="200" step="1" value="100" oninput="setAFromSlider()">
+        <div class="sval aval-big" id="av" style="width:56px">1.00</div>
+      </div>
+      <div class="play-row">
+        <button class="btn btn-gold" id="aPlayBtn" onclick="toggleAPlay()">▶ PLAY</button>
+        <button class="btn" onclick="resetAPlay()">↺ 리셋</button>
+        <span style="font-size:11px;color:var(--txt2)">a: −2 → 2</span>
+      </div>
+      <div class="speed-row">
+        <span>속도:</span>
+        <input type="range" id="aSpeedSl" min="1" max="10" step="1" value="4" style="flex:1;height:3px">
+        <span style="font-family:var(--mono);width:40px;text-align:right" id="aSpeedVal">×1.0</span>
+      </div>
+    </div>
+    <div class="crit-banner" id="critBanner">
+      ⭐ <strong>임계점 도달! a = −1</strong><br>
+      p₁|_{z=0} = x²−y² = 0 곡선과<br>
+      p₂|_{z=0} = −x²+y² = 0 곡선이 완전히 겹침!<br>
+      → 공통영점 (k, k, 0) 무한개 → 비열매 무한!
+    </div>
+
+    <hr class="div">
+    <div style="font-size:10px;color:var(--txt2);margin-bottom:4px">공통영점 기록</div>
+    <div class="zlog" id="zlog2"></div>
+  </div>
+
+  <!-- RIGHT: problem 3 panel -->
+  <div class="card" id="rP3" style="display:none">
+    <div class="ctitle">연쇄 열매 도출 과정</div>
+
+    <!-- constraint chain (fixed, a=1) -->
+    <div class="cchain">
+      <div class="cchain-title">p₃ = z² 제약 (a=1 고정)</div>
+      <div class="cchain-step">
+        <div class="cchain-num gold">∴</div>
+        <div class="cchain-txt"><span class="cchain-auto">z ≡ 0 강제 → 공통영점 = 원점뿐</span><br><span style="color:var(--txt2);font-size:10px">a=1: p₂|_{z=0}=x²+y²=0 → (0,0)만</span></div>
+      </div>
+      <div class="cchain-step">
+        <div class="cchain-num">∴</div>
+        <div class="cchain-txt" style="color:var(--txt2)">공통영점 판정법으로는 비열매를 찾을 수 없음<br>→ 구성적 증명 (열매임을 직접 표현) 필요!</div>
+      </div>
+    </div>
+
+    <!-- current step display -->
+    <div class="cascade-current" id="cascCurrent">
+      <div style="text-align:center;color:var(--txt3);font-size:12px;padding:20px 0">▶ 자동 재생 또는 다음 단계 버튼을 눌러주세요.</div>
+    </div>
+
+    <!-- history -->
+    <div style="font-size:10px;color:var(--txt2);margin-top:9px;margin-bottom:4px">완료된 단계</div>
+    <div class="cascade-hist" id="cascHist"><div style="font-size:10px;color:var(--txt3);padding:3px">진행 후 여기에 기록됩니다.</div></div>
+
+    <!-- complete message -->
+    <div class="complete-msg" id="completeMsg">
+      ✅ Im(φ) = V₄ — 모든 15개 단항식이 열매!<br>
+      <span style="font-size:11px;font-weight:400">φ: V₂³ → V₄ 는 전사사상 (surjective)</span>
+    </div>
+  </div>
+
+</div><!-- /row2 -->
+
+<!-- ═══ CANVAS CARD (prob 2/3) ═══ -->
+<div class="card" id="canvasCard" style="display:none">
+  <div class="ctitle">z = 0 평면 위의 영점 곡선 시각화</div>
+  <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start">
+    <div>
+      <canvas id="cnv" width="300" height="300"></canvas>
+      <div class="clegend">
+        <span><span class="ldot" style="background:var(--acc)"></span>p₁(x,y,0)=0</span>
+        <span><span class="ldot" style="background:#f97316"></span>p₂(x,y,0)=0</span>
+        <span>🟡 비자명 공통영점</span>
+        <span>⚪ 탐침점 P</span>
+      </div>
+    </div>
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:11px;color:var(--txt2);margin-bottom:8px">교점 분석</div>
+      <div style="font-family:var(--mono);font-size:12px;line-height:1.9;background:var(--sur2);border-radius:var(--r);padding:10px 13px" id="intersectAnalysis">—</div>
+      <div class="ibox" id="canvasHint" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<!-- ═══ MODAL ═══ -->
+<div class="mo-ov hide" id="moverlay" onclick="closeModal(event)">
+<div class="mo">
+  <div class="mo-hdr">
+    <div class="mo-ttl" id="mttl">단항식 분석</div>
+    <button class="mo-close" onclick="closeModal()">✕</button>
+  </div>
+  <div id="mcont"></div>
+</div>
+</div>
+
+<script>
+/* ══════════════ MATH CORE ══════════════ */
+const V2=[[2,0,0],[1,1,0],[1,0,1],[0,2,0],[0,1,1],[0,0,2]];
+const V2L=['x²','xy','xz','y²','yz','z²'];
+const V4=[[4,0,0],[3,1,0],[3,0,1],[2,2,0],[2,1,1],[2,0,2],[1,3,0],[1,2,1],[1,1,2],[1,0,3],[0,4,0],[0,3,1],[0,2,2],[0,1,3],[0,0,4]];
+const V4H=['x⁴','x³y','x³z','x²y²','x²yz','x²z²','xy³','xy²z','xyz²','xz³','y⁴','y³z','y²z²','yz³','z⁴'];
+function vi4(a,b,c){for(let i=0;i<15;i++)if(V4[i][0]===a&&V4[i][1]===b&&V4[i][2]===c)return i;return-1}
+const PROD=V2.map((_,i)=>V2.map((_,j)=>vi4(V2[i][0]+V2[j][0],V2[i][1]+V2[j][1],V2[i][2]+V2[j][2])));
+function ev2(c,x,y,z){return c[0]*x*x+c[1]*x*y+c[2]*x*z+c[3]*y*y+c[4]*y*z+c[5]*z*z}
+function evM4(e,x,y,z){return Math.pow(x,e[0])*Math.pow(y,e[1])*Math.pow(z,e[2])}
+function buildM(p1,p2,p3){
+  const P=[p1,p2,p3],M=Array.from({length:15},()=>Array(18).fill(0));
+  for(let pi=0;pi<3;pi++){const p=P[pi];for(let qi=0;qi<6;qi++){const col=pi*6+qi;for(let pj=0;pj<6;pj++){if(Math.abs(p[pj])<1e-12)continue;M[PROD[pj][qi]][col]+=p[pj]}}}
+  return M;
+}
+function RREF(mat){
+  const M=mat.map(r=>[...r]),rows=M.length,cols=M[0].length;
+  let pr=0;const pc=[];
+  for(let col=0;col<cols&&pr<rows;col++){
+    let best=pr;for(let r=pr+1;r<rows;r++)if(Math.abs(M[r][col])>Math.abs(M[best][col]))best=r;
+    if(Math.abs(M[best][col])<1e-9)continue;
+    [M[pr],M[best]]=[M[best],M[pr]];const s=M[pr][col];
+    for(let c=col;c<cols;c++)M[pr][c]/=s;
+    for(let r=0;r<rows;r++){if(r===pr)continue;const f=M[r][col];if(Math.abs(f)<1e-12)continue;for(let c=col;c<cols;c++)M[r][c]-=f*M[pr][c]}
+    pc.push(col);pr++;
+  }
+  return{rank:pr,rref:M,pc};
+}
+function checkFruit(M,rIdx){
+  const r=Array(15).fill(0);r[rIdx]=1;
+  const aug=M.map((row,i)=>[...row,r[i]]);
+  const{rank:rM}=RREF(M);const{rank:rA,rref:AR,pc}=RREF(aug);
+  if(rA>rM)return{isFruit:false,q1:null,q2:null,q3:null,rankM:rM};
+  const x=Array(18).fill(0);
+  for(let i=0;i<pc.length;i++)if(pc[i]<18)x[pc[i]]=AR[i][18];
+  return{isFruit:true,q1:x.slice(0,6),q2:x.slice(6,12),q3:x.slice(12,18),rankM:rM};
+}
+function fN(v){if(Math.abs(v)<1e-9)return'0';if(Math.abs(v-Math.round(v))<1e-6)return String(Math.round(v));return v.toFixed(3).replace(/\.?0+$/,'')}
+function fP(c){const t=[];for(let i=0;i<6;i++){if(Math.abs(c[i])<1e-9)continue;const s=fN(c[i]),l=V2L[i];t.push(s==='1'?l:s==='-1'?'-'+l:s+l)}if(!t.length)return'0';let r=t[0];for(let i=1;i<t.length;i++)r+=t[i].startsWith('-')?t[i]:'+'+t[i];return r}
+
+/* ══════════════ CASCADE DEFINITION ══════════════ */
+const CASCADE=[
+  {
+    n:1,title:'1단계: p₃를 직접 활용',
+    formula:'z² = 0·p₁ + 0·p₂ + 1·p₃',
+    result:'z² ∈ I₂  →  (V₂기저)×z² ∈ I₄  →  x²z², xyz², xz³, y²z², yz³, z⁴ 열매',
+    why:'p₃ 자체가 z²이므로 p₃의 임의 배수는 이상(ideal)의 원소. z²에 V₂ 기저 6개를 곱해 차수4 단항식 6개 확정.',
+    cards:[5,8,9,12,13,14],label:'x²z², xyz², xz³, y²z², yz³, z⁴ (6개)'
+  },
+  {
+    n:2,title:'2단계: x²z 도출 → x³z, x²yz 확정',
+    formula:'z·(p₁+p₂) − (x+y)·p₃ = 2x²z',
+    result:'p₁+p₂ = 2x²+xz+yz,  z·(p₁+p₂) = 2x²z + (x+y)z²  → 2x²z ∈ I₃\n∴ x·(x²z) = x³z ∈ I₄,  y·(x²z) = x²yz ∈ I₄',
+    why:'p₁+p₂에 z를 곱하면 z²항이 생김. z²항은 이미 확정된 p₃로 소거 → x²z만 남음. x²z에 x 또는 y를 곱해 차수4 확정.',
+    cards:[2,4],label:'x³z, x²yz (2개)'
+  },
+  {
+    n:3,title:'3단계: y²z 도출 → xy²z, y³z 확정',
+    formula:'z·(p₂−p₁) − (x−y)·p₃ = 2y²z',
+    result:'p₂−p₁ = 2y²+xz−yz,  z·(p₂−p₁) = 2y²z + (x−y)z²  → 2y²z ∈ I₃\n∴ x·(y²z) = xy²z ∈ I₄,  y·(y²z) = y³z ∈ I₄',
+    why:'2단계와 같은 구조: p₂−p₁에 z 곱하고 z²항(p₃)을 소거. y²z에 x,y 곱해 나머지 n=1 단항식 2개 확정.',
+    cards:[7,11],label:'xy²z, y³z (2개)'
+  },
+  {
+    n:4,title:'4단계: x⁴ 도출',
+    formula:'x²·(p₁+p₂) = 2x⁴ + x³z + x²yz',
+    result:'x³z ∈ I₄ (2단계),  x²yz ∈ I₄ (2단계)\n∴ 2x⁴ = x²(p₁+p₂) − x³z − x²yz  →  x⁴ ∈ I₄',
+    why:'이미 확정된 x³z, x²yz를 오른쪽으로 이항하면 2x⁴만 남음. 스칼라 2로 나누면 x⁴ ∈ I 확정. 기존 결과를 재료로 쓰는 핵심 패턴!',
+    cards:[0],label:'x⁴ (1개)'
+  },
+  {
+    n:5,title:'5단계: 나머지 n=0 단항식 4개',
+    formula:'y²(p₂−p₁)→2y⁴,  xy(p₁+p₂)→2x³y,  xy(p₂−p₁)→2xy³,  y²(p₁+p₂)→2x²y²',
+    result:'4단계와 동일한 방식으로 z항을 소거:\ny⁴, x³y, xy³, x²y² 모두 ∈ I₄',
+    why:'각 식에서 이미 확정된 z지수≥1 단항식들을 소거하면 목표 단항식만 남음. 모든 15개 단항식 열매 확정!',
+    cards:[10,1,6,3],label:'y⁴, x³y, xy³, x²y² (4개)'
+  }
+];
+
+/* ══════════════ STATE ══════════════ */
+const S={
+  prob:1,
+  p1:[2,-2,-1,0,1,0],p2:[0,2,-1,-2,1,0],p3:[0,4,-2,0,-2,1],
+  a:1,px:1,py:1,
+  st:Array(15).fill('unknown'),
+  M:null,
+  cascStep:-1,cascPlaying:false,cascTimer:null,
+  aPlaying:false,aRAF:null,aVal:1,aDir:1,lastAT:0
+};
+const PRE={
+  1:{p1:[2,-2,-1,0,1,0],p2:[0,2,-1,-2,1,0],p3:[0,4,-2,0,-2,1],s1:'2x²−2xy−xz+yz',s2:'2xy−xz−2y²+yz',s3:'4xy−2xz−2yz+z²'},
+  2:{p1:[1,0,0,-1,1,0],p3:[0,0,0,0,0,1],s1:'x²−y²+yz',s2:'ax²+xz+y²',s3:'z²'},
+  3:{p1:[1,0,0,-1,1,0],p2:[1,0,1,1,0,0],p3:[0,0,0,0,0,1],s1:'x²−y²+yz',s2:'x²+xz+y²',s3:'z²'}
+};
+
+/* ══════════════ INIT ══════════════ */
+function init(){
+  const g=document.getElementById('mgrid');
+  for(let i=0;i<15;i++){
+    const d=document.createElement('div');
+    d.className='mc unknown';d.id='mc'+i;
+    d.innerHTML=`<div>${V4H[i]}</div><div class="sdot"></div>`;
+    d.onclick=()=>openModal(i);
+    g.appendChild(d);
+  }
+  document.getElementById('cascSpeed').oninput=()=>{
+    const v=document.getElementById('cascSpeed').value;
+    document.getElementById('cascSpeedVal').textContent=(v/10).toFixed(1)+'s';
+  };
+  document.getElementById('aSpeedSl').oninput=()=>{
+    const v=document.getElementById('aSpeedSl').value;
+    document.getElementById('aSpeedVal').textContent='×'+v+'.0';
+  };
+  switchProblem();
+}
+
+/* ══════════════ PROBLEM SWITCH ══════════════ */
+function switchProblem(){
+  const p=parseInt(document.getElementById('probSel').value);
+  S.prob=p;
+  stopAPlay();stopCascPlay();
+  const pre=PRE[p];
+  S.p1=[...pre.p1];S.p3=[...pre.p3];
+  if(p===2){S.a=parseInt(document.getElementById('asl').value)/100;S.p2=[S.a,0,1,1,0,0];}
+  else S.p2=[...pre.p2];
+  if(p===3)S.a=1;
+  S.M=buildM(S.p1,S.p2,S.p3);
+  document.getElementById('p1f').textContent=pre.s1;
+  document.getElementById('p2f').textContent=p===2?fN(S.a)+'x²+xz+y²':pre.s2;
+  document.getElementById('p3f').textContent=pre.s3;
+  // show/hide panels
+  document.getElementById('rP1').style.display=p===1?'block':'none';
+  document.getElementById('rP2').style.display=p===2?'block':'none';
+  document.getElementById('rP3').style.display=p===3?'block':'none';
+  document.getElementById('canvasCard').style.display=(p===2||p===3)?'block':'none';
+  document.getElementById('cascCtrl').style.display=p===3?'block':'none';
+  if(p===3){
+    document.getElementById('analyzeBtn').textContent='▶ 연쇄 도출 시작';
+    document.getElementById('analyzeBtn').className='btn btn-vi';
+    document.getElementById('analyzeBtn').onclick=startCasc;
+  }else{
+    document.getElementById('analyzeBtn').textContent='🔬 전체 rank 분석';
+    document.getElementById('analyzeBtn').className='btn btn-p';
+    document.getElementById('analyzeBtn').onclick=analyzeAll;
+  }
+  resetGrid();
+  if(p===1)updateProbe1();
+  if(p===2){updateProbe2();drawCanvas();setADisp(S.a);}
+  if(p===3){drawCanvas();}
+}
+
+/* ══════════════ GRID ══════════════ */
+function updateGrid(){for(let i=0;i<15;i++)document.getElementById('mc'+i).className='mc '+S.st[i]}
+function resetGrid(){
+  S.st=Array(15).fill('unknown');updateGrid();
+  setInfo('카드를 클릭하면 해당 단항식을 상세 분석합니다.','');
+  document.getElementById('rankInfo').textContent='';
+  if(S.prob===3){
+    S.cascStep=-1;
+    document.getElementById('cascCurrent').innerHTML='<div style="text-align:center;color:var(--txt3);font-size:12px;padding:20px 0">▶ 자동 재생 또는 다음 단계 버튼을 눌러주세요.</div>';
+    document.getElementById('cascHist').innerHTML='<div style="font-size:10px;color:var(--txt3);padding:3px">진행 후 여기에 기록됩니다.</div>';
+    document.getElementById('completeMsg').classList.remove('vis');
+    document.getElementById('progFill').style.width='0%';
+    document.getElementById('progTxt').textContent='0 / 5 단계';
+  }
+}
+function setInfo(msg,type){const el=document.getElementById('infoBox');el.textContent=msg;el.className='ibox'+(type?' '+type:'')}
+function applyZero(){
+  if(S.prob===1){
+    const x=parseInt(document.getElementById('sx').value)/10;
+    const y=parseInt(document.getElementById('sy').value)/10;
+    const z=parseInt(document.getElementById('sz').value)/10;
+    const v1=ev2(S.p1,x,y,z),v2=ev2(S.p2,x,y,z),v3=ev2(S.p3,x,y,z);
+    if(Math.abs(v1)>1e-4||Math.abs(v2)>1e-4||Math.abs(v3)>1e-4){setInfo('공통영점이 아닙니다.','warn');return}
+    if(Math.abs(x)+Math.abs(y)+Math.abs(z)<1e-5){setInfo('원점은 자명한 공통영점으로 판정에 불충분합니다.','warn');return}
+    let c=0;for(let i=0;i<15;i++){const v=evM4(V4[i],x,y,z);if(Math.abs(v)>1e-6&&S.st[i]!=='not-fruit'){S.st[i]='not-fruit';c++;}}
+    updateGrid();setInfo(`P=(${fN(x)},${fN(y)},${fN(z)}) → ${c}개 비열매 판정`,'');
+  }else if(S.prob===2){
+    const x=S.px,y=S.py,z=0;
+    const v1=ev2(S.p1,x,y,0),v2=ev2(S.p2,x,y,0);
+    if(Math.abs(v1)>1e-4||Math.abs(v2)>1e-4){setInfo('현재 탐침점은 공통영점이 아닙니다.','warn');return}
+    if(Math.abs(x)+Math.abs(y)<1e-5){setInfo('원점은 자명한 공통영점으로 판정에 불충분합니다.','warn');return}
+    let c=0;for(let i=0;i<15;i++){const v=evM4(V4[i],x,y,0);if(Math.abs(v)>1e-6&&S.st[i]!=='not-fruit'){S.st[i]='not-fruit';c++;}}
+    updateGrid();setInfo(`P=(${fN(x)},${fN(y)},0) → ${c}개 비열매 판정`,'');
+  }else{setInfo('문제(3)은 공통영점이 원점뿐이므로 구성적 증명 필요.','warn')}
+}
+function analyzeAll(){
+  if(S.prob===3){startCasc();return}
+  setInfo('⏳ rank 계산 중...','');
+  setTimeout(()=>{
+    S.M=buildM(S.p1,S.p2,S.p3);
+    const{rank:rM}=RREF(S.M);let fc=0,nfc=0;
+    for(let i=0;i<15;i++){const{isFruit}=checkFruit(S.M,i);S.st[i]=isFruit?'fruit':'not-fruit';isFruit?fc++:nfc++;}
+    updateGrid();
+    document.getElementById('rankInfo').textContent=`rank(φ) = ${rM}  /  열매 ${fc}개  비열매 ${nfc}개`;
+    setInfo(fc===15?'🟢 Im(φ)=V₄ — 모든 단항식이 열매!':nfc===15?'🔴 공통영점 때문에 모두 비열매':  `열매 ${fc}개 / 비열매 ${nfc}개`,fc===15?'ok':'');
+  },40);
+}
+
+/* ══════════════ PROBE 1 (3D) ══════════════ */
+let zlog1key='';
+function updateProbe1(){
+  const x=parseInt(document.getElementById('sx').value)/10;
+  const y=parseInt(document.getElementById('sy').value)/10;
+  const z=parseInt(document.getElementById('sz').value)/10;
+  document.getElementById('xv').textContent=fN(x);
+  document.getElementById('yv').textContent=fN(y);
+  document.getElementById('zv').textContent=fN(z);
+  const v1=ev2(S.p1,x,y,z),v2=ev2(S.p2,x,y,z),v3=ev2(S.p3,x,y,z);
+  function sv(id,v){const el=document.getElementById(id);el.textContent=fN(v);el.className='pvnum '+(Math.abs(v)<1e-5?'iszero':'nz')}
+  sv('v1',v1);sv('v2',v2);sv('v3',v3);
+  const all0=Math.abs(v1)<1e-5&&Math.abs(v2)<1e-5&&Math.abs(v3)<1e-5;
+  const nt=Math.abs(x)+Math.abs(y)+Math.abs(z)>1e-5;
+  const za=document.getElementById('za1');
+  if(all0&&nt){za.classList.add('vis');document.getElementById('zc1').textContent=`${fN(x)},${fN(y)},${fN(z)}`;logZero1(x,y,z);}
+  else za.classList.remove('vis');
+}
+function logZero1(x,y,z){
+  const k=`${x.toFixed(1)},${y.toFixed(1)},${z.toFixed(1)}`;if(k===zlog1key)return;zlog1key=k;
+  const log=document.getElementById('zlog1');
+  const d=document.createElement('div');d.className='zli';d.textContent=`P=(${fN(x)},${fN(y)},${fN(z)}) ✓`;
+  log.insertBefore(d,log.firstChild);if(log.children.length>5)log.removeChild(log.lastChild);
+}
+function setP1(x,y,z){
+  document.getElementById('sx').value=Math.round(x*10);
+  document.getElementById('sy').value=Math.round(y*10);
+  document.getElementById('sz').value=Math.round(z*10);
+  updateProbe1();
+}
+
+/* ══════════════ PROBE 2 (2D z=0) ══════════════ */
+let zlog2key='';
+function updateProbe2(){
+  const x=parseInt(document.getElementById('px2').value)/10;
+  const y=parseInt(document.getElementById('py2').value)/10;
+  S.px=x;S.py=y;
+  document.getElementById('px2v').textContent=fN(x);
+  document.getElementById('py2v').textContent=fN(y);
+  const v1=ev2(S.p1,x,y,0),v2=ev2(S.p2,x,y,0);
+  function sv(id,v){const el=document.getElementById(id);el.textContent=fN(v);el.className='zval-num '+(Math.abs(v)<1e-5?'iszero':'')}
+  sv('pv1',v1);sv('pv2',v2);
+  const all0=Math.abs(v1)<1e-5&&Math.abs(v2)<1e-5;
+  const nt=Math.abs(x)+Math.abs(y)>1e-5;
+  const za=document.getElementById('za2');
+  if(all0&&nt){za.classList.add('vis');document.getElementById('zc2').textContent=`${fN(x)},${fN(y)}`;logZero2(x,y);}
+  else za.classList.remove('vis');
+  drawCanvas();
+}
+function logZero2(x,y){
+  const k=`${x.toFixed(1)},${y.toFixed(1)}`;if(k===zlog2key)return;zlog2key=k;
+  const log=document.getElementById('zlog2');
+  if(!log)return;
+  const d=document.createElement('div');d.className='zli';d.textContent=`P=(${fN(x)},${fN(y)},0) ✓ 공통영점`;
+  log.insertBefore(d,log.firstChild);if(log.children.length>5)log.removeChild(log.lastChild);
+}
+
+/* ══════════════ A PARAMETER ══════════════ */
+function setAFromSlider(){
+  if(S.aPlaying)stopAPlay();
+  const a=parseInt(document.getElementById('asl').value)/100;
+  setA(a);
+}
+function setA(a){
+  S.a=a;S.p2=[a,0,1,1,0,0];S.M=buildM(S.p1,S.p2,S.p3);
+  document.getElementById('asl').value=Math.round(a*100);
+  setADisp(a);
+  updateProbe2();
+  drawCanvas();
+  updateIntersectAnalysis(a);
+}
+function setADisp(a){
+  const el=document.getElementById('av');
+  el.textContent=fN(a);
+  el.className='sval aval-big'+(Math.abs(a+1)<0.05?' crit':'');
+  document.getElementById('p2f').textContent=fN(a)+'x²+xz+y²';
+  const cb=document.getElementById('critBanner');
+  if(Math.abs(a+1)<0.05)cb.classList.add('vis');else cb.classList.remove('vis');
+  resetGrid();
+}
+function updateIntersectAnalysis(a){
+  const el=document.getElementById('intersectAnalysis');
+  const hint=document.getElementById('canvasHint');
+  const eps=0.04;
+  if(a>eps){
+    el.textContent='p₁|_{z=0} = x²−y²=0 → y=±x\np₂|_{z=0} = '+fN(a)+'x²+y²=0 → 원점만\n\n교점: {(0,0)} (자명)\n→ 비열매 유한개';
+    hint.textContent='a>0: p₂|_{z=0}의 해는 원점뿐. 비자명 공통영점 없음.';hint.className='ibox';
+  }else if(Math.abs(a)<eps){
+    el.textContent='p₁|_{z=0} = x²−y²=0 → y=±x\np₂|_{z=0} = y²=0 → y=0\n\n교점: y=0 ∩ y=±x → {(0,0)}\n→ 비열매 유한개';
+    hint.textContent='a=0: p₂|_{z=0}=y², 교점은 원점만.';hint.className='ibox';
+  }else if(Math.abs(a+1)<eps){
+    el.textContent='★ a = −1 ★\np₁|_{z=0} = x²−y²=0 → y=±x\np₂|_{z=0} = −x²+y²=0 → y=±x\n\n두 곡선 완전히 일치!\n교점: {(k,k,0) | k∈ℝ} 무한개!\n→ 비열매 무한개!';
+    hint.textContent='★ a=−1 임계점: x^l y^m (z지수=0)은 모두 비열매. 이런 단항식이 무한히 많다!';
+    hint.className='ibox warn';
+  }else{
+    const sl=Math.sqrt(-a);
+    el.textContent='p₁|_{z=0} = x²−y²=0 → y=±x (기울기 ±1)\np₂|_{z=0} = '+fN(a)+'x²+y²=0 → y=±'+fN(sl).slice(0,5)+'x\n\n기울기 불일치 (±1 ≠ ±'+fN(sl).slice(0,4)+')\n교점: {(0,0)} 만\n→ 비열매 유한개';
+    hint.textContent='a∈(−1,0): 두 직선의 기울기가 달라 교점은 원점뿐.';hint.className='ibox';
+  }
+}
+
+/* ══════════════ A AUTO PLAY ══════════════ */
+function toggleAPlay(){
+  if(S.aPlaying)stopAPlay();else startAPlay();
+}
+function startAPlay(){
+  S.aPlaying=true;
+  S.aVal=parseFloat(document.getElementById('asl').value)/100;
+  if(S.aVal>=1.95)S.aVal=-2.0;
+  document.getElementById('aPlayBtn').textContent='⏸ PAUSE';
+  S.lastAT=0;
+  S.aRAF=requestAnimationFrame(tickAPlay);
+}
+function stopAPlay(){
+  S.aPlaying=false;
+  if(S.aRAF){cancelAnimationFrame(S.aRAF);S.aRAF=null}
+  const btn=document.getElementById('aPlayBtn');
+  if(btn)btn.textContent='▶ PLAY';
+}
+function resetAPlay(){stopAPlay();setA(-2.0);}
+function tickAPlay(ts){
+  if(!S.aPlaying)return;
+  const dt=S.lastAT?(ts-S.lastAT)/1000:0.016;S.lastAT=ts;
+  const spd=parseInt(document.getElementById('aSpeedSl').value);
+  const base=spd*0.15;
+  const nearCrit=Math.abs(S.aVal+1)<0.12;
+  const speed=nearCrit?base*0.08:base;
+  S.aVal+=speed*dt;
+  if(S.aVal>2.0){S.aVal=2.0;stopAPlay();setA(2.0);return}
+  setA(S.aVal);
+  S.aRAF=requestAnimationFrame(tickAPlay);
+}
+
+/* ══════════════ CASCADE ══════════════ */
+function startCasc(){
+  if(S.cascPlaying)return;
+  resetGrid();S.cascStep=-1;
+  cascNext();
+  S.cascPlaying=true;
+  document.getElementById('cascPlayBtn').textContent='⏸ 일시 정지';
+  scheduleCasc();
+}
+function stopCascPlay(){
+  S.cascPlaying=false;
+  if(S.cascTimer){clearTimeout(S.cascTimer);S.cascTimer=null}
+  const btn=document.getElementById('cascPlayBtn');
+  if(btn)btn.textContent='▶ 자동 재생';
+}
+function toggleCascPlay(){
+  if(S.cascPlaying){stopCascPlay();}
+  else{
+    if(S.cascStep>=CASCADE.length-1){resetCasc();setTimeout(startCasc,100);return}
+    S.cascPlaying=true;
+    document.getElementById('cascPlayBtn').textContent='⏸ 일시 정지';
+    scheduleCasc();
+  }
+}
+function scheduleCasc(){
+  if(!S.cascPlaying)return;
+  const ms=parseInt(document.getElementById('cascSpeed').value)*100;
+  S.cascTimer=setTimeout(()=>{
+    if(!S.cascPlaying)return;
+    S.cascStep++;
+    if(S.cascStep>=CASCADE.length){
+      stopCascPlay();showComplete();return;
+    }
+    showCascStep(S.cascStep);
+    scheduleCasc();
+  },ms);
+}
+function stepCascNext(){
+  stopCascPlay();
+  if(S.cascStep>=CASCADE.length-1){showComplete();return}
+  S.cascStep++;
+  showCascStep(S.cascStep);
+  cascNext();// no-op here, just label
+}
+function cascNext(){}
+function resetCasc(){
+  stopCascPlay();
+  resetGrid();
+}
+function showCascStep(n){
+  const st=CASCADE[n];
+  // Light up cards with animation
+  for(const idx of st.cards){
+    S.st[idx]='fruit';
+    const c=document.getElementById('mc'+idx);
+    c.className='mc just-fruit';
+    setTimeout(()=>{if(c.className.includes('just-fruit'))c.className='mc fruit'},1300);
+  }
+  updateGrid();
+  // Update cascade current panel
+  const prog=(n+1)/CASCADE.length*100;
+  document.getElementById('progFill').style.width=prog+'%';
+  document.getElementById('progTxt').textContent=`${n+1} / ${CASCADE.length} 단계`;
+  document.getElementById('cascCurrent').innerHTML=
+    `<div class="cs-num">Step ${st.n} / ${CASCADE.length}</div>`+
+    `<div class="cs-title">${st.title}</div>`+
+    `<div class="cs-formula">${st.formula}</div>`+
+    `<div class="cs-result">${st.result}</div>`+
+    `<div class="cs-why">${st.why}</div>`;
+  // Add to history
+  const hist=document.getElementById('cascHist');
+  if(hist.querySelector('[style*="txt3"]'))hist.innerHTML='';
+  const d=document.createElement('div');d.className='chi';
+  d.textContent=`${st.n}단계: ${st.label}`;
+  hist.insertBefore(d,hist.firstChild);
+}
+function showComplete(){
+  document.getElementById('completeMsg').classList.add('vis');
+  setInfo('✅ Im(φ)=V₄ — 모든 15개가 열매!','ok');
+  document.getElementById('rankInfo').textContent='rank(φ) = 15  /  열매 15개  비열매 0개';
+}
+
+/* ══════════════ CANVAS DRAW ══════════════ */
+function drawCanvas(){
+  const cnv=document.getElementById('cnv');if(!cnv)return;
+  const ctx=cnv.getContext('2d'),W=300,H=300,R=2.5;
+  ctx.clearRect(0,0,W,H);ctx.fillStyle='#070910';ctx.fillRect(0,0,W,H);
+  const wx=x=>(x+R)/(2*R)*W,wy=y=>H-(y+R)/(2*R)*H;
+
+  // grid
+  ctx.strokeStyle='#131929';ctx.lineWidth=0.5;
+  for(let v=-2;v<=2;v++){ctx.beginPath();ctx.moveTo(wx(v),0);ctx.lineTo(wx(v),H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,wy(v));ctx.lineTo(W,wy(v));ctx.stroke()}
+  // axes
+  ctx.strokeStyle='#1e2a40';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,wy(0));ctx.lineTo(W,wy(0));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(wx(0),0);ctx.lineTo(wx(0),H);ctx.stroke();
+  ctx.fillStyle='#3a4a60';ctx.font='9px IBM Plex Mono,monospace';
+  ctx.fillText('x',W-10,wy(0)-3);ctx.fillText('y',wx(0)+3,11);
+  for(const v of[-2,-1,1,2]){ctx.fillText(v,wx(v)-3,wy(0)+10);ctx.fillText(v,wx(0)+3,wy(v)+3)}
+
+  const a=(S.prob===2)?S.a:1.0;
+  const isCrit=Math.abs(a+1)<0.04;
+
+  // helper: draw line y = slope*x through origin
+  function drawLineOrigin(slope,color,lw,dash=[]){
+    ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.setLineDash(dash);
+    const s=Math.abs(slope);
+    let x1,y1,x2,y2;
+    if(s<=1){x1=-R;y1=-slope*R;x2=R;y2=slope*R;}
+    else{y1=-R;x1=-R/slope;y2=R;x2=R/slope;}
+    // clamp
+    x1=Math.max(-R,Math.min(R,x1));y1=Math.max(-R,Math.min(R,y1));
+    x2=Math.max(-R,Math.min(R,x2));y2=Math.max(-R,Math.min(R,y2));
+    ctx.beginPath();ctx.moveTo(wx(x1),wy(y1));ctx.lineTo(wx(x2),wy(y2));ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // p1|z=0 = x^2 - y^2 = 0 → y=x and y=-x (CYAN, always same)
+  const p1col=isCrit?'rgba(34,211,238,0.35)':'#22d3ee';
+  drawLineOrigin(1,p1col,2);
+  drawLineOrigin(-1,p1col,2);
+
+  // p2|z=0 = a*x^2 + y^2 = 0 (ORANGE)
+  ctx.setLineDash([]);
+  const eps=0.04;
+  if(isCrit){
+    // GOLD: both curves coincide → gold thick
+    ctx.shadowColor='rgba(251,191,36,0.7)';ctx.shadowBlur=12;
+    drawLineOrigin(1,'rgba(251,191,36,0.9)',5);
+    drawLineOrigin(-1,'rgba(251,191,36,0.9)',5);
+    ctx.shadowBlur=0;
+    // label
+    ctx.fillStyle='#fbbf24';ctx.font='bold 11px monospace';ctx.textAlign='center';
+    ctx.fillText('★ 두 곡선 겹침! a = −1',W/2,15);
+    ctx.textAlign='left';
+    // highlight points
+    ctx.shadowColor='rgba(251,191,36,0.5)';ctx.shadowBlur=8;
+    for(let k=-2;k<=2;k+=0.4){if(Math.abs(k)<0.05)continue;
+      ctx.fillStyle='rgba(251,191,36,0.8)';
+      ctx.beginPath();ctx.arc(wx(k),wy(k),3,0,2*Math.PI);ctx.fill();
+      ctx.beginPath();ctx.arc(wx(k),wy(-k),3,0,2*Math.PI);ctx.fill();
+    }
+    ctx.shadowBlur=0;
+  }else if(a>eps){
+    // only origin dot for p2
+    ctx.fillStyle='#f97316';ctx.beginPath();ctx.arc(wx(0),wy(0),4,0,2*Math.PI);ctx.fill();
+    ctx.fillStyle='#f97316';ctx.font='9px monospace';ctx.fillText('p₂ 해 = 원점만',wx(0)+6,wy(0)-4);
+  }else if(Math.abs(a)<eps){
+    // y = 0
+    ctx.strokeStyle='#f97316';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(0,wy(0));ctx.lineTo(W,wy(0));ctx.stroke();
+  }else{
+    const sl=Math.sqrt(-a);
+    drawLineOrigin(sl,'#f97316',2);
+    drawLineOrigin(-sl,'#f97316',2);
+  }
+
+  // origin dot
+  ctx.fillStyle='#4a5568';ctx.beginPath();ctx.arc(wx(0),wy(0),4,0,2*Math.PI);ctx.fill();
+
+  // probe point (only show if z≈0 for problem 2)
+  if(S.prob===2){
+    ctx.fillStyle='#e2e8f0';ctx.shadowColor='rgba(255,255,255,0.5)';ctx.shadowBlur=6;
+    ctx.beginPath();ctx.arc(wx(S.px),wy(S.py),4,0,2*Math.PI);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#e2e8f0';ctx.font='9px monospace';ctx.fillText('P',wx(S.px)+5,wy(S.py)-3);
+  }
+
+  // For problem 3: show only origin as intersection
+  if(S.prob===3){
+    ctx.fillStyle='#4a5568';ctx.font='10px monospace';ctx.textAlign='center';
+    ctx.fillText('a=1: 교점 = 원점만',W/2,H-8);
+    ctx.textAlign='left';
+    ctx.fillStyle='#4ade80';ctx.font='9px monospace';
+    ctx.fillText('→ 공통영점 판정 불가 → 구성적 증명 필요!',6,H-8);
+  }
+}
+
+/* ══════════════ MODAL ══════════════ */
+function openModal(idx){
+  S.M=buildM(S.p1,S.p2,S.p3);
+  const{isFruit,q1,q2,q3,rankM}=checkFruit(S.M,idx);
+  S.st[idx]=isFruit?'fruit':'not-fruit';
+  updateGrid();
+  const lbl=V4H[idx];
+  document.getElementById('mttl').innerHTML=`분석: <span style="color:var(--acc)">${lbl}</span>`;
+  let h='';
+  h+=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <span class="sbadge ${isFruit?'fruit':'nfruit'}">${isFruit?'✅ 열매 (Fruit)':'❌ 열매 아님'}</span>
+    <span style="font-size:11px;color:var(--txt2);font-family:var(--mono)">rank(φ) = ${rankM} / 15</span>
+  </div>`;
+  h+=`<div class="rbox"><div class="rbox-t">rank 판정</div>
+    <div style="font-family:var(--mono);font-size:12px;line-height:1.9">`;
+  if(isFruit)h+=`rank([M|r]) = rank(M) = ${rankM} → ${lbl} ∈ Im(φ) ✓`;
+  else h+=`rank([M|r]) = ${rankM+1} > rank(M) = ${rankM} → ${lbl} ∉ Im(φ) ✗`;
+  h+=`</div></div>`;
+  if(isFruit&&q1){
+    const s1=fP(q1),s2=fP(q2),s3=fP(q3);
+    h+=`<div class="rbox" style="margin-top:7px"><div class="rbox-t">${lbl} = p₁q₁ + p₂q₂ + p₃q₃</div>`;
+    [[s1,'q₁'],[s2,'q₂'],[s3,'q₃']].forEach(([s,n])=>{
+      h+=s==='0'?`<div class="drow" style="color:var(--txt3)">${n} = 0</div>`
+        :`<div class="drow">${n} = <span style="color:var(--acc)">${s}</span></div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`<div style="margin-top:10px"><button class="btn" onclick="document.getElementById('matV').style.display=document.getElementById('matV').style.display==='none'?'block':'none'">🔢 행렬 M (15×18) 보기/숨기기</button>
+    <div id="matV" style="display:none;margin-top:8px">${buildMatH(S.M,idx,isFruit)}</div></div>`;
+  document.getElementById('mcont').innerHTML=h;
+  document.getElementById('moverlay').classList.remove('hide');
+}
+function buildMatH(M,hi,isFruit){
+  let h=`<div class="mcont2"><table class="mtbl"><thead><tr><th></th>`;
+  for(let pi=0;pi<3;pi++)h+=`<th colspan="6" class="pg">p${pi+1}×</th>`;
+  h+=`</tr><tr><th>V₄↓</th>`;
+  for(let pi=0;pi<3;pi++)for(let qi=0;qi<6;qi++)h+=`<th>${V2L[qi]}</th>`;
+  h+=`</tr></thead><tbody>`;
+  for(let r=0;r<15;r++){
+    const hl=r===hi?' style="background:rgba(251,191,36,.05)"':'';
+    h+=`<tr${hl}><th style="font-size:9px;color:${r===hi?'var(--gold)':'var(--txt2)'}">${V4H[r]}</th>`;
+    for(let c=0;c<18;c++){
+      const v=M[r][c];h+=`<td class="${Math.abs(v)<1e-9?'zc':'nz'}">${Math.abs(v)<1e-9?'·':fN(v)}</td>`;
+    }
+    h+=`</tr>`;
+  }
+  h+=`</tbody></table></div>`;return h;
+}
+function closeModal(e){if(e&&e.target!==document.getElementById('moverlay'))return;document.getElementById('moverlay').classList.add('hide')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('moverlay').classList.add('hide')});
+
+window.addEventListener('load',init);
+</script>
+</body>
+</html>

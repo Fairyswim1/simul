@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>포물선 접선 시뮬레이터</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      font-family: "Segoe UI Rounded", "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+      background: #0b1120;
+      color: #e5e7eb;
+      overflow-x: hidden;
+    }
+
+    .math {
+      font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+    }
+
+    .wrap {
+      width: 100%;
+      min-height: 100vh;
+      padding: 18px 22px;
+    }
+
+    .header {
+      height: 50px;
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 30px;
+      font-weight: 900;
+      color: #f8fafc;
+      letter-spacing: -0.5px;
+    }
+
+    .main {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .visuals {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 22px;
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.35);
+    }
+
+    .canvas-card {
+      min-width: 0;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-title {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+      margin-bottom: 8px;
+    }
+
+    .canvas-title h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 900;
+      color: #f8fafc;
+    }
+
+    .mini-label {
+      font-size: 13px;
+      color: #94a3b8;
+      font-weight: 700;
+    }
+
+    canvas {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: block;
+      border-radius: 16px;
+      background: #020617;
+      border: 1px solid #334155;
+      cursor: crosshair;
+    }
+
+    .side {
+      height: 100%;
+      max-height: calc(100vh - 80px);
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      overflow: hidden;
+    }
+
+    .section {
+      border-bottom: 1px solid #334155;
+      padding-bottom: 9px;
+    }
+
+    .section:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    h3 {
+      margin: 0 0 7px;
+      font-size: 15px;
+      font-weight: 900;
+      color: #f8fafc;
+    }
+
+    .control { margin-bottom: 8px; }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #dbeafe;
+      margin-bottom: 3px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #60a5fa;
+    }
+
+    .value {
+      color: #93c5fd;
+      font-family: "Cambria Math", "Consolas", monospace;
+      font-weight: 900;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-top: 6px;
+    }
+
+    button {
+      border: none;
+      border-radius: 11px;
+      padding: 9px 6px;
+      font-size: 12.5px;
+      font-weight: 900;
+      color: white;
+      cursor: pointer;
+      background: #2563eb;
+    }
+
+    button:hover { filter: brightness(1.08); }
+    button.green { background: #059669; }
+    button.gray { background: #475569; }
+    button.red { background: #dc2626; }
+
+    .info {
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 13px;
+      padding: 9px;
+      font-size: 12.8px;
+      line-height: 1.55;
+      color: #dbeafe;
+    }
+
+    .good { color: #86efac; font-weight: 900; }
+    .warn { color: #fde68a; font-weight: 900; }
+    .bad { color: #fca5a5; font-weight: 900; }
+
+    @media (max-width: 1250px) {
+      .main { grid-template-columns: 1fr; }
+      .side { max-height: none; }
+      .visuals { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>포물선 <span class="math">y=x²</span>의 접선 시뮬레이터</h1>
+  </div>
+
+  <div class="main">
+    <div class="visuals">
+      <div class="card canvas-card">
+        <div class="canvas-title">
+          <h2>문항 (1)</h2>
+          <span class="mini-label">실제 P 이동 → M 자취</span>
+        </div>
+        <canvas id="canvas1" width="900" height="900"></canvas>
+      </div>
+
+      <div class="card canvas-card">
+        <div class="canvas-title">
+          <h2>문항 (2)</h2>
+          <span class="mini-label">실제 P 이동 → 넓이 2 자취</span>
+        </div>
+        <canvas id="canvas2" width="900" height="900"></canvas>
+      </div>
+    </div>
+
+    <div class="card side">
+      <div class="section">
+        <h3>문항 (1)</h3>
+
+        <div class="control">
+          <label>x좌표 <span id="p1xLabel" class="value"></span></label>
+          <input id="p1xSlider" type="range" min="0" max="2" step="0.001" value="0.55">
+        </div>
+
+        <div class="control">
+          <label>y좌표 <span id="p1yLabel" class="value"></span></label>
+          <input id="p1ySlider" type="range" min="-1" max="0" step="0.001" value="-0.80">
+        </div>
+
+        <div class="control">
+          <label>속도 <span id="speed1Label" class="value"></span></label>
+          <input id="speed1Slider" type="range" min="1" max="10" step="1" value="5">
+        </div>
+
+        <div class="btn-grid">
+          <button id="auto1Btn">자동 이동</button>
+          <button id="clear1Btn" class="gray">자취 삭제</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>문항 (2)</h3>
+
+        <div class="control">
+          <label>x좌표 <span id="p2xLabel" class="value"></span></label>
+          <input id="p2xSlider" type="range" min="-2.1" max="2.1" step="0.001" value="0.30">
+        </div>
+
+        <div class="control">
+          <label>y좌표 <span id="p2yLabel" class="value"></span></label>
+          <input id="p2ySlider" type="range" min="-1.5" max="3.5" step="0.001" value="-0.90">
+        </div>
+
+        <div class="control">
+          <label>속도 <span id="speed2Label" class="value"></span></label>
+          <input id="speed2Slider" type="range" min="1" max="10" step="1" value="8">
+        </div>
+
+        <div class="btn-grid">
+          <button id="auto2Btn" class="green">자동 이동</button>
+          <button id="clear2Btn" class="gray">자취 삭제</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>계산값</h3>
+        <div class="info" id="infoBox"></div>
+      </div>
+
+      <div class="section">
+        <div class="btn-grid">
+          <button id="resetBtn" class="gray">초기화</button>
+          <button id="pauseBtn" class="red">정지</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const canvas1 = document.getElementById("canvas1");
+  const canvas2 = document.getElementById("canvas2");
+  const c1 = canvas1.getContext("2d");
+  const c2 = canvas2.getContext("2d");
+
+  const p1xSlider = document.getElementById("p1xSlider");
+  const p1ySlider = document.getElementById("p1ySlider");
+  const p2xSlider = document.getElementById("p2xSlider");
+  const p2ySlider = document.getElementById("p2ySlider");
+  const speed1Slider = document.getElementById("speed1Slider");
+  const speed2Slider = document.getElementById("speed2Slider");
+
+  const p1xLabel = document.getElementById("p1xLabel");
+  const p1yLabel = document.getElementById("p1yLabel");
+  const p2xLabel = document.getElementById("p2xLabel");
+  const p2yLabel = document.getElementById("p2yLabel");
+  const speed1Label = document.getElementById("speed1Label");
+  const speed2Label = document.getElementById("speed2Label");
+  const infoBox = document.getElementById("infoBox");
+
+  const auto1Btn = document.getElementById("auto1Btn");
+  const auto2Btn = document.getElementById("auto2Btn");
+  const clear1Btn = document.getElementById("clear1Btn");
+  const clear2Btn = document.getElementById("clear2Btn");
+  const resetBtn = document.getElementById("resetBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+
+  let P1 = { x: 0.55, y: -0.80 };
+  let P2 = { x: 0.30, y: -0.90 };
+
+  let auto1 = false;
+  let auto2 = false;
+
+  let target1 = randomPInRegion1();
+  let t2 = 0;
+  let dragTarget = null;
+
+  let mTrail = [];
+  let p2Recent = [];
+  let areaNearPoints = [];
+  let mCells = new Set();
+
+  const view1 = { xmin: -2.0, xmax: 8.0, ymin: -1.8, ymax: 8.2 };
+  const view2 = { xmin: -2.2, xmax: 2.2, ymin: -1.6, ymax: 2.8 };
+
+  function topY1(x) {
+    return Math.min(x - 1, -x + 1);
+  }
+
+  function clamp(v, a, b) {
+    return Math.max(a, Math.min(b, v));
+  }
+
+  function clampP1(p) {
+    const x = clamp(p.x, 0, 2);
+    const y = clamp(p.y, -1, topY1(x));
+    return { x, y };
+  }
+
+  function clampP2(p) {
+    const x = clamp(p.x, -2.1, 2.1);
+    const upper = Math.min(x * x - 0.04, 3.4);
+    const y = clamp(p.y, -1.5, upper);
+    return { x, y };
+  }
+
+  function randomPInRegion1() {
+    const x = Math.random() * 2;
+    const y = -1 + Math.random() * (topY1(x) + 1);
+    return { x, y };
+  }
+
+  function tangentData(P) {
+    const D = Math.max(P.x * P.x - P.y, 0.000001);
+    const root = Math.sqrt(D);
+
+    const t1 = P.x - root;
+    const t2 = P.x + root;
+
+    const Q = { x: t1, y: t1 * t1 };
+    const R = { x: t2, y: t2 * t2 };
+    const M = { x: P.x, y: 2 * P.x * P.x - P.y };
+    const area = 2 * Math.pow(D, 1.5);
+
+    return { D, root, t1, t2, Q, R, M, area };
+  }
+
+  function transform(canvas, view) {
+    return {
+      scaleX: canvas.width / (view.xmax - view.xmin),
+      scaleY: canvas.height / (view.ymax - view.ymin)
+    };
+  }
+
+  function X(canvas, view, x) {
+    const t = transform(canvas, view);
+    return (x - view.xmin) * t.scaleX;
+  }
+
+  function Y(canvas, view, y) {
+    const t = transform(canvas, view);
+    return canvas.height - (y - view.ymin) * t.scaleY;
+  }
+
+  function WX(canvas, view, px) {
+    const t = transform(canvas, view);
+    return view.xmin + px / t.scaleX;
+  }
+
+  function WY(canvas, view, py) {
+    const t = transform(canvas, view);
+    return view.ymin + (canvas.height - py) / t.scaleY;
+  }
+
+  function line(ctx, canvas, view, x1, y1, x2, y2, color, width = 1, dash = []) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash(dash);
+    ctx.moveTo(X(canvas, view, x1), Y(canvas, view, y1));
+    ctx.lineTo(X(canvas, view, x2), Y(canvas, view, y2));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function point(ctx, canvas, view, x, y, color, label, r = 7) {
+    ctx.beginPath();
+    ctx.arc(X(canvas, view, x), Y(canvas, view, y), r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    ctx.fillStyle = color;
+    ctx.font = "bold 18px Cambria Math, Arial";
+    ctx.fillText(label, X(canvas, view, x) + 10, Y(canvas, view, y) - 10);
+  }
+
+  function grid(ctx, canvas, view) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#020617";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = "13px Cambria Math, Arial";
+
+    for (let x = Math.ceil(view.xmin); x <= Math.floor(view.xmax); x++) {
+      line(ctx, canvas, view, x, view.ymin, x, view.ymax, "#1e293b", 1);
+      if (view.ymin <= 0 && view.ymax >= 0) {
+        ctx.fillStyle = "#64748b";
+        ctx.fillText(String(x), X(canvas, view, x) - 4, Y(canvas, view, 0) + 18);
+      }
+    }
+
+    for (let y = Math.ceil(view.ymin); y <= Math.floor(view.ymax); y++) {
+      line(ctx, canvas, view, view.xmin, y, view.xmax, y, "#1e293b", 1);
+      if (view.xmin <= 0 && view.xmax >= 0 && y !== 0) {
+        ctx.fillStyle = "#64748b";
+        ctx.fillText(String(y), X(canvas, view, 0) - 25, Y(canvas, view, y) + 5);
+      }
+    }
+
+    if (view.ymin <= 0 && view.ymax >= 0) {
+      line(ctx, canvas, view, view.xmin, 0, view.xmax, 0, "#94a3b8", 1.7);
+    }
+
+    if (view.xmin <= 0 && view.xmax >= 0) {
+      line(ctx, canvas, view, 0, view.ymin, 0, view.ymax, "#94a3b8", 1.7);
+    }
+  }
+
+  function parabola(ctx, canvas, view, color = "#f8fafc", width = 3) {
+    ctx.beginPath();
+    let first = true;
+
+    for (let x = view.xmin; x <= view.xmax; x += 0.006) {
+      const y = x * x;
+      if (y < view.ymin - 1 || y > view.ymax + 1) continue;
+
+      if (first) {
+        ctx.moveTo(X(canvas, view, x), Y(canvas, view, y));
+        first = false;
+      } else {
+        ctx.lineTo(X(canvas, view, x), Y(canvas, view, y));
+      }
+    }
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+
+  function drawRegion1(ctx, canvas, view) {
+    ctx.beginPath();
+    ctx.moveTo(X(canvas, view, 0), Y(canvas, view, -1));
+    ctx.lineTo(X(canvas, view, 2), Y(canvas, view, -1));
+    ctx.lineTo(X(canvas, view, 1), Y(canvas, view, 0));
+    ctx.closePath();
+
+    ctx.fillStyle = "rgba(96, 165, 250, 0.22)";
+    ctx.fill();
+
+    ctx.strokeStyle = "#60a5fa";
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+  }
+
+  function drawAllowedRegion2(ctx, canvas, view) {
+    ctx.beginPath();
+    let first = true;
+
+    for (let x = view.xmin; x <= view.xmax; x += 0.006) {
+      const y = x * x;
+      if (y < view.ymin || y > view.ymax) continue;
+
+      if (first) {
+        ctx.moveTo(X(canvas, view, x), Y(canvas, view, y));
+        first = false;
+      } else {
+        ctx.lineTo(X(canvas, view, x), Y(canvas, view, y));
+      }
+    }
+
+    ctx.lineTo(X(canvas, view, view.xmax), Y(canvas, view, view.ymin));
+    ctx.lineTo(X(canvas, view, view.xmin), Y(canvas, view, view.ymin));
+    ctx.closePath();
+
+    ctx.fillStyle = "rgba(148, 163, 184, 0.07)";
+    ctx.fill();
+  }
+
+  function tangent(ctx, canvas, view, t) {
+    const x1 = view.xmin;
+    const x2 = view.xmax;
+    const y1 = 2 * t * x1 - t * t;
+    const y2 = 2 * t * x2 - t * t;
+
+    line(ctx, canvas, view, x1, y1, x2, y2, "#fb923c", 2.1);
+  }
+
+  function addMCell(M) {
+    const size = 0.055;
+    const ix = Math.round(M.x / size);
+    const iy = Math.round(M.y / size);
+    mCells.add(ix + "," + iy);
+  }
+
+  function addMTraceFromCurrentP() {
+    const d = tangentData(P1);
+    addMCell(d.M);
+
+    if (mTrail.length === 0) {
+      mTrail.push({ ...d.M });
+      return;
+    }
+
+    const last = mTrail[mTrail.length - 1];
+    if (Math.hypot(last.x - d.M.x, last.y - d.M.y) > 0.015) {
+      mTrail.push({ ...d.M });
+    }
+
+    if (mTrail.length > 900) mTrail.shift();
+  }
+
+  function addAreaTraceFromCurrentP() {
+    const d = tangentData(P2);
+
+    if (p2Recent.length === 0) {
+      p2Recent.push({ ...P2 });
+    } else {
+      const last = p2Recent[p2Recent.length - 1];
+      if (Math.hypot(last.x - P2.x, last.y - P2.y) > 0.025) {
+        p2Recent.push({ ...P2 });
+      }
+    }
+
+    if (Math.abs(d.area - 2) < 0.10) {
+      areaNearPoints.push({ ...P2 });
+    }
+
+    if (p2Recent.length > 120) p2Recent.shift();
+    if (areaNearPoints.length > 1600) areaNearPoints.shift();
+  }
+
+  function drawMCells(ctx, canvas, view) {
+    const size = 0.055;
+
+    ctx.fillStyle = "rgba(244, 63, 94, 0.32)";
+
+    for (const key of mCells) {
+      const [ix, iy] = key.split(",").map(Number);
+      const x = ix * size;
+      const y = iy * size;
+
+      const px = X(canvas, view, x);
+      const py = Y(canvas, view, y);
+      const w = Math.abs(X(canvas, view, x + size) - px) + 0.6;
+      const h = Math.abs(Y(canvas, view, y + size) - py) + 0.6;
+
+      ctx.fillRect(px, py - h, w, h);
+    }
+  }
+
+  function drawPolyline(ctx, canvas, view, arr, color, width) {
+    if (arr.length < 2) return;
+
+    ctx.beginPath();
+    ctx.moveTo(X(canvas, view, arr[0].x), Y(canvas, view, arr[0].y));
+
+    for (let i = 1; i < arr.length; i++) {
+      ctx.lineTo(X(canvas, view, arr[i].x), Y(canvas, view, arr[i].y));
+    }
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+
+  function drawFadingDots(ctx, canvas, view, arr) {
+    const start = Math.max(0, arr.length - 120);
+
+    for (let i = start; i < arr.length; i++) {
+      const p = arr[i];
+      const ratio = (i - start) / Math.max(1, arr.length - start);
+      ctx.globalAlpha = 0.08 + ratio * 0.32;
+      ctx.fillStyle = "#94a3b8";
+      ctx.beginPath();
+      ctx.arc(X(canvas, view, p.x), Y(canvas, view, p.y), 2.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  function drawDots(ctx, canvas, view, arr, color, r) {
+    ctx.fillStyle = color;
+
+    for (const p of arr) {
+      ctx.beginPath();
+      ctx.arc(X(canvas, view, p.x), Y(canvas, view, p.y), r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawCanvas1() {
+    const d = tangentData(P1);
+
+    grid(c1, canvas1, view1);
+
+    drawMCells(c1, canvas1, view1);
+    drawRegion1(c1, canvas1, view1);
+    parabola(c1, canvas1, view1);
+
+    tangent(c1, canvas1, view1, d.t1);
+    tangent(c1, canvas1, view1, d.t2);
+
+    c1.beginPath();
+    c1.moveTo(X(canvas1, view1, P1.x), Y(canvas1, view1, P1.y));
+    c1.lineTo(X(canvas1, view1, d.Q.x), Y(canvas1, view1, d.Q.y));
+    c1.lineTo(X(canvas1, view1, d.R.x), Y(canvas1, view1, d.R.y));
+    c1.closePath();
+    c1.fillStyle = "rgba(245, 158, 11, 0.13)";
+    c1.fill();
+    c1.strokeStyle = "rgba(251, 146, 60, 0.65)";
+    c1.lineWidth = 1.5;
+    c1.stroke();
+
+    line(c1, canvas1, view1, d.Q.x, d.Q.y, d.R.x, d.R.y, "#c4b5fd", 2.2);
+    line(c1, canvas1, view1, P1.x, P1.y, d.M.x, d.M.y, "#64748b", 1.3, [6, 6]);
+
+    drawPolyline(c1, canvas1, view1, mTrail, "#fb7185", 2.0);
+
+    point(c1, canvas1, view1, d.Q.x, d.Q.y, "#fb923c", "Q", 6);
+    point(c1, canvas1, view1, d.R.x, d.R.y, "#fb923c", "R", 6);
+    point(c1, canvas1, view1, d.M.x, d.M.y, "#fb7185", "M", 7);
+    point(c1, canvas1, view1, P1.x, P1.y, "#60a5fa", "P", 8);
+  }
+
+  function drawCanvas2() {
+    const d = tangentData(P2);
+    const near = Math.abs(d.area - 2) < 0.10;
+
+    grid(c2, canvas2, view2);
+    drawAllowedRegion2(c2, canvas2, view2);
+    parabola(c2, canvas2, view2);
+
+    tangent(c2, canvas2, view2, d.t1);
+    tangent(c2, canvas2, view2, d.t2);
+
+    c2.beginPath();
+    c2.moveTo(X(canvas2, view2, P2.x), Y(canvas2, view2, P2.y));
+    c2.lineTo(X(canvas2, view2, d.Q.x), Y(canvas2, view2, d.Q.y));
+    c2.lineTo(X(canvas2, view2, d.R.x), Y(canvas2, view2, d.R.y));
+    c2.closePath();
+    c2.fillStyle = "rgba(245, 158, 11, 0.10)";
+    c2.fill();
+
+    drawFadingDots(c2, canvas2, view2, p2Recent);
+    drawDots(c2, canvas2, view2, areaNearPoints, "rgba(134, 239, 172, 0.82)", 3.0);
+
+    point(c2, canvas2, view2, d.Q.x, d.Q.y, "#fb923c", "Q", 5);
+    point(c2, canvas2, view2, d.R.x, d.R.y, "#fb923c", "R", 5);
+    point(c2, canvas2, view2, P2.x, P2.y, near ? "#86efac" : "#f8fafc", "P", 8);
+
+    if (near) {
+      c2.beginPath();
+      c2.arc(X(canvas2, view2, P2.x), Y(canvas2, view2, P2.y), 22, 0, Math.PI * 2);
+      c2.strokeStyle = "#86efac";
+      c2.lineWidth = 3.2;
+      c2.stroke();
+    }
+  }
+
+  function updateUI() {
+    const d1 = tangentData(P1);
+    const d2 = tangentData(P2);
+
+    p1xSlider.value = P1.x;
+    p1ySlider.max = topY1(P1.x);
+    p1ySlider.value = P1.y;
+
+    p2xSlider.value = P2.x;
+    p2ySlider.max = Math.min(P2.x * P2.x - 0.04, 3.4);
+    p2ySlider.value = P2.y;
+
+    p1xLabel.textContent = P1.x.toFixed(3);
+    p1yLabel.textContent = P1.y.toFixed(3);
+    p2xLabel.textContent = P2.x.toFixed(3);
+    p2yLabel.textContent = P2.y.toFixed(3);
+
+    speed1Label.textContent = speed1Slider.value + "단계";
+    speed2Label.textContent = speed2Slider.value + "단계";
+
+    let areaState = "";
+    if (Math.abs(d2.area - 2) < 0.10) {
+      areaState = `<span class="good">넓이 2에 가까움</span>`;
+    } else if (Math.abs(d2.area - 2) < 0.35) {
+      areaState = `<span class="warn">넓이 2 근처</span>`;
+    } else {
+      areaState = `<span class="bad">넓이 2 아님</span>`;
+    }
+
+    infoBox.innerHTML = `
+      <b>문항 (1)</b><br>
+      P = <span class="value">(${P1.x.toFixed(3)}, ${P1.y.toFixed(3)})</span><br>
+      M = <span class="value">(${d1.M.x.toFixed(3)}, ${d1.M.y.toFixed(3)})</span><br><br>
+
+      <b>문항 (2)</b><br>
+      P = <span class="value">(${P2.x.toFixed(3)}, ${P2.y.toFixed(3)})</span><br>
+      넓이 = <span class="value">${d2.area.toFixed(3)}</span><br>
+      ${areaState}
+    `;
+  }
+
+  function drawAll(record1 = false, record2 = false) {
+    if (record1) addMTraceFromCurrentP();
+    if (record2) addAreaTraceFromCurrentP();
+
+    drawCanvas1();
+    drawCanvas2();
+    updateUI();
+  }
+
+  function moveToward(P, target, clampFunc, speedValue, base, gain) {
+    const speed = Number(speedValue);
+    const step = base + speed * gain;
+
+    const dx = target.x - P.x;
+    const dy = target.y - P.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist <= step || dist < 0.02) {
+      return { next: clampFunc(target), reached: true };
+    }
+
+    const next = clampFunc({
+      x: P.x + dx / dist * step,
+      y: P.y + dy / dist * step
+    });
+
+    return { next, reached: false };
+  }
+
+  function updateP2NearAreaCurve() {
+    const speed = Number(speed2Slider.value);
+
+    t2 += 0.010 + speed * 0.007;
+
+    const x =
+      1.85 * Math.sin(t2 * 0.72) +
+      0.25 * Math.sin(t2 * 1.91 + 0.8);
+
+    const offset =
+      0.23 * Math.sin(t2 * 2.35 + 0.4) +
+      0.06 * Math.sin(t2 * 4.10);
+
+    const y = x * x - 1 + offset;
+
+    P2 = clampP2({ x, y });
+  }
+
+  function animate() {
+    if (auto1) {
+      const result = moveToward(
+        P1,
+        target1,
+        clampP1,
+        speed1Slider.value,
+        0.004,
+        0.0038
+      );
+
+      P1 = result.next;
+      if (result.reached) target1 = randomPInRegion1();
+      drawAll(true, false);
+    }
+
+    if (auto2) {
+      updateP2NearAreaCurve();
+      drawAll(false, true);
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  p1xSlider.addEventListener("input", () => {
+    auto1 = false;
+    auto1Btn.textContent = "자동 이동";
+    P1 = clampP1({ x: Number(p1xSlider.value), y: P1.y });
+    drawAll(true, false);
+  });
+
+  p1ySlider.addEventListener("input", () => {
+    auto1 = false;
+    auto1Btn.textContent = "자동 이동";
+    P1 = clampP1({ x: P1.x, y: Number(p1ySlider.value) });
+    drawAll(true, false);
+  });
+
+  p2xSlider.addEventListener("input", () => {
+    auto2 = false;
+    auto2Btn.textContent = "자동 이동";
+    P2 = clampP2({ x: Number(p2xSlider.value), y: P2.y });
+    drawAll(false, true);
+  });
+
+  p2ySlider.addEventListener("input", () => {
+    auto2 = false;
+    auto2Btn.textContent = "자동 이동";
+    P2 = clampP2({ x: P2.x, y: Number(p2ySlider.value) });
+    drawAll(false, true);
+  });
+
+  speed1Slider.addEventListener("input", updateUI);
+  speed2Slider.addEventListener("input", updateUI);
+
+  auto1Btn.addEventListener("click", () => {
+    auto1 = !auto1;
+    auto1Btn.textContent = auto1 ? "이동 중" : "자동 이동";
+  });
+
+  auto2Btn.addEventListener("click", () => {
+    auto2 = !auto2;
+    auto2Btn.textContent = auto2 ? "이동 중" : "자동 이동";
+  });
+
+  clear1Btn.addEventListener("click", () => {
+    mCells.clear();
+    mTrail = [];
+    drawAll(false, false);
+  });
+
+  clear2Btn.addEventListener("click", () => {
+    p2Recent = [];
+    areaNearPoints = [];
+    drawAll(false, false);
+  });
+
+  pauseBtn.addEventListener("click", () => {
+    auto1 = false;
+    auto2 = false;
+    auto1Btn.textContent = "자동 이동";
+    auto2Btn.textContent = "자동 이동";
+  });
+
+  resetBtn.addEventListener("click", () => {
+    P1 = { x: 0.55, y: -0.80 };
+    P2 = { x: 0.30, y: -0.90 };
+    mTrail = [];
+    p2Recent = [];
+    areaNearPoints = [];
+    mCells.clear();
+    auto1 = false;
+    auto2 = false;
+    target1 = randomPInRegion1();
+    t2 = 0;
+    auto1Btn.textContent = "자동 이동";
+    auto2Btn.textContent = "자동 이동";
+    drawAll(false, false);
+  });
+
+  function mouseWorld(e, canvas, view) {
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * canvas.width / rect.width;
+    const py = (e.clientY - rect.top) * canvas.height / rect.height;
+
+    return {
+      px,
+      py,
+      x: WX(canvas, view, px),
+      y: WY(canvas, view, py)
+    };
+  }
+
+  canvas1.addEventListener("mousedown", e => {
+    const m = mouseWorld(e, canvas1, view1);
+    const d = Math.hypot(m.px - X(canvas1, view1, P1.x), m.py - Y(canvas1, view1, P1.y));
+
+    if (d < 25) {
+      dragTarget = "first";
+      auto1 = false;
+      auto1Btn.textContent = "자동 이동";
+    }
+  });
+
+  canvas2.addEventListener("mousedown", e => {
+    const m = mouseWorld(e, canvas2, view2);
+    const d = Math.hypot(m.px - X(canvas2, view2, P2.x), m.py - Y(canvas2, view2, P2.y));
+
+    if (d < 25) {
+      dragTarget = "second";
+      auto2 = false;
+      auto2Btn.textContent = "자동 이동";
+    }
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!dragTarget) return;
+
+    if (dragTarget === "first") {
+      const m = mouseWorld(e, canvas1, view1);
+      P1 = clampP1({ x: m.x, y: m.y });
+      drawAll(true, false);
+    }
+
+    if (dragTarget === "second") {
+      const m = mouseWorld(e, canvas2, view2);
+      P2 = clampP2({ x: m.x, y: m.y });
+      drawAll(false, true);
+    }
+  });
+
+  window.addEventListener("mouseup", () => {
+    dragTarget = null;
+  });
+
+  drawAll(false, false);
+  animate();
+</script>
+</body>
+</html>

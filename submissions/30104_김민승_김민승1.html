@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>삼각형 ABC 동적 시뮬레이터 (스냅 및 각도표시 추가)</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f0f2f5; }
+        canvas { background: white; border: 1px solid #ccc; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .controls { margin: 20px; padding: 20px; background: white; border-radius: 8px; width: 600px; }
+        .slider-box { width: 100%; display: flex; align-items: center; gap: 10px; }
+        input[type="range"] { flex-grow: 1; cursor: pointer; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-weight: bold; }
+        .highlight-max { color: #d93025; font-size: 1.1em; } /* 최대 넓이 강조 */
+        .highlight-line { color: #1a73e8; } /* 일직선 강조 */
+    </style>
+</head>
+<body>
+    <h2>삼각형 ABC 동적 시뮬레이터</h2>
+    <canvas id="canvas" width="600" height="600"></canvas>
+
+    <div class="controls">
+        <div class="slider-box">
+            <label>각도 (θ):</label>
+            <input type="range" id="thetaSlider" min="0" max="360" step="0.5" value="0">
+            <span id="thetaVal" style="width: 40px; display: inline-block;">0</span>°
+        </div>
+        <div style="margin-top:10px;">
+            <button id="playBtn">▶ 자동 재생</button>
+            <span style="font-size: 0.8em; color: #555; margin-left: 10px;">(45°, 180°, 270° 근처에서 자석처럼 붙습니다)</span>
+        </div>
+        <div class="stats">
+            <div>삼각형 넓이: <span id="areaVal">0.0000</span></div>
+            <div>상태: <span id="statusVal">-</span></div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const slider = document.getElementById('thetaSlider');
+    const thetaVal = document.getElementById('thetaVal');
+    const areaVal = document.getElementById('areaVal');
+    const statusVal = document.getElementById('statusVal');
+
+    const SCALE = 80;
+    const OFFSET_X = 300;
+    const OFFSET_Y = 350;
+
+    let isPlaying = false;
+
+    // 슬라이더 스냅(자석) 기능
+    function handleSliderInput() {
+        let val = parseFloat(slider.value);
+        const snapThreshold = 3; // 타겟 각도의 ±3도 이내면 달라붙게 설정
+        const snapTargets = [45, 180, 270];
+
+        for (let target of snapTargets) {
+            if (Math.abs(val - target) <= snapThreshold) {
+                slider.value = target; // 슬라이더 값을 타겟으로 강제 고정
+                break;
+            }
+        }
+        draw();
+    }
+
+    function draw() {
+        const deg = parseFloat(slider.value);
+        thetaVal.innerText = deg;
+        
+        const theta = deg * Math.PI / 180;
+
+        // 좌표 계산
+        const A = { x: 2 * Math.sin(theta), y: 1 + 2 * Math.cos(theta) };
+        const B = { x: 1 + Math.sin(theta), y: Math.cos(theta) };
+        const C = { x: -1 - Math.sin(theta), y: Math.cos(theta) };
+
+        // 넓이 계산 f(θ) = (1+sinθ)(1+cosθ)
+        const area = (1 + Math.sin(theta)) * (1 + Math.cos(theta));
+        areaVal.innerText = Math.abs(area).toFixed(4);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 그리드
+        ctx.strokeStyle = '#eee';
+        ctx.beginPath();
+        for(let i=0; i<=600; i+=SCALE) {
+            ctx.moveTo(i,0); ctx.lineTo(i,600);
+            ctx.moveTo(0,i); ctx.lineTo(600,i);
+        }
+        ctx.stroke();
+
+        // 원 X, Y, Z
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#ccc';
+        ctx.beginPath(); ctx.arc(OFFSET_X, OFFSET_Y - 1*SCALE, 2*SCALE, 0, Math.PI*2); ctx.stroke(); // X
+        ctx.beginPath(); ctx.arc(OFFSET_X + 1*SCALE, OFFSET_Y, 1*SCALE, 0, Math.PI*2); ctx.stroke(); // Y
+        ctx.beginPath(); ctx.arc(OFFSET_X - 1*SCALE, OFFSET_Y, 1*SCALE, 0, Math.PI*2); ctx.stroke(); // Z
+
+        // 상태 및 삼각형 색상 결정
+        let triangleColor = 'rgba(100, 149, 237, 0.4)';
+        
+        if (deg === 45) {
+            statusVal.innerText = "★ 최대 넓이 도달! (θ=45°)";
+            statusVal.className = "highlight-max";
+            triangleColor = 'rgba(217, 48, 37, 0.8)';
+        } else if (deg === 180 || deg === 270) {
+            statusVal.innerText = "세 점이 한 직선 위에 있음 (Area=0)";
+            statusVal.className = "highlight-line";
+            triangleColor = 'rgba(0, 0, 0, 1)';
+        } else {
+            statusVal.innerText = "운동 중";
+            statusVal.className = "";
+        }
+
+        // 세타(θ) 시각적 표시 (원 Y 기준)
+        const centerY_x = OFFSET_X + 1*SCALE;
+        const centerY_y = OFFSET_Y;
+        
+        // 1. 각도를 표시할 부채꼴 배경 그리기
+        ctx.beginPath();
+        ctx.moveTo(centerY_x, centerY_y);
+        // 캔버스상 12시 방향은 -Math.PI/2
+        ctx.arc(centerY_x, centerY_y, SCALE * 0.4, -Math.PI/2, -Math.PI/2 + theta);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255, 165, 0, 0.4)'; // 주황색 반투명
+        ctx.fill();
+
+        // 2. 기준선과 현재 각도 선분 긋기
+        ctx.beginPath();
+        ctx.moveTo(centerY_x, centerY_y - SCALE); // 12시 방향 끝점
+        ctx.lineTo(centerY_x, centerY_y); // 중심점
+        ctx.lineTo(OFFSET_X + B.x*SCALE, OFFSET_Y - B.y*SCALE); // 점 B
+        ctx.strokeStyle = 'orange';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 3. 'θ' 글자 표시
+        ctx.fillStyle = 'black';
+        ctx.font = "italic bold 16px sans-serif";
+        const textAngle = -Math.PI/2 + theta / 2;
+        const textRadius = SCALE * 0.5;
+        // 각도가 0이 아닐 때만 글자 표시
+        if (deg > 0) {
+            ctx.fillText("θ", centerY_x + Math.cos(textAngle)*textRadius - 5, centerY_y + Math.sin(textAngle)*textRadius + 5);
+        }
+
+        // 삼각형 그리기
+        ctx.fillStyle = triangleColor;
+        ctx.beginPath();
+        ctx.moveTo(OFFSET_X + A.x*SCALE, OFFSET_Y - A.y*SCALE);
+        ctx.lineTo(OFFSET_X + B.x*SCALE, OFFSET_Y - B.y*SCALE);
+        ctx.lineTo(OFFSET_X + C.x*SCALE, OFFSET_Y - C.y*SCALE);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = deg === 45 ? 'red' : '#333';
+        ctx.lineWidth = deg === 45 ? 3 : 1;
+        ctx.stroke();
+
+        // 점 그리기
+        drawPoint(A, 'red', 'A');
+        drawPoint(B, 'blue', 'B');
+        drawPoint(C, 'green', 'C');
+
+        // 자동 재생 로직
+        if(isPlaying) {
+            let next = parseFloat(slider.value) + 0.5;
+            if(next > 360) next = 0;
+            slider.value = next;
+            requestAnimationFrame(draw);
+        }
+    }
+
+    function drawPoint(p, color, label) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(OFFSET_X + p.x*SCALE, OFFSET_Y - p.y*SCALE, 6, 0, Math.PI*2);
+        ctx.fill();
+        ctx.font = "bold 14px sans-serif";
+        ctx.fillText(label, OFFSET_X + p.x*SCALE + 8, OFFSET_Y - p.y*SCALE - 8);
+    }
+
+    // 슬라이더 조작 이벤트 연결 (스냅 기능 포함)
+    slider.addEventListener('input', handleSliderInput);
+    
+    // 자동재생 버튼 이벤트
+    document.getElementById('playBtn').addEventListener('click', (e) => {
+        isPlaying = !isPlaying;
+        e.target.innerText = isPlaying ? "〓 일시 정지" : "▶ 자동 재생";
+        if(isPlaying) draw();
+    });
+
+    // 초기 화면 그리기
+    draw();
+</script>
+</body>
+</html>

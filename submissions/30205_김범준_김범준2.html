@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>원뿔-평면 절단 시뮬레이터</title>
+
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(','\\)'], ['$', '$']],
+    displayMath: [['\\[','\\]']]
+  },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+  :root{
+    --bg:#0f172a;
+    --panel:#111827;
+    --text:#e5e7eb;
+    --muted:#9ca3af;
+    --cyan:#38bdf8;
+    --orange:#fb923c;
+    --green:#34d399;
+    --red:#f87171;
+    --line:#334155;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Pretendard,"Noto Sans KR",system-ui,-apple-system,sans-serif;
+    background:linear-gradient(180deg,#020617,#0f172a 30%,#111827);
+    color:var(--text);
+  }
+  .app{max-width:1450px;margin:0 auto;padding:18px}
+  h1{margin:0 0 10px;font-size:28px;font-weight:800}
+  .sub{color:var(--muted);margin-bottom:16px;line-height:1.6}
+  .panel{
+    background:rgba(17,24,39,.92);
+    border:1px solid #243041;
+    border-radius:16px;
+    padding:12px;
+    box-shadow:0 10px 25px rgba(0,0,0,.25);
+  }
+  .controls{margin-bottom:16px}
+  .row{
+    display:flex;flex-wrap:wrap;gap:12px 16px;
+    align-items:center;margin-bottom:10px
+  }
+  .row:last-child{margin-bottom:0}
+  label{font-size:14px;color:#dbeafe;font-weight:700}
+  input[type="range"]{width:320px;accent-color:var(--cyan)}
+  input[type="number"]{
+    width:120px;background:#0b1220;color:var(--text);
+    border:1px solid #334155;border-radius:10px;padding:8px 10px
+  }
+  button{
+    background:#0b1220;color:var(--text);border:1px solid #334155;
+    border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:700
+  }
+  button:hover{border-color:#64748b;background:#121b2d}
+  .main{display:grid;grid-template-columns:1.2fr .95fr;gap:16px}
+  canvas{
+    width:100%;display:block;border-radius:12px;background:#020617;
+    border:1px solid #1e293b
+  }
+  #view3d{height:540px}
+  #planeView{height:360px}
+  .legend{
+    display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px;
+    font-size:13px;color:#cbd5e1
+  }
+  .dot{
+    display:inline-block;width:10px;height:10px;border-radius:50%;
+    margin-right:6px;vertical-align:middle
+  }
+  .note{margin-top:12px;color:var(--muted);font-size:13px;line-height:1.6}
+  .stats{margin-top:12px;line-height:1.7;font-size:14px}
+  .stats h3{margin:8px 0 10px;font-size:16px;color:#f8fafc}
+  .mathbox{
+    padding:10px 12px;border:1px solid #273449;border-radius:12px;
+    background:rgba(2,6,23,0.35)
+  }
+  .simlist{
+    display:grid;grid-template-columns:250px 1fr;gap:8px 14px;
+    align-items:start;margin-top:8px
+  }
+  .simlist div:nth-child(odd){color:#cbd5e1;font-weight:600}
+  .badge{
+    display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;
+    font-weight:800;vertical-align:middle;margin-left:6px
+  }
+  .b-cyan{background:rgba(56,189,248,.16);color:#7dd3fc;border:1px solid rgba(56,189,248,.35)}
+  .b-orange{background:rgba(251,146,60,.16);color:#fdba74;border:1px solid rgba(251,146,60,.35)}
+  .b-green{background:rgba(52,211,153,.16);color:#6ee7b7;border:1px solid rgba(52,211,153,.35)}
+  .footer{margin-top:14px;color:#94a3b8;font-size:13px;line-height:1.7}
+  .small{font-size:12px;color:#94a3b8}
+  @media (max-width:1100px){
+    .main{grid-template-columns:1fr}
+    #view3d{height:430px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>원뿔 \(C\) 와 평면 \(a\) 절단 시뮬레이터</h1>
+  <div class="sub">
+    \[
+      C:\;x^2+y^2\le(1-z)^2,\qquad 0\le z\le 1
+    \]
+    평면 \(a\) 는 \((-1,0,0)\), \((0,0,p)\) 를 지나고 \(y\)축에 평행합니다.
+  </div>
+
+  <div class="controls panel">
+    <div class="row">
+      <label for="pRange">\(p\) 값</label>
+      <input id="pRange" type="range" min="0" max="1" step="0.0005" value="0.3000">
+      <input id="pNumber" type="number" min="0" max="1" step="0.000001" value="0.300000">
+      <span class="small">시각화용으로 \(p=0,1\) 도 허용</span>
+    </div>
+    <div class="row">
+      <label for="volN">원뿔 내부 부피 샘플 수</label>
+      <input id="volN" type="number" min="1000" max="200000" step="1000" value="25000">
+      <label for="areaN">평면 위 단면 샘플 수</label>
+      <input id="areaN" type="number" min="1000" max="200000" step="1000" value="15000">
+      <button id="resampleBtn">재샘플링</button>
+      <button id="findHalfBtn">부피 2등분 \(p\) 찾기</button>
+      <button id="spinBtn">회전 시작/정지</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="panel">
+      <canvas id="view3d" width="860" height="540"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:#38bdf8"></span>꼭짓점 \((0,0,1)\) 포함 쪽</span>
+        <span><span class="dot" style="background:#fb923c"></span>반대쪽</span>
+        <span><span class="dot" style="background:#34d399"></span>평면과의 단면</span>
+      </div>
+      <div class="note">
+        3D 화면은 원뿔 내부 점들을 실제로 무작위 생성한 뒤,
+        평면 \(z=p(x+1)\) 의 어느 쪽에 있는지 분류해서 그립니다.
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <canvas id="planeView" width="600" height="360"></canvas>
+        <div class="note">
+          단면 그림은 평면 내부 좌표 \((\xi,\eta)\) 에서 <b>가로/세로 같은 축척</b>으로 그립니다.
+          따라서 \(p=0\)이면 원, \(p\to1\)이면 선분에 가까워지는 모습이 그대로 보입니다.
+        </div>
+      </div>
+      <div class="panel stats" id="stats"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    계산 방식:
+    <br>1) 원뿔 내부 균일 샘플링 Monte Carlo
+    <br>2) \(z\)-슬라이스 Simpson 적분
+    <br>3) 평면 \(a\) 위의 랜덤 샘플링으로 단면 넓이 Monte Carlo 추정
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  const canvas3d = $("view3d");
+  const ctx3d = canvas3d.getContext("2d");
+  const canvas2d = $("planeView");
+  const ctx2d = canvas2d.getContext("2d");
+
+  const pRange = $("pRange");
+  const pNumber = $("pNumber");
+  const volNInput = $("volN");
+  const areaNInput = $("areaN");
+  const resampleBtn = $("resampleBtn");
+  const findHalfBtn = $("findHalfBtn");
+  const spinBtn = $("spinBtn");
+  const stats = $("stats");
+
+  let mathJaxQueue = Promise.resolve();
+  function typesetMath(node){
+    if (!window.MathJax || !window.MathJax.typesetPromise) return;
+    mathJaxQueue = mathJaxQueue.then(() => MathJax.typesetPromise([node])).catch(() => {});
+  }
+
+  const state = {
+    p: 0.3,
+    volSamples: [],
+    planeSamples: [],
+    yaw: 0.85,
+    pitch: -0.3,
+    animate: false,
+    dragging: false,
+    lastX: 0,
+    lastY: 0,
+    metrics: {
+      mcVolumeRatio: 0,
+      sliceVolumeRatio: 0,
+      exactVolumeRatio: 0,
+      mcArea: 0,
+      exactArea: 0
+    },
+    search: {
+      active: false,
+      step: 0.04,
+      prevError: null,
+      lastTime: 0,
+      tickMs: 140
+    }
+  };
+
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function fmt(v,d=6){
+    if (!isFinite(v)) return "—";
+    return Number(v).toFixed(d);
+  }
+  function fmtErr(est, exact){ return fmt(Math.abs(est - exact), 6); }
+
+  function exactEllipseParams(p){
+    const len = Math.sqrt(1 + p*p);
+    const a = len / (1 + p);
+    const b = Math.sqrt(Math.max(0, (1 - p) / (1 + p)));
+    return { len, a, b };
+  }
+
+  function exactEllipseArea(p){
+    const {a,b} = exactEllipseParams(p);
+    return Math.PI * a * b;
+  }
+
+  function exactVolumeRatio(p){
+    return Math.pow((1 - p) / (1 + p), 1.5);
+  }
+
+  function exactHalfP(){
+    const t = Math.pow(2, 2/3);
+    return (t - 1) / (t + 1);
+  }
+
+  function secondIntersectionPoint(p){
+    return {
+      x: (1 - p) / (1 + p),
+      y: 0,
+      z: 2*p / (1 + p)
+    };
+  }
+
+  function planeToWorld(xi, eta, p){
+    const len = Math.sqrt(1 + p*p);
+    return {
+      x: -1 + xi / len,
+      y: eta,
+      z: p * xi / len
+    };
+  }
+
+  function insideCone(x, y, z){
+    if (z < -1e-12 || z > 1 + 1e-12) return false;
+    const r = 1 - z;
+    return x*x + y*y <= r*r + 1e-12;
+  }
+
+  function apexSide(x, y, z, p){
+    return z - p*(x + 1) >= 0;
+  }
+
+  function generateVolumeSamples(N){
+    const arr = [];
+    for(let i=0;i<N;i++){
+      const t = Math.cbrt(Math.random());
+      const rr = t * Math.sqrt(Math.random());
+      const ang = Math.random() * 2 * Math.PI;
+      const x = rr * Math.cos(ang);
+      const y = rr * Math.sin(ang);
+      const z = 1 - t;
+      arr.push({x,y,z});
+    }
+    return arr;
+  }
+
+  function generatePlaneSamples(N, p){
+    const {a,b} = exactEllipseParams(p);
+    const arr = [];
+    let inside = 0;
+
+    if (b < 1e-10){
+      for(let i=0;i<N;i++){
+        const xi = Math.random() * (2*a);
+        const eta = 0;
+        const P = planeToWorld(xi, eta, p);
+        const ok = insideCone(P.x, P.y, P.z);
+        if(ok) inside++;
+        arr.push({xi, eta, inside:ok});
+      }
+      return { samples: arr, areaEstimate: 0 };
+    }
+
+    for(let i=0;i<N;i++){
+      const xi = Math.random() * (2*a);
+      const eta = (Math.random()*2 - 1) * b;
+      const P = planeToWorld(xi, eta, p);
+      const ok = insideCone(P.x, P.y, P.z);
+      if(ok) inside++;
+      arr.push({xi, eta, inside:ok});
+    }
+    const rectArea = 4*a*b;
+    return { samples: arr, areaEstimate: rectArea * (inside / N) };
+  }
+
+  function monteCarloVolumeRatio(samples, p){
+    let cnt = 0;
+    for(const s of samples) if (apexSide(s.x, s.y, s.z, p)) cnt++;
+    return cnt / samples.length;
+  }
+
+  function circleLeftArea(r, c){
+    if (r <= 1e-15) return 0;
+    if (c <= -r) return 0;
+    if (c >=  r) return Math.PI * r * r;
+    const s = Math.sqrt(Math.max(0, r*r - c*c));
+    const u = clamp(c/r, -1, 1);
+    return c*s + r*r*Math.asin(u) + 0.5*Math.PI*r*r;
+  }
+
+  function volumeRatioBySlices(p, n=1000){
+    if (p <= 1e-12) return 1;
+    if (p >= 1-1e-12) return 0;
+    if (n % 2 === 1) n++;
+    const h = 1 / n;
+    let sum = 0;
+    for(let i=0;i<=n;i++){
+      const z = i*h;
+      const r = 1 - z;
+      const c = z/p - 1;
+      const A = circleLeftArea(r, c);
+      const coeff = (i===0 || i===n) ? 1 : (i%2===0 ? 2 : 4);
+      sum += coeff * A;
+    }
+    return ((h/3) * sum) / (Math.PI/3);
+  }
+
+  function worldToCamera(P){
+    let X = P.x;
+    let Y = P.z - 0.5;
+    let Z = P.y;
+
+    let c = Math.cos(state.yaw), s = Math.sin(state.yaw);
+    let X1 = c*X + s*Z;
+    let Z1 = -s*X + c*Z;
+
+    c = Math.cos(state.pitch); s = Math.sin(state.pitch);
+    let Y2 = c*Y - s*Z1;
+    let Z2 = s*Y + c*Z1;
+
+    return {X:X1, Y:Y2, Z:Z2};
+  }
+
+  function project(P){
+    const C = worldToCamera(P);
+    const dist = 4.2;
+    const f = 420 / (dist - C.Z);
+    return {
+      x: canvas3d.width/2 + C.X * f,
+      y: canvas3d.height/2 - C.Y * f,
+      s: f,
+      z: C.Z
+    };
+  }
+
+  function drawLine3D(points, strokeStyle, lineWidth=1, alpha=1){
+    ctx3d.save();
+    ctx3d.strokeStyle = strokeStyle;
+    ctx3d.lineWidth = lineWidth;
+    ctx3d.globalAlpha = alpha;
+    ctx3d.beginPath();
+    let started = false;
+    for(const P of points){
+      const p = project(P);
+      if (!started){ ctx3d.moveTo(p.x, p.y); started = true; }
+      else ctx3d.lineTo(p.x, p.y);
+    }
+    ctx3d.stroke();
+    ctx3d.restore();
+  }
+
+  function drawAxes(){
+    const axes = [
+      [{x:-1.2,y:0,z:0},{x:1.2,y:0,z:0},"#ef4444"],
+      [{x:0,y:-1.1,z:0},{x:0,y:1.1,z:0},"#22c55e"],
+      [{x:0,y:0,z:-0.05},{x:0,y:0,z:1.15},"#e5e7eb"]
+    ];
+    for (const [A,B,color] of axes) drawLine3D([A,B], color, 1.5, 0.85);
+  }
+
+  function drawConeWireframe(){
+    const levels = [0,0.2,0.4,0.6,0.8];
+    for(const z of levels){
+      const r = 1-z;
+      const pts = [];
+      for(let i=0;i<=70;i++){
+        const t = i/70 * 2*Math.PI;
+        pts.push({x:r*Math.cos(t), y:r*Math.sin(t), z});
+      }
+      drawLine3D(pts, "#335073", z===0 ? 1.6 : 1.0, z===0 ? 0.95 : 0.7);
+    }
+    for(let k=0;k<12;k++){
+      const t = k/12 * 2*Math.PI;
+      drawLine3D([{x:Math.cos(t), y:Math.sin(t), z:0}, {x:0,y:0,z:1}], "#2b415c", 1, 0.6);
+    }
+  }
+
+  function drawPlaneGridAndEllipse(p){
+    const xiMin = -0.05, xiMax = 2.02;
+    const etaMin = -1.02, etaMax = 1.02;
+
+    for(let i=0;i<=10;i++){
+      const xi = xiMin + (xiMax-xiMin)*i/10;
+      const pts = [];
+      for(let j=0;j<=36;j++){
+        const eta = etaMin + (etaMax-etaMin)*j/36;
+        pts.push(planeToWorld(xi, eta, p));
+      }
+      drawLine3D(pts, "#1f7a66", 1, 0.22);
+    }
+    for(let j=0;j<=10;j++){
+      const eta = etaMin + (etaMax-etaMin)*j/10;
+      const pts = [];
+      for(let i=0;i<=60;i++){
+        const xi = xiMin + (xiMax-xiMin)*i/60;
+        pts.push(planeToWorld(xi, eta, p));
+      }
+      drawLine3D(pts, "#1f7a66", 1, 0.22);
+    }
+
+    const {a,b} = exactEllipseParams(p);
+    if (b < 1e-8){
+      drawLine3D([planeToWorld(0,0,p), planeToWorld(2*a,0,p)], "#34d399", 2.3, 1);
+    } else {
+      const epts = [];
+      for(let i=0;i<=140;i++){
+        const t = i/140 * 2*Math.PI;
+        const xi = a + a*Math.cos(t);
+        const eta = b*Math.sin(t);
+        epts.push(planeToWorld(xi, eta, p));
+      }
+      drawLine3D(epts, "#34d399", 2.3, 1);
+    }
+
+    drawLine3D([{x:-1,y:0,z:0}, secondIntersectionPoint(p)], "#93c5fd", 1.2, 0.7);
+  }
+
+  function drawVolumePoints(p){
+    const samples = state.volSamples;
+    const maxDraw = 8000;
+    const step = Math.max(1, Math.ceil(samples.length / maxDraw));
+    for(let i=0;i<samples.length;i+=step){
+      const s = samples[i];
+      const side = apexSide(s.x, s.y, s.z, p);
+      const pr = project(s);
+      if (pr.x < -20 || pr.x > canvas3d.width+20 || pr.y < -20 || pr.y > canvas3d.height+20) continue;
+      const r = Math.max(1.0, Math.min(2.4, pr.s * 0.012));
+      ctx3d.beginPath();
+      ctx3d.arc(pr.x, pr.y, r, 0, 2*Math.PI);
+      ctx3d.fillStyle = side ? "rgba(56,189,248,0.60)" : "rgba(251,146,60,0.55)";
+      ctx3d.fill();
+    }
+  }
+
+  function draw3D(){
+    const W = canvas3d.width, H = canvas3d.height;
+    ctx3d.clearRect(0,0,W,H);
+
+    const g = ctx3d.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,"#020617");
+    g.addColorStop(1,"#08101f");
+    ctx3d.fillStyle = g;
+    ctx3d.fillRect(0,0,W,H);
+
+    ctx3d.save();
+    ctx3d.strokeStyle = "rgba(148,163,184,0.07)";
+    for(let x=0;x<W;x+=40){ ctx3d.beginPath(); ctx3d.moveTo(x,0); ctx3d.lineTo(x,H); ctx3d.stroke(); }
+    for(let y=0;y<H;y+=40){ ctx3d.beginPath(); ctx3d.moveTo(0,y); ctx3d.lineTo(W,y); ctx3d.stroke(); }
+    ctx3d.restore();
+
+    drawAxes();
+    drawConeWireframe();
+    drawPlaneGridAndEllipse(state.p);
+    drawVolumePoints(state.p);
+
+    ctx3d.fillStyle = "#cbd5e1";
+    ctx3d.font = "14px sans-serif";
+    ctx3d.fillText("3D Monte Carlo 샘플 + 절단 평면", 16, 24);
+  }
+
+  function drawPlaneView(){
+    const W = canvas2d.width, H = canvas2d.height;
+    ctx2d.clearRect(0,0,W,H);
+
+    const g = ctx2d.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,"#020617");
+    g.addColorStop(1,"#08101f");
+    ctx2d.fillStyle = g;
+    ctx2d.fillRect(0,0,W,H);
+
+    const p = state.p;
+    const {a,b} = exactEllipseParams(p);
+    const samples = state.planeSamples;
+
+    const pad = 36;
+    const unit = Math.min((W - 2*pad) / 2.25, (H - 2*pad) / 2.25); // x,y 동일 축척
+    const ox = pad + 0.08 * unit; // xi=0 위치
+    const oy = H / 2;             // eta=0 위치
+
+    function sx(xi){ return ox + xi * unit; }
+    function sy(eta){ return oy - eta * unit; }
+
+    // 프레임
+    ctx2d.strokeStyle = "rgba(148,163,184,0.15)";
+    ctx2d.strokeRect(pad, pad, W-2*pad, H-2*pad);
+
+    // 격자 (단위격자)
+    ctx2d.save();
+    ctx2d.strokeStyle = "rgba(148,163,184,0.08)";
+    for(let u=-1; u<=2; u+=0.25){
+      const x = sx(u);
+      ctx2d.beginPath();
+      ctx2d.moveTo(x, pad);
+      ctx2d.lineTo(x, H-pad);
+      ctx2d.stroke();
+    }
+    for(let v=-1; v<=1; v+=0.25){
+      const y = sy(v);
+      ctx2d.beginPath();
+      ctx2d.moveTo(pad, y);
+      ctx2d.lineTo(W-pad, y);
+      ctx2d.stroke();
+    }
+    ctx2d.restore();
+
+    // 축
+    ctx2d.strokeStyle = "rgba(148,163,184,0.24)";
+    ctx2d.beginPath();
+    ctx2d.moveTo(pad, sy(0));
+    ctx2d.lineTo(W-pad, sy(0));
+    ctx2d.stroke();
+    ctx2d.beginPath();
+    ctx2d.moveTo(sx(0), pad);
+    ctx2d.lineTo(sx(0), H-pad);
+    ctx2d.stroke();
+
+    // 샘플링 직사각형
+    if (b > 1e-10){
+      ctx2d.strokeStyle = "rgba(125,211,252,0.42)";
+      ctx2d.lineWidth = 1.5;
+      ctx2d.strokeRect(sx(0), sy(b), 2*a*unit, 2*b*unit);
+    } else {
+      ctx2d.strokeStyle = "rgba(125,211,252,0.42)";
+      ctx2d.lineWidth = 1.5;
+      ctx2d.beginPath();
+      ctx2d.moveTo(sx(0), sy(0));
+      ctx2d.lineTo(sx(2*a), sy(0));
+      ctx2d.stroke();
+    }
+
+    // 샘플 점
+    const maxDraw = 7000;
+    const step = Math.max(1, Math.ceil(samples.length / maxDraw));
+    for(let i=0;i<samples.length;i+=step){
+      const s = samples[i];
+      ctx2d.fillStyle = s.inside ? "rgba(52,211,153,0.65)" : "rgba(248,113,113,0.20)";
+      ctx2d.beginPath();
+      ctx2d.arc(sx(s.xi), sy(s.eta), 2, 0, 2*Math.PI);
+      ctx2d.fill();
+    }
+
+    // 단면
+    ctx2d.strokeStyle = "#34d399";
+    ctx2d.lineWidth = 2.6;
+    if (b < 1e-8){
+      ctx2d.beginPath();
+      ctx2d.moveTo(sx(0), sy(0));
+      ctx2d.lineTo(sx(2*a), sy(0));
+      ctx2d.stroke();
+    } else {
+      ctx2d.beginPath();
+      for(let i=0;i<=220;i++){
+        const t = i/220 * 2*Math.PI;
+        const xi = a + a*Math.cos(t);
+        const eta = b*Math.sin(t);
+        if(i===0) ctx2d.moveTo(sx(xi), sy(eta));
+        else ctx2d.lineTo(sx(xi), sy(eta));
+      }
+      ctx2d.stroke();
+    }
+
+    // 점 표시
+    ctx2d.fillStyle = "#f8fafc";
+    ctx2d.beginPath(); ctx2d.arc(sx(0), sy(0), 4, 0, 2*Math.PI); ctx2d.fill();
+    ctx2d.beginPath(); ctx2d.arc(sx(2*a), sy(0), 4, 0, 2*Math.PI); ctx2d.fill();
+
+    // 라벨
+    ctx2d.fillStyle = "#cbd5e1";
+    ctx2d.font = "14px sans-serif";
+    ctx2d.fillText("평면 내부 좌표계 (ξ, η) / 동일 축척", 16, 24);
+    ctx2d.fillStyle = "#94a3b8";
+    ctx2d.fillText("ξ", W-pad+8, sy(0)+4);
+    ctx2d.fillText("η", sx(0)+6, pad-10);
+    ctx2d.fillText("0", sx(0)+6, sy(0)-6);
+
+    ctx2d.fillStyle = "#93c5fd";
+    ctx2d.fillText("샘플링 영역", sx(0)+8, sy(Math.max(b,0))+ (b>1e-10 ? -8 : -10));
+  }
+
+  function syncPInputs(){
+    pRange.value = state.p.toFixed(4);
+    pNumber.value = state.p.toFixed(6);
+  }
+
+  function recompute(resampleVolume=false, resamplePlane=true){
+    const p = state.p;
+    const volN = clamp(parseInt(volNInput.value || "25000", 10), 1000, 200000);
+    const areaN = clamp(parseInt(areaNInput.value || "15000", 10), 1000, 200000);
+
+    if (resampleVolume || state.volSamples.length === 0){
+      state.volSamples = generateVolumeSamples(volN);
+    }
+    if (resamplePlane || state.planeSamples.length === 0){
+      const res = generatePlaneSamples(areaN, p);
+      state.planeSamples = res.samples;
+      state.metrics.mcArea = res.areaEstimate;
+    }
+
+    state.metrics.mcVolumeRatio = monteCarloVolumeRatio(state.volSamples, p);
+    state.metrics.sliceVolumeRatio = volumeRatioBySlices(p, 1000);
+    state.metrics.exactVolumeRatio = exactVolumeRatio(p);
+    state.metrics.exactArea = exactEllipseArea(p);
+
+    draw3D();
+    drawPlaneView();
+    updateStats();
+  }
+
+  function updateStats(){
+    const p = state.p;
+    const {a,b} = exactEllipseParams(p);
+    const mcRatio = state.metrics.mcVolumeRatio;
+    const sliceRatio = state.metrics.sliceVolumeRatio;
+    const exactRatio = state.metrics.exactVolumeRatio;
+    const mcArea = state.metrics.mcArea;
+    const exactArea = state.metrics.exactArea;
+    const totalVolume = Math.PI / 3;
+    const P2 = secondIntersectionPoint(p);
+    const halfExact = exactHalfP();
+
+    stats.innerHTML = `
+      <h3>해석학적 결과</h3>
+      <div class="mathbox">
+        \\[
+          a:\ z=p(x+1),\\qquad p=${fmt(p,6)}
+        \\]
+        \\[
+          Q=
+          \\left(
+            \\frac{1-p}{1+p},\,0,\,\\frac{2p}{1+p}
+          \\right)
+          \\approx
+          \\left(
+            ${fmt(P2.x,6)},\,0,\,${fmt(P2.z,6)}
+          \\right)
+        \\]
+        \\[
+          \\text{평면 내부 좌표 }(\\xi,\\eta)\\text{ 에서 단면은 }
+          \\frac{(\\xi-${fmt(a,6)})^2}{${fmt(a*a,6)}}+
+          \\frac{\\eta^2}{${fmt(b*b,6)}}=1
+        \\]
+        \\[
+          A_E=\\pi ab \\approx ${fmt(exactArea,6)}
+        \\]
+        \\[
+          \\frac{V_{\\text{apex side}}}{V_C}
+          =
+          \\left(\\frac{1-p}{1+p}\\right)^{3/2}
+          \\approx ${fmt(exactRatio,6)}
+        \\]
+        \\[
+          \\left(\\frac{1-p}{1+p}\\right)^{3/2}=\\frac12
+          \\Longrightarrow
+          p=
+          \\frac{2^{2/3}-1}{2^{2/3}+1}
+          \\approx ${fmt(halfExact,9)}
+        \\]
+      </div>
+
+      <h3>시뮬레이션 / 수치 계산</h3>
+      <div class="simlist">
+        <div>단면 넓이 Monte Carlo</div>
+        <div>${fmt(mcArea,6)} <span class="badge b-green">오차 ${fmtErr(mcArea, exactArea)}</span></div>
+
+        <div>부피비율 Monte Carlo</div>
+        <div>${fmt(mcRatio,6)} <span class="badge b-cyan">오차 ${fmtErr(mcRatio, exactRatio)}</span></div>
+
+        <div>부피비율 Simpson 적분</div>
+        <div>${fmt(sliceRatio,6)} <span class="badge b-green">오차 ${fmtErr(sliceRatio, exactRatio)}</span></div>
+
+        <div>꼭짓점 포함 쪽 부피</div>
+        <div>${fmt(totalVolume * exactRatio, 6)} / 전체 ${fmt(totalVolume,6)}</div>
+
+        <div>현재 탐색 상태</div>
+        <div>${state.search.active ? '<span class="badge b-orange">탐색 중</span>' : '<span class="badge b-green">대기 중</span>'}</div>
+      </div>
+    `;
+    typesetMath(stats);
+  }
+
+  function setPInternal(v, {resamplePlane=true, resampleVolume=false}={}){
+    state.p = clamp(parseFloat(v), 0, 1);
+    syncPInputs();
+    recompute(resampleVolume, resamplePlane);
+  }
+
+  function stopSearch(){
+    if (!state.search.active) return;
+    state.search.active = false;
+    findHalfBtn.textContent = "부피 2등분 \(p\) 찾기";
+    typesetMath(findHalfBtn.parentNode || document.body);
+    updateStats();
+  }
+
+  function startSearch(){
+    if (state.search.active) return;
+    state.search.active = true;
+    state.search.step = 0.04;
+    state.search.prevError = volumeRatioBySlices(state.p, 700) - 0.5;
+    state.search.lastTime = 0;
+    findHalfBtn.textContent = "탐색 중지";
+    updateStats();
+  }
+
+  function searchTick(now){
+    if (!state.search.active) return;
+    if (now - state.search.lastTime < state.search.tickMs) return;
+    state.search.lastTime = now;
+
+    const ratio = volumeRatioBySlices(state.p, 700);
+    const err = ratio - 0.5;
+
+    if (Math.abs(err) < 1e-5 || state.search.step < 1e-6){
+      stopSearch();
+      return;
+    }
+
+    if (state.search.prevError !== null && Math.sign(err) !== Math.sign(state.search.prevError)){
+      state.search.step *= 0.5;
+    }
+
+    const dir = err > 0 ? +1 : -1;
+    const nextP = clamp(state.p + dir * state.search.step, 0, 1);
+
+    if (Math.abs(nextP - state.p) < 1e-9){
+      stopSearch();
+      return;
+    }
+
+    state.search.prevError = err;
+    setPInternal(nextP, {resamplePlane:true, resampleVolume:false});
+  }
+
+  pRange.addEventListener("input", e => {
+    stopSearch();
+    setPInternal(e.target.value, {resamplePlane:true, resampleVolume:false});
+  });
+
+  pNumber.addEventListener("change", e => {
+    stopSearch();
+    setPInternal(e.target.value, {resamplePlane:true, resampleVolume:false});
+  });
+
+  resampleBtn.addEventListener("click", () => {
+    stopSearch();
+    recompute(true, true);
+  });
+
+  findHalfBtn.addEventListener("click", () => {
+    if (state.search.active) stopSearch();
+    else startSearch();
+  });
+
+  spinBtn.addEventListener("click", () => {
+    state.animate = !state.animate;
+  });
+
+  canvas3d.addEventListener("mousedown", e => {
+    state.dragging = true;
+    state.lastX = e.clientX;
+    state.lastY = e.clientY;
+  });
+
+  window.addEventListener("mouseup", () => state.dragging = false);
+  window.addEventListener("mousemove", e => {
+    if (!state.dragging) return;
+    const dx = e.clientX - state.lastX;
+    const dy = e.clientY - state.lastY;
+    state.lastX = e.clientX;
+    state.lastY = e.clientY;
+    state.yaw += dx * 0.008;
+    state.pitch = clamp(state.pitch + dy * 0.006, -1.2, 1.2);
+    draw3D();
+  });
+
+  function animate(now=0){
+    if (state.animate){
+      state.yaw += 0.01;
+      draw3D();
+    }
+    searchTick(now);
+    requestAnimationFrame(animate);
+  }
+
+  syncPInputs();
+  recompute(true, true);
+  animate();
+})();
+</script>
+</body>
+</html>

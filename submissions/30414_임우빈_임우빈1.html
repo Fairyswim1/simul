@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동적 기하 종합 시뮬레이터 (개선판)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .math-font { font-family: 'Times New Roman', Times, serif; font-style: italic; }
+        canvas { touch-action: none; }
+        .tab-active { border-bottom: 2px solid #3b82f6; color: #2563eb; font-weight: 600; }
+        .tab-inactive { color: #64748b; border-bottom: 2px solid transparent; }
+        .tab-inactive:hover { color: #3b82f6; border-bottom: 2px solid #bfdbfe; }
+        input[type=range] { accent-color: #3b82f6; }
+        .bar-transition { transition: width 0.1s linear, background-color 0.2s; }
+        .highlight-pulse { animation: pulse-green 1.5s infinite; }
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col items-center">
+
+    <div class="max-w-6xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        
+        <!-- Header -->
+        <div class="bg-slate-900 text-white p-6">
+            <h1 class="text-2xl font-bold mb-2">동적 기하 종합 시뮬레이터 (Pro)</h1>
+            <p class="text-slate-300 text-sm">극한 줌인, 실시간 변화율 게이지, 글로벌 회전 애니메이션이 적용된 완전판입니다.</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex border-b border-slate-200 px-6 pt-4 gap-6 overflow-x-auto" id="tabs">
+            <button class="pb-3 px-2 tab-active whitespace-nowrap transition-colors" onclick="switchTab(1)">
+                1. 궤적 및 변화율 일치 관찰
+            </button>
+            <button class="pb-3 px-2 tab-inactive whitespace-nowrap transition-colors" onclick="switchTab(2)">
+                2. 면적 증가율 법칙
+            </button>
+            <button class="pb-3 px-2 tab-inactive whitespace-nowrap transition-colors" onclick="switchTab(3)">
+                3. 극한 상황 동적 줌인 & 면적비
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex flex-col lg:flex-row p-6 gap-8">
+            
+            <!-- Controls & Data Panel -->
+            <div class="flex-shrink-0 w-full lg:w-80 flex flex-col gap-6">
+                
+                <!-- Sliders -->
+                <div class="bg-slate-50 p-5 rounded-xl border border-slate-100 shadow-sm">
+                    <h3 class="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        파라미터 제어
+                    </h3>
+                    
+                    <div class="mb-5">
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-slate-700">타원 비율 (<span class="math-font">k</span>)</label>
+                            <span id="k-value" class="text-sm font-bold text-blue-600">0.55</span>
+                        </div>
+                        <input type="range" id="slider-k" min="0.2" max="0.9" step="0.01" value="0.55" class="w-full">
+                    </div>
+
+                    <div id="theta-control-container">
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm font-medium text-slate-700">중심각 (<span class="math-font">θ</span>)</label>
+                            <span id="theta-value" class="text-sm font-bold text-blue-600">45.0°</span>
+                        </div>
+                        <input type="range" id="slider-theta" min="0.01" max="89.99" step="0.01" value="45" class="w-full">
+                        
+                        <!-- Global Animation Controls -->
+                        <div id="anim-controls" class="mt-4">
+                            <button id="btn-play" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex justify-center items-center gap-2 shadow-sm">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                                시계 반대방향 자동 회전
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Data Display -->
+                <div class="bg-blue-50 p-5 rounded-xl border border-blue-100 shadow-sm flex-grow">
+                    <h3 class="font-semibold text-blue-900 mb-4">실시간 분석 데이터</h3>
+                    <div id="data-panel" class="space-y-3 text-sm">
+                        <!-- Content injected via JS -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Canvas Area -->
+            <div class="flex-grow flex justify-center items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden relative shadow-inner min-h-[500px]">
+                <canvas id="simCanvas" width="800" height="600" class="max-w-full h-auto cursor-crosshair"></canvas>
+                <!-- Zoom indicator for Tab 3 -->
+                <div id="zoom-badge" class="absolute top-4 right-4 bg-slate-800 text-white text-xs px-3 py-2 rounded-full opacity-0 transition-opacity flex items-center gap-2 shadow-lg">
+                    <span class="relative flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                    점 C 정밀 추적 확대 중
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const sliderK = document.getElementById('slider-k');
+        const sliderTheta = document.getElementById('slider-theta');
+        const valK = document.getElementById('k-value');
+        const valTheta = document.getElementById('theta-value');
+        const dataPanel = document.getElementById('data-panel');
+        const btnPlay = document.getElementById('btn-play');
+        const zoomBadge = document.getElementById('zoom-badge');
+
+        let currentTab = 1;
+        let isPlaying = false;
+        let animId;
+        
+        // Base coordinate system parameters
+        let cx = 350; 
+        let cy = 350; 
+        let scaleX = 200; 
+        let scaleY = 200; 
+
+        // Global simulation state
+        let state = {
+            k: 0.55,
+            thetaDeg: 45,
+            theta: Math.PI / 4
+        };
+
+        function tx(x) { return cx + x * scaleX; }
+        function ty(y) { return cy - y * scaleY; }
+        
+        function updateStateFromUI() {
+            state.k = parseFloat(sliderK.value);
+            state.thetaDeg = parseFloat(sliderTheta.value);
+            state.theta = state.thetaDeg * (Math.PI / 180);
+            valK.textContent = state.k.toFixed(2);
+            valTheta.textContent = state.thetaDeg.toFixed(2) + '°';
+            render();
+        }
+
+        sliderK.addEventListener('input', updateStateFromUI);
+        sliderTheta.addEventListener('input', () => {
+            if(isPlaying) togglePlay();
+            updateStateFromUI();
+        });
+
+        // Global Play Button Logic
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                btnPlay.innerHTML = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg> 회전 일시정지`;
+                btnPlay.classList.replace('bg-blue-600', 'bg-red-500');
+                btnPlay.classList.replace('hover:bg-blue-700', 'hover:bg-red-600');
+                lastTime = performance.now();
+                animId = requestAnimationFrame(animateTheta);
+            } else {
+                btnPlay.innerHTML = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg> 시계 반대방향 자동 회전`;
+                btnPlay.classList.replace('bg-red-500', 'bg-blue-600');
+                btnPlay.classList.replace('hover:bg-red-600', 'hover:bg-blue-700');
+                cancelAnimationFrame(animId);
+            }
+        }
+
+        let lastTime = 0;
+        function animateTheta(now) {
+            if (!isPlaying) return;
+            let dt = now - lastTime;
+            lastTime = now;
+            
+            let distanceTo90 = 90 - state.thetaDeg;
+            let speedMult = 1;
+            
+            // 90도 주변 감속을 부드럽게 완화 (너무 답답하지 않게 최소 속도 상향)
+            if (distanceTo90 < 10) {
+                // 3번 탭에서는 10%, 그 외 탭에서는 30%의 최소 속도 보장
+                let minSpeed = (currentTab === 3) ? 0.1 : 0.3; 
+                speedMult = Math.max(minSpeed, distanceTo90 / 10);
+            }
+            
+            state.thetaDeg += (25 * speedMult * dt / 1000);
+            if (state.thetaDeg >= 89.999) state.thetaDeg = 0.01; 
+            
+            state.theta = state.thetaDeg * (Math.PI / 180);
+            sliderTheta.value = state.thetaDeg;
+            
+            // 소수점 아래 미세한 움직임을 보여주기 위해 정밀도 상향
+            valTheta.textContent = state.thetaDeg.toFixed(3) + '°';
+            valK.textContent = state.k.toFixed(2);
+            
+            render();
+            animId = requestAnimationFrame(animateTheta);
+        }
+        btnPlay.addEventListener('click', togglePlay);
+
+        // Drawing Primitives
+        function drawAxes() {
+            ctx.beginPath();
+            ctx.strokeStyle = '#cbd5e1'; 
+            ctx.lineWidth = 1;
+            ctx.moveTo(tx(-1.2), ty(0)); ctx.lineTo(tx(3.0/state.k), ty(0));
+            ctx.moveTo(tx(0), ty(-1.2)); ctx.lineTo(tx(0), ty(3.0/state.k));
+            ctx.stroke();
+            ctx.fillStyle = '#64748b';
+            ctx.font = 'italic 14px serif';
+            ctx.fillText('x', tx(2.8/state.k), ty(-0.05));
+            ctx.fillText('y', tx(-0.1), ty(2.8/state.k));
+            ctx.fillText('O', tx(-0.1), ty(-0.05));
+        }
+
+        function drawShape(isEllipse, strokeStyle, fillStyle, dash = []) {
+            ctx.beginPath();
+            if (isEllipse) {
+                ctx.ellipse(tx(0), ty(0), scaleX/state.k, scaleY, 0, 0, 2 * Math.PI);
+            } else {
+                ctx.ellipse(tx(0), ty(0), scaleX, scaleY, 0, 0, 2 * Math.PI);
+            }
+            ctx.strokeStyle = strokeStyle;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash(dash);
+            if (fillStyle) { ctx.fillStyle = fillStyle; ctx.fill(); }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawPoint(x, y, label, color = '#1e293b', align = 'left', offsetY = -10) {
+            let px = tx(x), py = ty(y);
+            ctx.beginPath(); ctx.arc(px, py, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = color; ctx.fill();
+            ctx.font = 'italic 16px serif';
+            let textWidth = ctx.measureText(label).width;
+            let ox = align === 'right' ? -textWidth - 5 : (align === 'center' ? -textWidth/2 : 5);
+            ctx.fillText(label, px + ox, py + offsetY);
+        }
+
+        function drawLine(x1, y1, x2, y2, color = '#64748b', dash = [], width = 1) {
+            ctx.beginPath();
+            ctx.moveTo(tx(x1), ty(y1)); ctx.lineTo(tx(x2), ty(y2));
+            ctx.strokeStyle = color; ctx.setLineDash(dash);
+            ctx.lineWidth = width; ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        function renderTab1() {
+            zoomBadge.classList.add('opacity-0');
+            cx = 250; cy = 400; scaleX = 180; scaleY = 180;
+            
+            drawAxes();
+            drawShape(false, '#94a3b8', null, [5, 5]); 
+            drawShape(true, '#0f172a', null); 
+
+            let k = state.k; let t = state.theta;
+            let pX = Math.cos(t), pY = Math.sin(t);
+            let rX = pX / k, rY = pY;
+            let denom = Math.sqrt(k*k + Math.pow(Math.tan(t), 2));
+            let qX = 1 / denom, qY = Math.tan(t) / denom;
+            let cX = rX, cY = rX * Math.tan(t);
+
+            drawLine(0, 0, cX, cY, '#3b82f6', [], 1.5); 
+            drawLine(pX, pY, rX, rY, '#10b981', [4,4], 1.5); 
+            drawLine(rX, rY, rX, 0, '#64748b', [4,4]); 
+            drawLine(0, 0, rX, rY, '#8b5cf6', [], 1.5); 
+
+            drawPoint(pX, pY, 'P', '#10b981', 'right', 20);
+            drawPoint(qX, qY, 'Q', '#ef4444', 'right', -5);
+            drawPoint(rX, rY, 'R', '#8b5cf6', 'left', -5);
+            drawPoint(cX, cY, 'C', '#3b82f6', 'left', -5);
+
+            // Angle derivatives logic
+            let alpha = Math.atan2(rY, rX);
+            let dAlphaDTheta = (k * (1 + Math.pow(Math.tan(t), 2))) / (1 + Math.pow(k * Math.tan(t), 2));
+            let targetTheta = Math.atan(1 / Math.sqrt(k));
+            
+            // Is it currently matching? (tolerance 0.05 rad)
+            let isMatching = Math.abs(t - targetTheta) < 0.05;
+
+            // Draw visual target line if close
+            if(isMatching) {
+                ctx.beginPath();
+                ctx.moveTo(tx(0), ty(0));
+                ctx.lineTo(tx(Math.cos(targetTheta)*2), ty(Math.sin(targetTheta)*2));
+                ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)';
+                ctx.lineWidth = 10;
+                ctx.stroke();
+            }
+
+            // Gauge calculations
+            let gaugePercent = Math.min(100, (dAlphaDTheta / 2) * 100); 
+
+            dataPanel.innerHTML = `
+                <div class="mb-4">
+                    <div class="flex justify-between border-b border-blue-100 pb-1 mb-2">
+                        <span class="text-slate-600">각도 θ (입력)</span>
+                        <span class="font-mono font-medium">${(t*180/Math.PI).toFixed(2)}°</span>
+                    </div>
+                    <div class="flex justify-between border-b border-blue-100 pb-1">
+                        <span class="text-slate-600">각도 α (타원 위)</span>
+                        <span class="font-mono font-medium text-purple-600">${(alpha*180/Math.PI).toFixed(2)}°</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3 rounded-lg border ${isMatching ? 'border-green-500 ring-2 ring-green-200 highlight-pulse' : 'border-slate-200'}">
+                    <div class="flex justify-between items-end mb-2">
+                        <span class="text-sm font-bold text-slate-800">변화율 비 (<span class="math-font">dα/dθ</span>)</span>
+                        <span class="text-lg font-mono font-bold ${isMatching ? 'text-green-600' : 'text-blue-600'}">
+                            ${dAlphaDTheta.toFixed(3)}
+                        </span>
+                    </div>
+                    
+                    <!-- Progress Bar Gauge -->
+                    <div class="w-full bg-slate-100 rounded-full h-3 mb-1 relative overflow-hidden">
+                        <div class="absolute top-0 bottom-0 left-[50%] w-0.5 bg-slate-400 z-10"></div>
+                        <div class="bg-gradient-to-r from-blue-400 to-blue-600 h-3 rounded-full bar-transition ${isMatching ? '!bg-green-500' : ''}" style="width: ${gaugePercent}%"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+                        <span>0.0</span>
+                        <span class="text-slate-700 font-bold">1.0 (목표)</span>
+                        <span>2.0+</span>
+                    </div>
+                    
+                    ${isMatching 
+                        ? `<div class="mt-2 text-center text-xs font-bold text-green-600 animate-bounce">✓ 문제 조건 성립! 두 변화율이 일치합니다.</div>`
+                        : `<div class="mt-2 text-center text-xs text-slate-500">이론적 일치 각도: ${(targetTheta*180/Math.PI).toFixed(1)}° 근처로 이동해보세요.</div>`
+                    }
+                </div>
+                <div class="mt-3 text-xs text-blue-800 leading-relaxed bg-blue-100/50 p-2 rounded">
+                    <b>[조건 3 시각화]</b> 단순히 궤적만 그리지 않고, $\\theta$에 따른 $\\alpha$의 변화 속도를 미분하여 실시간으로 추적합니다. 변화율이 1.0이 되는 순간이 개구간에 존재함을 명확히 보여줍니다.
+                </div>
+            `;
+        }
+
+        function renderTab2() {
+            zoomBadge.classList.add('opacity-0');
+            cx = 150; cy = 400; scaleX = 160; scaleY = 160;
+            drawAxes();
+            
+            let k = state.k; let t = state.theta;
+            
+            // Circle Sector
+            ctx.beginPath(); ctx.moveTo(tx(0), ty(0));
+            ctx.lineTo(tx(Math.cos(t)), ty(Math.sin(t)));
+            ctx.ellipse(tx(0), ty(0), scaleX, scaleY, 0, -t, 0, false);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.2)'; ctx.fill();
+            ctx.strokeStyle = '#10b981'; ctx.stroke();
+
+            // Ellipse Sector
+            ctx.beginPath(); ctx.moveTo(tx(0), ty(0));
+            ctx.lineTo(tx(Math.cos(t)/k), ty(Math.sin(t)));
+            ctx.ellipse(tx(0), ty(0), scaleX/k, scaleY, 0, -t, 0, false);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(139, 92, 246, 0.3)'; ctx.fill();
+            ctx.strokeStyle = '#8b5cf6'; ctx.stroke();
+
+            drawShape(false, 'rgba(148, 163, 184, 0.5)', null, [4,4]);
+            drawShape(true, '#0f172a', null);
+
+            let pX = Math.cos(t), pY = Math.sin(t);
+            let rX = pX / k, rY = pY;
+            drawPoint(pX, pY, 'P', '#10b981', 'right', -5);
+            drawPoint(rX, rY, 'R', '#8b5cf6', 'left', -5);
+            drawLine(pX, pY, rX, rY, '#64748b', [2,2]);
+
+            let areaCircle = t / 2;
+            let areaEllipse = t / (2 * k);
+
+            dataPanel.innerHTML = `
+                <div class="mb-3 p-3 bg-white border border-slate-200 rounded-lg">
+                    <span class="inline-block w-3 h-3 bg-emerald-200 border border-emerald-500 mr-1"></span>
+                    <span class="text-slate-700 font-medium">단위원 부채꼴 면적</span>
+                    <div class="text-xl font-bold text-emerald-600 font-mono mt-1">${areaCircle.toFixed(4)}</div>
+                    <div class="text-xs text-slate-500 font-mono border-t border-slate-100 mt-1 pt-1">공식: θ / 2</div>
+                </div>
+                <div class="mb-3 p-3 bg-white border border-slate-200 rounded-lg">
+                    <span class="inline-block w-3 h-3 bg-purple-300 border border-purple-600 mr-1"></span>
+                    <span class="text-slate-700 font-medium">타원 부채꼴 면적 (S)</span>
+                    <div class="text-xl font-bold text-purple-600 font-mono mt-1">${areaEllipse.toFixed(4)}</div>
+                    <div class="text-xs text-slate-500 font-mono border-t border-slate-100 mt-1 pt-1">공식: θ / 2k</div>
+                </div>
+                <div class="mt-4 bg-purple-50 p-3 rounded border border-purple-100">
+                    <div class="text-sm font-semibold text-purple-900 mb-1 flex justify-between">
+                        <span>면적 배율 (S / 원)</span>
+                        <span class="font-mono bg-purple-200 px-2 rounded">${(1/k).toFixed(2)} 배</span>
+                    </div>
+                    <div class="text-xs text-purple-700 mt-2">
+                        점 P가 등속 회전하면 원 부채꼴 넓이가 일정하게 증가하므로, 타원 부채꼴 역시 상수 변화율을 가짐을 직관적으로 증명합니다.
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTab3() {
+            let k = state.k; let t = state.theta;
+            
+            // 70도부터 부드럽게 가로 확장 시작 (cos 기준)
+            let normal_cx = 150; 
+            let normal_cy = 450; 
+            let normal_scale = 250; 
+
+            let baseCos = Math.cos(70 * Math.PI / 180);
+            let stretchFactor = Math.max(1, baseCos / Math.max(0.0001, Math.cos(t)));
+            let isStretchMode = stretchFactor > 1.01;
+
+            if (isStretchMode) {
+                zoomBadge.innerHTML = `<span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span></span>f, g 가로 확장 모드 (x${stretchFactor.toFixed(1)})`;
+                zoomBadge.classList.remove('opacity-0');
+            } else {
+                zoomBadge.innerHTML = `<span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-slate-500"></span></span>일반 관찰 모드`;
+                zoomBadge.classList.add('opacity-0');
+            }
+
+            cx = normal_cx; 
+            cy = normal_cy; 
+            scaleX = normal_scale * stretchFactor; 
+            scaleY = normal_scale;
+
+            drawAxes();
+
+            // 눈금 그리기 (확장되는 것을 시각적으로 보여줌)
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.4)';
+            ctx.lineWidth = 1;
+            for(let i=0.1; i<=2.0; i+=0.1) {
+                let px = tx(i);
+                if(px > canvas.width) break; 
+                ctx.moveTo(px, ty(0) - 5); ctx.lineTo(px, ty(0) + 5);
+                ctx.fillStyle = 'rgba(100, 116, 139, 0.8)';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(i.toFixed(1), px - 8, ty(0) + 15);
+            }
+            ctx.stroke();
+
+            drawShape(true, '#94a3b8', null); 
+
+            let denom = Math.sqrt(k*k + Math.pow(Math.tan(t), 2));
+            let qX = 1 / denom, qY = Math.tan(t) / denom;
+            let rX = Math.cos(t) / k, rY = Math.sin(t);
+            let cX = rX, cY = rX * Math.tan(t);
+            let pX = Math.cos(t), pY = Math.sin(t);
+
+            // Shading Area f (Sector OQR)
+            ctx.beginPath();
+            ctx.moveTo(tx(0), ty(0));
+            ctx.ellipse(tx(0), ty(0), scaleX/k, scaleY, 0, -Math.atan2(rY, rX*k), -Math.atan2(qY, qX*k), true);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.4)'; // Red for f
+            ctx.fill();
+            if(isStretchMode) { ctx.strokeStyle = '#ef4444'; ctx.lineWidth=2; ctx.stroke(); }
+
+            // Shading Area g (Triangle - f)
+            // Draw full triangle OCR
+            ctx.beginPath();
+            ctx.moveTo(tx(0), ty(0));
+            ctx.lineTo(tx(cX), ty(cY));
+            ctx.lineTo(tx(rX), ty(rY));
+            ctx.closePath();
+            // We use clipping or just overlay to show g
+            // Fill triangle with blue, f over top already red, but f is inside.
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'; 
+            ctx.fill();
+            if(isStretchMode) { ctx.strokeStyle = '#3b82f6'; ctx.lineWidth=2; ctx.stroke(); }
+
+            // Re-draw f strongly over triangle to show distinction if zoomed
+            if(isStretchMode) {
+                ctx.beginPath();
+                ctx.moveTo(tx(0), ty(0));
+                ctx.ellipse(tx(0), ty(0), scaleX/k, scaleY, 0, -Math.atan2(rY, rX*k), -Math.atan2(qY, qX*k), true);
+                ctx.closePath();
+                // Hatching pattern for f
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.7)';
+                ctx.fill();
+            }
+
+            drawLine(0, 0, cX, cY, '#1e293b', [], 1);
+            drawLine(rX, rY, cX, cY, '#1e293b', [], 1); 
+            drawLine(0, 0, rX, rY, '#1e293b', [4,4], 1); 
+            
+            // 점 P와 선분 OP를 명시적으로 그려 각도의 회전을 시각화
+            drawLine(0, 0, pX, pY, '#10b981', [2,2], 1.5);
+
+            // Text labels adjust based on zoom
+            if(!isStretchMode) {
+                drawPoint(pX, pY, 'P', '#10b981', 'right', -10);
+                drawPoint(qX, qY, 'Q', '#ef4444', 'right', -5);
+                drawPoint(rX, rY, 'R', '#8b5cf6', 'left', -5);
+                drawPoint(cX, cY, 'C', '#3b82f6', 'left', -15);
+                ctx.fillStyle = '#ef4444'; ctx.fillText('f', tx(qX*0.7), ty(qY*0.7));
+                ctx.fillStyle = '#2563eb'; ctx.fillText('g', tx(cX*0.9), ty(cY*0.9));
+            } else {
+                // 가로 확장 시 텍스트 겹침 방지
+                drawPoint(pX, pY, 'P (원)', '#10b981', 'right', 25);
+                drawPoint(qX, qY, 'Q (타원)', '#ef4444', 'right', 25);
+                drawPoint(rX, rY, 'R (타원)', '#8b5cf6', 'left', -25);
+                drawPoint(cX, cY, 'C (교점)', '#3b82f6', 'left', -25);
+                drawPoint(0, 0, 'O', '#64748b', 'left', 15);
+                
+                ctx.fillStyle = '#ef4444'; ctx.fillText('f (OQR 넓이)', tx(qX*0.5), ty(qY*0.5));
+                ctx.fillStyle = '#2563eb'; ctx.fillText('g (삼각형 - f)', tx(cX*0.8), ty(cY*0.8));
+            }
+
+            // 실시간 각도 시각화 (호 그리기)
+            let screenAngle = Math.atan2(pY * scaleY, pX * scaleX);
+            ctx.beginPath();
+            ctx.arc(tx(0), ty(0), 45, 0, -screenAngle, true);
+            ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.fillStyle = '#d97706';
+            ctx.font = 'bold 15px sans-serif';
+            ctx.fillText(`θ = ${state.thetaDeg.toFixed(2)}°`, tx(0) + 55, ty(0) - 25);
+
+            // Mathematical Calculations for Bar Chart
+            let beta = Math.atan(Math.tan(t) / k);
+            let f = (beta - t) / (2 * k);
+            let areaTriOCR = 0.5 * ((1-k)/k * Math.sin(t)) * (Math.cos(t) / k);
+            let g = areaTriOCR - f;
+            let ratio = g / f;
+            let limitVal = (1-k)/k;
+
+            // Chart rendering logic
+            let maxArea = Math.max(f, g);
+            // Protect against NaN/Infinity right at 90
+            if (isNaN(ratio) || !isFinite(ratio)) { ratio = limitVal; f=0; g=0; }
+            let fWidth = maxArea > 0 ? (f / maxArea) * 100 : 0;
+            let gWidth = maxArea > 0 ? (g / maxArea) * 100 : 0;
+            
+            let tab3Desc = isStretchMode 
+                ? `각도가 90도에 다가갈수록 f와 g가 매우 얇아집니다.<br/><b>점 C가 이탈하지 않도록 X축 방향으로 극적으로 확장(Stretch)하여 시각화합니다.</b>`
+                : `각도가 90도에 다가갈수록 도형이 위쪽으로 빠르게 솟구칩니다.<br/><b>점 C가 화면을 벗어나거나 75도를 넘기면 가로 확장 모드가 자동 발동됩니다.</b>`;
+
+            dataPanel.innerHTML = `
+                <div class="mb-4 text-xs text-slate-500 bg-slate-100 p-2 rounded">
+                    ${tab3Desc}
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs font-bold mb-1">
+                            <span class="text-red-600">영역 f 넓이</span>
+                            <span class="font-mono text-slate-500">${f.toExponential(3)}</span>
+                        </div>
+                        <div class="w-full bg-slate-200 h-4 rounded overflow-hidden">
+                            <div class="bg-red-500 h-full bar-transition" style="width: ${fWidth}%"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs font-bold mb-1">
+                            <span class="text-blue-600">영역 g 넓이</span>
+                            <span class="font-mono text-slate-500">${g.toExponential(3)}</span>
+                        </div>
+                        <div class="w-full bg-slate-200 h-4 rounded overflow-hidden">
+                            <div class="bg-blue-500 h-full bar-transition" style="width: ${gWidth}%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 bg-slate-900 p-4 rounded-xl shadow-inner text-white">
+                    <div class="text-xs text-slate-400 mb-1 flex justify-between">
+                        <span>실시간 면적비 (g/f)</span>
+                        <span class="animate-pulse text-emerald-400 font-bold ${isStretchMode?'opacity-100':'opacity-0'}">Limit Tracking...</span>
+                    </div>
+                    <div class="text-3xl font-bold font-mono text-white mb-2">
+                        ${ratio.toFixed(5)}
+                    </div>
+                    <div class="text-xs border-t border-slate-700 pt-2 flex justify-between">
+                        <span class="text-slate-400">수학적 극한값 (1-k)/k:</span>
+                        <span class="font-mono text-emerald-300 font-bold">${limitVal.toFixed(5)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function switchTab(tabNum) {
+            currentTab = tabNum;
+            document.querySelectorAll('#tabs button').forEach((btn, idx) => {
+                if (idx + 1 === tabNum) {
+                    btn.classList.remove('tab-inactive');
+                    btn.classList.add('tab-active');
+                } else {
+                    btn.classList.add('tab-inactive');
+                    btn.classList.remove('tab-active');
+                }
+            });
+            render();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (currentTab === 1) renderTab1();
+            else if (currentTab === 2) renderTab2();
+            else if (currentTab === 3) renderTab3();
+        }
+
+        // Initialize
+        switchTab(1); 
+    </script>
+</body>
+</html>

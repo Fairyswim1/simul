@@ -1,0 +1,1936 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>카드 교환 확률 시뮬레이터</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root{
+      --felt-1:#0d5c45;
+      --felt-2:#0b3f31;
+      --felt-3:#083024;
+      --shadow:0 16px 34px rgba(0,0,0,0.18);
+      --soft-shadow:0 10px 20px rgba(0,0,0,0.08);
+      --blue:#5b8def;
+      --red:#d94d63;
+      --green:#66bb88;
+      --yellow:#e0ab43;
+      --card-black:#1f2937;
+      --card-red:#be3d4d;
+    }
+
+    html, body{
+      margin:0;
+      min-height:100%;
+      font-family:"Pretendard","Noto Sans KR","Segoe UI",sans-serif;
+      color:#1f2937;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 18%),
+        radial-gradient(circle at 80% 10%, rgba(255,255,255,0.06), transparent 18%),
+        radial-gradient(circle at 50% 100%, rgba(255,255,255,0.05), transparent 28%),
+        linear-gradient(145deg, var(--felt-1), var(--felt-2) 60%, var(--felt-3));
+      background-attachment: fixed;
+    }
+
+    .wrap{
+      width:min(1580px, calc(100% - 28px));
+      margin:18px auto 36px;
+    }
+
+    .title{
+      margin:0 0 14px;
+      padding:20px 26px;
+      border-radius:28px;
+      background:linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+      border:1px solid rgba(255,255,255,0.16);
+      box-shadow: var(--shadow);
+      color:#fff7d8;
+      font-size:34px;
+      font-weight:1000;
+      letter-spacing:-0.6px;
+      text-shadow:0 2px 8px rgba(0,0,0,0.28);
+      backdrop-filter: blur(10px);
+    }
+
+    .panel{
+      background:rgba(252,250,245,0.98);
+      border:1px solid rgba(255,255,255,0.7);
+      border-radius:30px;
+      padding:18px;
+      margin-bottom:16px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:12px;
+      flex-wrap:wrap;
+    }
+
+    .panel-head h2{
+      margin:0;
+      font-size:22px;
+      font-weight:1000;
+      color:#24314a;
+      letter-spacing:-0.4px;
+    }
+
+    .section-role{
+      margin:0 0 14px;
+      font-size:13px;
+      line-height:1.6;
+      color:#5f6b80;
+      font-weight:900;
+      background:#fbfdff;
+      border:1px solid #edf2fb;
+      border-radius:14px;
+      padding:10px 12px;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0,1fr));
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .stat{
+      border-radius:24px;
+      padding:16px 18px;
+      color:white;
+      min-height:108px;
+      box-shadow:0 12px 24px rgba(0,0,0,0.14);
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+
+    .stat:nth-child(1){ background:linear-gradient(135deg, #5a36e8, #7f5bff); }
+    .stat:nth-child(2){ background:linear-gradient(135deg, #298f67, #51be8f); }
+    .stat:nth-child(3){ background:linear-gradient(135deg, #4a77df, #699dff); }
+    .stat:nth-child(4){ background:linear-gradient(135deg, #334155, #111827); }
+    .stat:nth-child(5){ background:linear-gradient(135deg, #9d3152, #d14a67); }
+
+    .stat-label{
+      font-size:13px;
+      font-weight:900;
+      opacity:0.96;
+    }
+
+    .stat-value{
+      font-size:36px;
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-1px;
+      word-break:break-all;
+    }
+
+    .stat-sub{
+      font-size:15px;
+      font-weight:900;
+      opacity:0.96;
+      line-height:1.35;
+    }
+
+    .experiment-layout{
+      display:grid;
+      grid-template-columns:minmax(0, 1.62fr) minmax(350px, 0.88fr);
+      gap:14px;
+      align-items:start;
+    }
+
+    .exp-left{
+      display:grid;
+      gap:14px;
+    }
+
+    .pouch-row{
+      display:grid;
+      grid-template-columns:minmax(260px,1fr) 140px minmax(260px,1fr);
+      gap:10px;
+      align-items:stretch;
+    }
+
+    .pouch{
+      position:relative;
+      border-radius:28px 28px 34px 34px;
+      background:
+        radial-gradient(circle at 50% 75%, rgba(214,188,112,0.25), transparent 56%),
+        linear-gradient(180deg, #f7efdc 0%, #efe0b9 56%, #e9d7ab 100%);
+      border:1px solid #ddca95;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.9),
+        inset 0 -12px 22px rgba(162, 124, 55, 0.10),
+        var(--soft-shadow);
+      padding:16px 16px 18px;
+      overflow:hidden;
+      min-height:292px;
+    }
+
+    .pouch::before{
+      content:"";
+      position:absolute;
+      left:22px;
+      right:22px;
+      top:16px;
+      height:24px;
+      border-radius:999px;
+      background:linear-gradient(180deg, #d6c184, #b49538);
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.28);
+    }
+
+    .pouch::after{
+      content:"";
+      position:absolute;
+      left:42px;
+      right:42px;
+      top:38px;
+      height:18px;
+      border-radius:999px;
+      background:#fbf2dd;
+      border:1px solid #dcc89b;
+    }
+
+    .pouch-top{
+      position:relative;
+      z-index:2;
+      margin-top:38px;
+      margin-bottom:14px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+
+    .pouch-top strong{
+      font-size:22px;
+      font-weight:1000;
+      color:#2b3753;
+      letter-spacing:-0.3px;
+    }
+
+    .badge{
+      padding:8px 12px;
+      border-radius:999px;
+      background:#fffaf0;
+      border:1px solid #dbc792;
+      color:#3b465b;
+      font-size:14px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .cards{
+      position:relative;
+      z-index:2;
+      min-height:184px;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:18px;
+      border-radius:28px;
+      background:rgba(255, 251, 241, 0.64);
+      border:1px solid rgba(214, 188, 112, 0.42);
+      box-shadow: inset 0 10px 20px rgba(165, 126, 54, 0.08);
+      padding:12px 8px;
+    }
+
+    .card-tile{
+      width:116px;
+      height:162px;
+      border-radius:22px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,0.78), transparent 32%),
+        linear-gradient(180deg, #ffffff, #fffdf8);
+      border:2px solid #e7dfcf;
+      box-shadow:
+        0 16px 24px rgba(34,34,34,0.12),
+        inset 0 1px 0 rgba(255,255,255,0.9);
+      position:relative;
+      user-select:none;
+      transition:transform 0.24s ease, box-shadow 0.24s ease, opacity 0.24s ease;
+      overflow:hidden;
+    }
+
+    .card-tile.red{ color:var(--card-red); }
+    .card-tile.black{ color:var(--card-black); }
+
+    .card-tile.selected{
+      transform:translateY(-10px) scale(1.04);
+      box-shadow:
+        0 0 0 5px rgba(241, 200, 73, 0.25),
+        0 18px 28px rgba(34,34,34,0.18);
+    }
+
+    .card-tile.hidden-origin{ visibility:hidden; }
+
+    .card-corner{
+      position:absolute;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      line-height:1;
+      font-weight:900;
+    }
+
+    .card-corner.tl{
+      top:10px;
+      left:10px;
+    }
+
+    .card-corner.br{
+      right:10px;
+      bottom:10px;
+      transform:rotate(180deg);
+    }
+
+    .card-corner .num{
+      font-size:18px;
+      letter-spacing:-0.3px;
+      font-family:"Arial Rounded MT Bold","Nunito","Quicksand","Trebuchet MS",sans-serif;
+      font-weight:900;
+    }
+
+    .card-corner .suit{
+      font-size:17px;
+      margin-top:2px;
+    }
+
+    .card-center{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .card-main{
+      font-size:64px;
+      line-height:1;
+      font-weight:900;
+      letter-spacing:-1.6px;
+      font-family:"Arial Rounded MT Bold","Nunito","Quicksand","Trebuchet MS",sans-serif;
+      text-shadow:
+        0 1px 2px rgba(0,0,0,0.08),
+        0 7px 16px rgba(0,0,0,0.08);
+    }
+
+    .card-main.minus{
+      font-size:60px;
+      letter-spacing:-2px;
+    }
+
+    .exchange-stage{
+      border-radius:24px;
+      background:linear-gradient(180deg, #fffefa, #f8fafc);
+      border:1px solid #e7ebf4;
+      min-height:292px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      gap:14px;
+      position:relative;
+      overflow:hidden;
+      box-shadow: inset 0 0 20px rgba(90, 111, 153, 0.04);
+    }
+
+    .exchange-ring{
+      width:104px;
+      height:104px;
+      border-radius:50%;
+      border:2px dashed #c2cfe5;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      background:rgba(255,255,255,0.92);
+      color:#5b45e0;
+      font-size:42px;
+      font-weight:1000;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .exchange-text{
+      text-align:center;
+      font-size:14px;
+      font-weight:900;
+      color:#566176;
+      line-height:1.55;
+      padding:0 10px;
+    }
+
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:stretch;
+    }
+
+    .input-box, .speed-box, .check-box{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid #e5e9f2;
+      background:#fbfcff;
+      min-height:58px;
+    }
+
+    .input-box{
+      flex:0 0 145px;
+    }
+
+    .check-box{
+      flex:0 0 185px;
+      justify-content:flex-start;
+    }
+
+    .speed-box{
+      flex:1 1 360px;
+      min-width:330px;
+    }
+
+    .input-box label,
+    .speed-box label,
+    .check-box label{
+      font-size:14px;
+      font-weight:1000;
+      color:#425168;
+      white-space:nowrap;
+    }
+
+    .input-box input{
+      width:100%;
+      min-width:70px;
+      font-size:16px;
+      font-weight:1000;
+      color:#1f2937;
+      border:1px solid #d9e0ec;
+      border-radius:10px;
+      padding:8px 10px;
+      background:white;
+      outline:none;
+    }
+
+    .speed-control{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      width:100%;
+    }
+
+    .speed-control input[type="number"]{
+      width:64px;
+      min-width:64px;
+      font-size:16px;
+      font-weight:1000;
+      color:#1f2937;
+      border:1px solid #d9e0ec;
+      border-radius:10px;
+      padding:8px 8px;
+      background:white;
+      outline:none;
+      text-align:center;
+    }
+
+    .speed-control input[type="range"]{
+      flex:1;
+      min-width:120px;
+      accent-color:#6d4df2;
+    }
+
+    .speed-label{
+      min-width:46px;
+      text-align:right;
+      font-size:13px;
+      font-weight:1000;
+      color:#5b6475;
+    }
+
+    .check-box input{
+      width:18px;
+      height:18px;
+      accent-color:#5d45e8;
+    }
+
+    .action-btn{
+      flex:0 0 120px;
+      border:none;
+      border-radius:18px;
+      padding:13px 12px;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      transition:transform 0.18s ease, filter 0.18s ease;
+      box-shadow:0 10px 18px rgba(84, 95, 146, 0.12);
+      color:white;
+      min-height:58px;
+    }
+
+    .action-btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.03);
+    }
+
+    .action-btn:disabled{
+      opacity:0.58;
+      cursor:not-allowed;
+      transform:none;
+      filter:none;
+    }
+
+    .btn-start{ background:linear-gradient(135deg, #5f3fe9, #7c5bff); }
+    .btn-pause{ background:linear-gradient(135deg, #de9730, #e9b04f); }
+    .btn-reset{ background:linear-gradient(135deg, #58657d, #77839c); }
+
+    .guide-box{
+      margin-top:2px;
+      border-radius:18px;
+      padding:14px 16px;
+      background:#fbfdff;
+      border:1px solid #e9eef7;
+      font-size:13px;
+      line-height:1.7;
+      color:#536076;
+      font-weight:900;
+    }
+
+    .guide-box .row{
+      margin:2px 0;
+    }
+
+    .guide-box .label{
+      display:inline-block;
+      min-width:95px;
+      color:#25314a;
+    }
+
+    .result-panel{
+      background:#ffffff;
+      border:1px solid #ebeff8;
+      border-radius:24px;
+      padding:14px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .result-panel h3{
+      margin:0;
+      font-size:17px;
+      font-weight:1000;
+      color:#253147;
+    }
+
+    .result-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:10px;
+      flex-wrap:wrap;
+    }
+
+    .sub-caption{
+      font-size:12px;
+      font-weight:900;
+      color:#68758c;
+      margin-top:4px;
+      line-height:1.5;
+    }
+
+    .mini-btn{
+      border:none;
+      border-radius:14px;
+      padding:10px 14px;
+      font-size:13px;
+      font-weight:900;
+      cursor:pointer;
+      background:linear-gradient(135deg, #f4e9c9, #e4cf93);
+      color:#53421a;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .chart-card{
+      border-radius:24px;
+      padding:14px;
+      background:#ffffff;
+      border:1px solid #ebeff8;
+    }
+
+    canvas{
+      width:100%;
+      display:block;
+      border-radius:18px;
+      background:linear-gradient(180deg, #ffffff, #fbfcff);
+      border:1px solid #edf1f8;
+    }
+
+    .result-table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:10px;
+      font-size:13px;
+      text-align:center;
+      overflow:hidden;
+      border-radius:14px;
+    }
+
+    .result-table th,
+    .result-table td{
+      border:1px solid #e5ebf4;
+      padding:8px 6px;
+      font-weight:900;
+    }
+
+    .result-table th{
+      background:#f7fbff;
+      color:#475569;
+    }
+
+    .legend{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 12px;
+      align-items:center;
+      margin-top:10px;
+      padding:0 2px;
+    }
+
+    .legend-item{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:14px;
+      font-weight:1000;
+      color:#475367;
+    }
+
+    .swatch{
+      width:14px;
+      height:14px;
+      border-radius:999px;
+      display:inline-block;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,0.55);
+    }
+
+    .dash{
+      width:22px;
+      height:0;
+      border-top:3px dashed currentColor;
+      display:inline-block;
+    }
+
+    .graph-note{
+      margin-top:10px;
+      font-size:13px;
+      font-weight:900;
+      color:#5d6880;
+      line-height:1.68;
+      background:#fbfdff;
+      border:1px solid #edf2fb;
+      border-radius:14px;
+      padding:10px 12px;
+    }
+
+    .theory-layout{
+      display:grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+      gap:14px;
+      align-items:start;
+    }
+
+    .value-box, .math-box{
+      border-radius:20px;
+      padding:14px 16px;
+      background:#fbfcff;
+      border:1px solid #ebeff8;
+    }
+
+    .value-box h3, .math-box h3{
+      margin:0 0 10px;
+      font-size:16px;
+      font-weight:1000;
+      color:#253147;
+    }
+
+    .kv{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      font-size:15px;
+      font-weight:1000;
+      padding:6px 0;
+      border-bottom:1px dashed #e3e9f6;
+    }
+
+    .kv:last-child{ border-bottom:none; }
+
+    .kv .num{
+      font-family:"Consolas","Cambria Math",monospace;
+      color:#4338ca;
+      font-size:16px;
+    }
+
+    .formula-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+
+    .formula{
+      background:#ffffff;
+      border:1px solid #e9eef8;
+      border-radius:16px;
+      padding:10px 12px;
+      color:#222f45;
+      overflow:hidden;
+    }
+
+    .formula-title{
+      font-size:13px;
+      font-weight:1000;
+      color:#64748b;
+      margin-bottom:5px;
+    }
+
+    .math-line{
+      font-family:"Cambria Math","STIX Two Math","Times New Roman",serif;
+      font-size:24px;
+      line-height:1.35;
+      white-space:normal;
+      word-break:keep-all;
+    }
+
+    .frac{
+      display:inline-flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      vertical-align:middle;
+      line-height:1;
+      margin:0 1px;
+    }
+
+    .frac > span:first-child{
+      padding:0 4px 2px;
+      border-bottom:1.5px solid currentColor;
+      font-size:68%;
+    }
+
+    .frac > span:last-child{
+      padding:2px 4px 0;
+      font-size:68%;
+    }
+
+    .floating-card{
+      position:fixed;
+      z-index:9999;
+      pointer-events:none;
+      transition:
+        left 0.32s cubic-bezier(.23,.9,.2,1),
+        top 0.32s cubic-bezier(.23,.9,.2,1),
+        transform 0.32s cubic-bezier(.23,.9,.2,1),
+        opacity 0.16s ease;
+    }
+
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(5,12,20,0.56);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:20000;
+      padding:24px;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal.show{ display:flex; }
+
+    .modal-card{
+      width:min(920px, 100%);
+      max-height:85vh;
+      overflow:auto;
+      background:#fffdf9;
+      border-radius:24px;
+      border:1px solid #ece4d2;
+      box-shadow:0 24px 50px rgba(0,0,0,0.28);
+      padding:18px;
+    }
+
+    .modal-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:12px;
+    }
+
+    .modal-head h3{
+      margin:0;
+      font-size:20px;
+      font-weight:1000;
+      color:#24314a;
+    }
+
+    .close-btn{
+      border:none;
+      border-radius:12px;
+      background:#f2f5fa;
+      padding:10px 12px;
+      font-size:14px;
+      font-weight:1000;
+      cursor:pointer;
+      color:#3e4c62;
+    }
+
+    .history-table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:14px;
+    }
+
+    .history-table th,
+    .history-table td{
+      border:1px solid #e7ecf3;
+      padding:9px 8px;
+      text-align:center;
+      font-weight:900;
+    }
+
+    .history-table th{
+      background:#f7fbff;
+      color:#425168;
+      position:sticky;
+      top:0;
+    }
+
+    .result-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:42px;
+      padding:5px 10px;
+      border-radius:999px;
+      color:white;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .r--1{ background:var(--red); }
+    .r-0{ background:var(--blue); }
+    .r-1{ background:var(--green); }
+    .r-2{ background:var(--yellow); color:#3d2f12; }
+
+    @media (max-width: 1420px){
+      .stats{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+      .experiment-layout{ grid-template-columns:1fr; }
+    }
+
+    @media (max-width: 920px){
+      .stats{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+      .pouch-row{ grid-template-columns:1fr; }
+      .input-box, .check-box, .action-btn{
+        flex:1 1 150px;
+      }
+      .speed-box{
+        flex:1 1 100%;
+        min-width:0;
+      }
+      .card-tile{ width:102px; height:148px; }
+      .theory-layout{ grid-template-columns:1fr; }
+      .formula-grid{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1 class="title">카드 교환 확률 시뮬레이터</h1>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>n회 시행 반복 실험</h2>
+    </div>
+    <div class="section-role">실제 반복 실험으로 n회 후 A의 합이 -1, 0, 1, 2가 나오는 상대도수를 직접 확인한다.</div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">시행 횟수 n</div>
+        <div class="stat-value" id="statN">12</div>
+        <div class="stat-sub">한 실험에서 카드 교환 횟수이다.</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">반복 실험 N</div>
+        <div class="stat-value" id="statProgress">0 / 80</div>
+        <div class="stat-sub">같은 n회 시행 실험의 누적 진행이다.</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">현재 단계</div>
+        <div class="stat-value" id="statStep">0 / 12</div>
+        <div class="stat-sub">현재 실험 안에서의 교환 진행이다.</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">현재 A 주머니의 합</div>
+        <div class="stat-value" id="statSumA">0</div>
+        <div class="stat-sub">지금 보이는 실험 상태이다.</div>
+      </div>
+
+      <div class="stat">
+        <div class="stat-label">마지막 실험 결과</div>
+        <div class="stat-value" id="statLastResult">-</div>
+        <div class="stat-sub">n회 후 A 주머니의 합이다.</div>
+      </div>
+    </div>
+
+    <div class="experiment-layout">
+      <div class="exp-left">
+        <div class="pouch-row">
+          <div class="pouch">
+            <div class="pouch-top">
+              <strong>A 주머니</strong>
+              <div class="badge">합 = <span id="sumAInline">0</span></div>
+            </div>
+            <div class="cards" id="pocketA"></div>
+          </div>
+
+          <div class="exchange-stage">
+            <div class="exchange-ring">⇄</div>
+            <div class="exchange-text" id="stageLabel">실험 시작 전이다.</div>
+          </div>
+
+          <div class="pouch">
+            <div class="pouch-top">
+              <strong>B 주머니</strong>
+              <div class="badge">합 = <span id="sumBInline">1</span></div>
+            </div>
+            <div class="cards" id="pocketB"></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="input-box">
+            <label>n</label>
+            <input type="number" id="nInput" min="1" value="12" />
+          </div>
+
+          <div class="input-box">
+            <label>N</label>
+            <input type="number" id="repeatInput" min="1" value="80" />
+          </div>
+
+          <div class="check-box">
+            <input type="checkbox" id="resultOnlyCheck" />
+            <label for="resultOnlyCheck">결과만 보기</label>
+          </div>
+
+          <button class="action-btn btn-start" id="startBtn">실험 시작</button>
+          <button class="action-btn btn-pause" id="pauseBtn">정지</button>
+          <button class="action-btn btn-reset" id="resetBtn">초기화</button>
+
+          <div class="speed-box">
+            <label>교환 속도</label>
+            <div class="speed-control">
+              <input type="number" id="speedInput" min="1" max="10" step="1" value="5" />
+              <input type="range" id="speedRange" min="1" max="10" step="1" value="5" />
+              <span class="speed-label" id="speedLabel">5/10</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="guide-box">
+          <div class="row"><span class="label">n:</span> 한 번의 실험에서 카드 교환 횟수이다.</div>
+          <div class="row"><span class="label">N:</span> 같은 n회 시행 실험을 처음 상태에서 다시 시작해 반복하는 횟수이다.</div>
+        </div>
+      </div>
+
+      <div class="result-panel">
+        <div class="result-head">
+          <div>
+            <h3>누적 실험 결과</h3>
+            <div class="sub-caption">실선 막대는 실험 상대도수이고, 점선은 현재 n에 대한 이론값이다.</div>
+          </div>
+          <button class="mini-btn" id="openHistoryBtn">실험 회차별 결과 보기</button>
+        </div>
+
+        <canvas id="liveCanvas" width="620" height="335"></canvas>
+
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>A의 합 k</th>
+              <th>-1</th>
+              <th>0</th>
+              <th>1</th>
+              <th>2</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>횟수</th>
+              <td id="cntM1">0</td>
+              <td id="cnt0">0</td>
+              <td id="cnt1">0</td>
+              <td id="cnt2">0</td>
+            </tr>
+            <tr>
+              <th>상대도수</th>
+              <td id="freqM1">0</td>
+              <td id="freq0">0</td>
+              <td id="freq1">0</td>
+              <td id="freq2">0</td>
+            </tr>
+            <tr>
+              <th>이론값</th>
+              <td id="thM1">0</td>
+              <td id="th0">0</td>
+              <td id="th1">0</td>
+              <td id="th2">0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>이론값 및 일반항</h2>
+    </div>
+
+    <div class="theory-layout">
+      <div class="value-box">
+        <h3>현재 n에서의 이론값</h3>
+        <div class="kv"><span>P<sub>n</sub>(-1)</span><span class="num" id="valM1">0</span></div>
+        <div class="kv"><span>P<sub>n</sub>(0)</span><span class="num" id="val0">0</span></div>
+        <div class="kv"><span>P<sub>n</sub>(1)</span><span class="num" id="val1">0</span></div>
+        <div class="kv"><span>P<sub>n</sub>(2)</span><span class="num" id="val2">0</span></div>
+      </div>
+
+      <div class="math-box">
+        <h3>일반항</h3>
+        <div class="formula-grid">
+          <div class="formula">
+            <div class="formula-title">k = -1</div>
+            <div class="math-line">
+              P<sub>n</sub>(-1) =
+              <span class="frac"><span>1</span><span>6</span></span>
+              +
+              <span class="frac"><span>1</span><span>12</span></span>
+              (−<span class="frac"><span>1</span><span>2</span></span>)<sup>n−1</sup>
+            </div>
+          </div>
+
+          <div class="formula">
+            <div class="formula-title">k = 0</div>
+            <div class="math-line">
+              P<sub>n</sub>(0) =
+              <span class="frac"><span>1</span><span>3</span></span>
+              −
+              <span class="frac"><span>1</span><span>12</span></span>
+              (−<span class="frac"><span>1</span><span>2</span></span>)<sup>n−1</sup>
+            </div>
+          </div>
+
+          <div class="formula">
+            <div class="formula-title">k = 1</div>
+            <div class="math-line">
+              P<sub>n</sub>(1) =
+              <span class="frac"><span>1</span><span>3</span></span>
+              −
+              <span class="frac"><span>1</span><span>12</span></span>
+              (−<span class="frac"><span>1</span><span>2</span></span>)<sup>n−1</sup>
+            </div>
+          </div>
+
+          <div class="formula">
+            <div class="formula-title">k = 2</div>
+            <div class="math-line">
+              P<sub>n</sub>(2) =
+              <span class="frac"><span>1</span><span>6</span></span>
+              +
+              <span class="frac"><span>1</span><span>12</span></span>
+              (−<span class="frac"><span>1</span><span>2</span></span>)<sup>n−1</sup>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>실험 상대도수 수렴 그래프</h2>
+    </div>
+    <div class="section-role">반복 횟수 N이 커질수록 실제 상대도수가 이론값에 가까워지는 과정을 확인한다.</div>
+
+    <div class="chart-card">
+      <canvas id="convCanvas" width="1320" height="460"></canvas>
+      <div class="legend" id="convLegend"></div>
+      <div class="graph-note">
+        각 실험이 끝날 때마다 상대도수를 누적해 그린 그래프이다.
+        검은 점선은 현재 n의 이론값이고, 색 실선은 실제 상대도수이다.
+        반복 실험 횟수 N이 많아질수록 색 실선이 검은 점선 근처로 모이면, 실험 결과가 이론과 잘 맞는다는 뜻이다.
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="historyModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3>실험 회차별 결과</h3>
+      <button class="close-btn" id="closeHistoryBtn">닫기</button>
+    </div>
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>실험 회차</th>
+          <th>n회 후 A의 합</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const COLORS = {
+    "-1":"#d45b6d",
+    "0":"#5ea0db",
+    "1":"#6fbe91",
+    "2":"#e0ab43"
+  };
+
+  const OFFSETS = {
+    "-1": -1.0,
+    "0": -0.35,
+    "1": 0.35,
+    "2": 1.0
+  };
+
+  const STATES = [-1, 0, 1, 2];
+
+  const BASE_CARDS = {
+    p1: { id:"p1", value:1, suit:"♠", color:"black" },
+    n1: { id:"n1", value:-1, suit:"♥", color:"red" },
+    z0: { id:"z0", value:0, suit:"♣", color:"black" },
+    p1r:{ id:"p1r", value:1, suit:"♦", color:"red" }
+  };
+
+  let A = [];
+  let B = [];
+
+  let currentN = 12;
+  let targetRepeat = 80;
+  let currentExperimentIndex = 0;
+  let currentStep = 0;
+  let running = false;
+  let paused = false;
+  let selectedAId = null;
+  let selectedBId = null;
+
+  let counts = {"-1":0, "0":0, "1":0, "2":0};
+  let experimentResults = [];
+  let convergence = [];
+
+  const pocketA = document.getElementById("pocketA");
+  const pocketB = document.getElementById("pocketB");
+  const sumAInline = document.getElementById("sumAInline");
+  const sumBInline = document.getElementById("sumBInline");
+  const stageLabel = document.getElementById("stageLabel");
+
+  const statN = document.getElementById("statN");
+  const statProgress = document.getElementById("statProgress");
+  const statStep = document.getElementById("statStep");
+  const statSumA = document.getElementById("statSumA");
+  const statLastResult = document.getElementById("statLastResult");
+
+  const nInput = document.getElementById("nInput");
+  const repeatInput = document.getElementById("repeatInput");
+  const resultOnlyCheck = document.getElementById("resultOnlyCheck");
+  const startBtn = document.getElementById("startBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const speedInput = document.getElementById("speedInput");
+  const speedRange = document.getElementById("speedRange");
+  const speedLabel = document.getElementById("speedLabel");
+
+  const liveCanvas = document.getElementById("liveCanvas");
+  const liveCtx = liveCanvas.getContext("2d");
+
+  const convCanvas = document.getElementById("convCanvas");
+  const convCtx = convCanvas.getContext("2d");
+
+  const cntM1 = document.getElementById("cntM1");
+  const cnt0 = document.getElementById("cnt0");
+  const cnt1 = document.getElementById("cnt1");
+  const cnt2 = document.getElementById("cnt2");
+
+  const freqM1 = document.getElementById("freqM1");
+  const freq0 = document.getElementById("freq0");
+  const freq1 = document.getElementById("freq1");
+  const freq2 = document.getElementById("freq2");
+
+  const thM1 = document.getElementById("thM1");
+  const th0 = document.getElementById("th0");
+  const th1 = document.getElementById("th1");
+  const th2 = document.getElementById("th2");
+
+  const valM1 = document.getElementById("valM1");
+  const val0 = document.getElementById("val0");
+  const val1 = document.getElementById("val1");
+  const val2 = document.getElementById("val2");
+
+  const convLegend = document.getElementById("convLegend");
+
+  const historyModal = document.getElementById("historyModal");
+  const openHistoryBtn = document.getElementById("openHistoryBtn");
+  const closeHistoryBtn = document.getElementById("closeHistoryBtn");
+  const historyBody = document.getElementById("historyBody");
+
+  function cloneCard(card){
+    return { ...card };
+  }
+
+  function sleep(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function dec(x){
+    return x.toFixed(5).replace(/0+$/, "").replace(/\.$/, "");
+  }
+
+  function sum(arr){
+    return arr.reduce((acc, cur) => acc + cur.value, 0);
+  }
+
+  function getN(){
+    let n = Number(nInput.value);
+    if(!Number.isFinite(n) || n < 1) n = 1;
+    return Math.floor(Math.min(n, 1000000));
+  }
+
+  function getRepeat(){
+    let r = Number(repeatInput.value);
+    if(!Number.isFinite(r) || r < 1) r = 1;
+    return Math.floor(Math.min(r, 100000));
+  }
+
+  function setSpeed(value){
+    let s = Number(value);
+    if(!Number.isFinite(s) || s < 1) s = 1;
+    if(s > 10) s = 10;
+    s = Math.round(s);
+
+    speedInput.value = s;
+    speedRange.value = s;
+    speedLabel.textContent = `${s}/10`;
+
+    return s;
+  }
+
+  function getSpeed(){
+    return setSpeed(speedInput.value);
+  }
+
+  function displayNum(n){
+    return Number(n).toLocaleString("ko-KR");
+  }
+
+  function getAnimationDuration(){
+    const s = getSpeed();
+    return Math.round(1260 - (s - 1) * 105);
+  }
+
+  function getProcessPaceDelay(){
+    const s = getSpeed();
+    return Math.max(0, 140 - (s - 1) * 15);
+  }
+
+  function initialPocketState(){
+    return {
+      A: [cloneCard(BASE_CARDS.p1), cloneCard(BASE_CARDS.n1)],
+      B: [cloneCard(BASE_CARDS.z0), cloneCard(BASE_CARDS.p1r)]
+    };
+  }
+
+  function representativeState(k){
+    if(k === -1){
+      return {
+        A: [cloneCard(BASE_CARDS.n1), cloneCard(BASE_CARDS.z0)],
+        B: [cloneCard(BASE_CARDS.p1), cloneCard(BASE_CARDS.p1r)]
+      };
+    }
+    if(k === 0){
+      return {
+        A: [cloneCard(BASE_CARDS.p1), cloneCard(BASE_CARDS.n1)],
+        B: [cloneCard(BASE_CARDS.z0), cloneCard(BASE_CARDS.p1r)]
+      };
+    }
+    if(k === 1){
+      return {
+        A: [cloneCard(BASE_CARDS.z0), cloneCard(BASE_CARDS.p1)],
+        B: [cloneCard(BASE_CARDS.n1), cloneCard(BASE_CARDS.p1r)]
+      };
+    }
+    return {
+      A: [cloneCard(BASE_CARDS.p1), cloneCard(BASE_CARDS.p1r)],
+      B: [cloneCard(BASE_CARDS.n1), cloneCard(BASE_CARDS.z0)]
+    };
+  }
+
+  function setPocketState(state){
+    A = state.A.map(cloneCard);
+    B = state.B.map(cloneCard);
+    selectedAId = null;
+    selectedBId = null;
+    renderPockets();
+  }
+
+  function resetPockets(){
+    setPocketState(initialPocketState());
+  }
+
+  function createCardElement(card){
+    const div = document.createElement("div");
+    div.className = `card-tile ${card.color}`;
+    div.dataset.id = card.id;
+    div.innerHTML = `
+      <div class="card-corner tl">
+        <span class="num">${card.value}</span>
+        <span class="suit">${card.suit}</span>
+      </div>
+      <div class="card-center">
+        <div class="card-main ${card.value < 0 ? "minus" : ""}">${card.value}</div>
+      </div>
+      <div class="card-corner br">
+        <span class="num">${card.value}</span>
+        <span class="suit">${card.suit}</span>
+      </div>
+    `;
+    if(card.id === selectedAId || card.id === selectedBId){
+      div.classList.add("selected");
+    }
+    return div;
+  }
+
+  function renderCards(target, arr){
+    target.innerHTML = "";
+    arr.forEach(card => target.appendChild(createCardElement(card)));
+  }
+
+  function renderPockets(){
+    renderCards(pocketA, A);
+    renderCards(pocketB, B);
+
+    const sA = sum(A);
+    const sB = sum(B);
+
+    sumAInline.textContent = sA;
+    sumBInline.textContent = sB;
+    statSumA.textContent = sA;
+  }
+
+  function updateTopStats(){
+    currentN = getN();
+    targetRepeat = getRepeat();
+    statN.textContent = displayNum(currentN);
+    statProgress.textContent = `${displayNum(currentExperimentIndex)} / ${displayNum(targetRepeat)}`;
+    statStep.textContent = `${displayNum(currentStep)} / ${displayNum(currentN)}`;
+  }
+
+  function updateSummaryTable(){
+    cntM1.textContent = counts["-1"];
+    cnt0.textContent = counts["0"];
+    cnt1.textContent = counts["1"];
+    cnt2.textContent = counts["2"];
+
+    const div = Math.max(1, currentExperimentIndex);
+    freqM1.textContent = currentExperimentIndex ? dec(counts["-1"] / div) : "0";
+    freq0.textContent = currentExperimentIndex ? dec(counts["0"] / div) : "0";
+    freq1.textContent = currentExperimentIndex ? dec(counts["1"] / div) : "0";
+    freq2.textContent = currentExperimentIndex ? dec(counts["2"] / div) : "0";
+
+    const th = computeDist(currentN);
+    thM1.textContent = dec(th[0]);
+    th0.textContent = dec(th[1]);
+    th1.textContent = dec(th[2]);
+    th2.textContent = dec(th[3]);
+
+    valM1.textContent = dec(th[0]);
+    val0.textContent = dec(th[1]);
+    val1.textContent = dec(th[2]);
+    val2.textContent = dec(th[3]);
+  }
+
+  function resetExperimentData(){
+    currentExperimentIndex = 0;
+    currentStep = 0;
+    counts = {"-1":0, "0":0, "1":0, "2":0};
+    experimentResults = [];
+    convergence = [];
+    statLastResult.textContent = "-";
+    stageLabel.innerHTML = "실험 시작 전이다.";
+    updateTopStats();
+    updateSummaryTable();
+    drawLiveChart();
+    drawConvergenceChart();
+    renderHistoryTable();
+  }
+
+  function computeDist(n){
+    if(n === 0) return [0,1,0,0];
+    const pow = Math.pow(-0.5, n - 1);
+    const edge = 1/6 + (1/12) * pow;
+    const mid = 1/3 - (1/12) * pow;
+    return [edge, mid, mid, edge];
+  }
+
+  function sampleStateByTheory(n){
+    const dist = computeDist(n);
+    const r = Math.random();
+    let acc = 0;
+    for(let i = 0; i < STATES.length; i++){
+      acc += dist[i];
+      if(r <= acc) return STATES[i];
+    }
+    return 2;
+  }
+
+  function chooseStep(maxN){
+    if(maxN <= 10) return 1;
+    if(maxN <= 20) return 2;
+    if(maxN <= 50) return 5;
+    if(maxN <= 100) return 10;
+    if(maxN <= 200) return 20;
+    if(maxN <= 500) return 50;
+    if(maxN <= 1000) return 100;
+    return Math.pow(10, Math.floor(Math.log10(maxN)) - 1);
+  }
+
+  function shortNum(n){
+    if(n >= 1000000000) return (n / 1000000000).toFixed(1).replace(".0","") + "B";
+    if(n >= 1000000) return (n / 1000000).toFixed(1).replace(".0","") + "M";
+    if(n >= 1000) return (n / 1000).toFixed(1).replace(".0","") + "K";
+    return String(n);
+  }
+
+  function drawGrid(ctx, W, H, margin, chartW, chartH, maxX, xLabel){
+    ctx.strokeStyle = "#e7ecf5";
+    ctx.lineWidth = 1;
+
+    for(let i = 0; i <= 5; i++){
+      const y = margin.top + chartH * i / 5;
+      ctx.beginPath();
+      ctx.moveTo(margin.left, y);
+      ctx.lineTo(W - margin.right, y);
+      ctx.stroke();
+
+      ctx.fillStyle = "#91a0b7";
+      ctx.font = "12px Segoe UI";
+      ctx.fillText((1 - i / 5).toFixed(1), 18, y + 4);
+    }
+
+    const tickStep = chooseStep(maxX);
+    for(let xVal = 0; xVal <= maxX; xVal += tickStep){
+      const x = margin.left + chartW * xVal / maxX;
+      ctx.beginPath();
+      ctx.moveTo(x, margin.top);
+      ctx.lineTo(x, margin.top + chartH);
+      ctx.strokeStyle = "#f1f4fa";
+      ctx.stroke();
+
+      ctx.fillStyle = "#7a879a";
+      ctx.font = "12px Segoe UI";
+      ctx.fillText(shortNum(xVal), x - 8, H - 18);
+    }
+
+    ctx.strokeStyle = "#c8d1e0";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top);
+    ctx.lineTo(margin.left, margin.top + chartH);
+    ctx.lineTo(W - margin.right, margin.top + chartH);
+    ctx.stroke();
+
+    ctx.fillStyle = "#516078";
+    ctx.font = "bold 13px Segoe UI";
+    ctx.fillText("확률", 16, 16);
+    ctx.fillText(xLabel, W - 106, H - 14);
+  }
+
+  function drawOutlinedLine(ctx, points, color, width, outlineWidth){
+    if(points.length < 2) return;
+
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = outlineWidth;
+    ctx.beginPath();
+    points.forEach((pt, i) => {
+      if(i === 0) ctx.moveTo(pt.x, pt.y);
+      else ctx.lineTo(pt.x, pt.y);
+    });
+    ctx.stroke();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    points.forEach((pt, i) => {
+      if(i === 0) ctx.moveTo(pt.x, pt.y);
+      else ctx.lineTo(pt.x, pt.y);
+    });
+    ctx.stroke();
+  }
+
+  function drawLiveChart(){
+    const ctx = liveCtx;
+    const canvas = liveCanvas;
+    const W = canvas.width;
+    const H = canvas.height;
+    const margin = {left:42, right:18, top:24, bottom:42};
+    const chartW = W - margin.left - margin.right;
+    const chartH = H - margin.top - margin.bottom;
+    const theory = computeDist(currentN);
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.strokeStyle = "#e8edf7";
+    for(let i = 0; i <= 5; i++){
+      const y = margin.top + chartH * i / 5;
+      ctx.beginPath();
+      ctx.moveTo(margin.left, y);
+      ctx.lineTo(W - margin.right, y);
+      ctx.stroke();
+
+      ctx.fillStyle = "#91a0b7";
+      ctx.font = "12px Segoe UI";
+      ctx.fillText((1 - i/5).toFixed(1), 8, y + 4);
+    }
+
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(margin.left, margin.top);
+    ctx.lineTo(margin.left, margin.top + chartH);
+    ctx.lineTo(W - margin.right, margin.top + chartH);
+    ctx.stroke();
+
+    const groupW = chartW / 4;
+
+    STATES.forEach((state, idx) => {
+      const x = margin.left + groupW * idx + groupW / 2;
+      const freq = currentExperimentIndex ? counts[String(state)] / currentExperimentIndex : 0;
+      const barW = Math.min(54, groupW * 0.34);
+      const barH = chartH * freq;
+
+      ctx.fillStyle = COLORS[String(state)];
+      ctx.globalAlpha = 0.94;
+      ctx.fillRect(x - barW/2, margin.top + chartH - barH, barW, barH);
+      ctx.globalAlpha = 1;
+
+      const yTheory = margin.top + chartH * (1 - theory[idx]);
+      ctx.strokeStyle = COLORS[String(state)];
+      ctx.lineWidth = 3;
+      ctx.setLineDash([7,5]);
+      ctx.beginPath();
+      ctx.moveTo(x - groupW * 0.26, yTheory);
+      ctx.lineTo(x + groupW * 0.26, yTheory);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "#475569";
+      ctx.font = "bold 14px Segoe UI";
+      ctx.textAlign = "center";
+      ctx.fillText(`k=${state}`, x, H - 12);
+
+      ctx.fillStyle = "#334155";
+      ctx.font = "bold 12px Consolas";
+      ctx.fillText(currentExperimentIndex ? dec(freq) : "0", x, margin.top + chartH - barH - 8);
+    });
+
+    ctx.textAlign = "start";
+  }
+
+  function drawConvergenceChart(){
+    const ctx = convCtx;
+    const canvas = convCanvas;
+    const W = canvas.width;
+    const H = canvas.height;
+    const margin = {left:58, right:30, top:28, bottom:50};
+    const chartW = W - margin.left - margin.right;
+    const chartH = H - margin.top - margin.bottom;
+    const maxX = Math.max(targetRepeat, 1);
+    const th = computeDist(currentN);
+
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0,0,W,H);
+
+    drawGrid(ctx, W, H, margin, chartW, chartH, maxX, "반복 실험 횟수");
+
+    STATES.forEach((state, idx) => {
+      const y = margin.top + chartH * (1 - th[idx]) + OFFSETS[String(state)];
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 2.2;
+      ctx.setLineDash([7,6]);
+      ctx.beginPath();
+      ctx.moveTo(margin.left, y);
+      ctx.lineTo(W - margin.right, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+
+    STATES.forEach(state => {
+      const points = convergence.map(item => ({
+        x: margin.left + chartW * item.repeat / maxX,
+        y: margin.top + chartH * (1 - item.freq[String(state)]) + OFFSETS[String(state)]
+      }));
+
+      drawOutlinedLine(ctx, points, COLORS[String(state)], 2.4, 4.8);
+
+      const gap = points.length > 500 ? 12 : (points.length > 250 ? 6 : 1);
+      points.forEach((pt, idx) => {
+        if(idx % gap !== 0 && idx !== points.length - 1) return;
+        ctx.fillStyle = COLORS[String(state)];
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, idx === points.length - 1 ? 4.8 : 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        if(idx === points.length - 1){
+          ctx.strokeStyle = "#1f2937";
+          ctx.lineWidth = 1.1;
+          ctx.stroke();
+        }
+      });
+    });
+  }
+
+  function renderHistoryTable(){
+    historyBody.innerHTML = "";
+    experimentResults.forEach(item => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${displayNum(item.index)}</td>
+        <td><span class="result-pill r-${item.result}">${item.result}</span></td>
+      `;
+      historyBody.appendChild(tr);
+    });
+  }
+
+  function openHistory(){
+    renderHistoryTable();
+    historyModal.classList.add("show");
+  }
+
+  function closeHistory(){
+    historyModal.classList.remove("show");
+  }
+
+  function makeLegend(el, withDashed){
+    el.innerHTML = "";
+    STATES.forEach(s => {
+      const item = document.createElement("div");
+      item.className = "legend-item";
+      item.innerHTML = `<span class="swatch" style="background:${COLORS[String(s)]}"></span> k=${s}`;
+      el.appendChild(item);
+    });
+    if(withDashed){
+      const item = document.createElement("div");
+      item.className = "legend-item";
+      item.style.color = "#111827";
+      item.innerHTML = `<span class="dash"></span> 이론값`;
+      el.appendChild(item);
+    }
+  }
+
+  function rawSwap(ai, bi){
+    const temp = A[ai];
+    A[ai] = B[bi];
+    B[bi] = temp;
+  }
+
+  async function animateSwap(ai, bi){
+    const duration = getAnimationDuration();
+
+    if(duration <= 250){
+      rawSwap(ai, bi);
+      renderPockets();
+      return;
+    }
+
+    selectedAId = A[ai].id;
+    selectedBId = B[bi].id;
+    renderPockets();
+
+    const realA = pocketA.querySelector(`[data-id="${A[ai].id}"]`);
+    const realB = pocketB.querySelector(`[data-id="${B[bi].id}"]`);
+    if(!realA || !realB){
+      rawSwap(ai, bi);
+      selectedAId = null;
+      selectedBId = null;
+      renderPockets();
+      return;
+    }
+
+    const rectA = realA.getBoundingClientRect();
+    const rectB = realB.getBoundingClientRect();
+
+    const cloneA = realA.cloneNode(true);
+    const cloneB = realB.cloneNode(true);
+    cloneA.classList.add("floating-card");
+    cloneB.classList.add("floating-card");
+
+    const moveTime = Math.max(130, Math.round(duration * 0.35));
+    cloneA.style.transition = `left ${moveTime}ms cubic-bezier(.23,.9,.2,1), top ${moveTime}ms cubic-bezier(.23,.9,.2,1), transform ${moveTime}ms cubic-bezier(.23,.9,.2,1), opacity 160ms ease`;
+    cloneB.style.transition = cloneA.style.transition;
+
+    document.body.appendChild(cloneA);
+    document.body.appendChild(cloneB);
+
+    setFloating(cloneA, rectA);
+    setFloating(cloneB, rectB);
+
+    realA.classList.add("hidden-origin");
+    realB.classList.add("hidden-origin");
+
+    requestAnimationFrame(() => {
+      cloneA.style.left = rectA.left + 130 + "px";
+      cloneA.style.top = rectA.top + 12 + "px";
+      cloneA.style.transform = "translateY(-6px) scale(1.02) rotate(-6deg)";
+
+      cloneB.style.left = rectB.left - 130 + "px";
+      cloneB.style.top = rectB.top + 12 + "px";
+      cloneB.style.transform = "translateY(-6px) scale(1.02) rotate(6deg)";
+    });
+
+    await sleep(moveTime + 20);
+
+    cloneA.style.left = rectB.left + "px";
+    cloneA.style.top = rectB.top + "px";
+    cloneA.style.transform = "scale(1.01) rotate(0deg)";
+
+    cloneB.style.left = rectA.left + "px";
+    cloneB.style.top = rectA.top + "px";
+    cloneB.style.transform = "scale(1.01) rotate(0deg)";
+
+    await sleep(moveTime + 40);
+
+    cloneA.style.opacity = "0";
+    cloneB.style.opacity = "0";
+    await sleep(150);
+
+    cloneA.remove();
+    cloneB.remove();
+
+    rawSwap(ai, bi);
+    selectedAId = null;
+    selectedBId = null;
+    renderPockets();
+  }
+
+  function setFloating(el, rect){
+    el.style.left = rect.left + "px";
+    el.style.top = rect.top + "px";
+    el.style.width = rect.width + "px";
+    el.style.height = rect.height + "px";
+  }
+
+  async function runOneExperimentVisual(n){
+    resetPockets();
+    currentStep = 0;
+    updateTopStats();
+    renderPockets();
+
+    for(let step = 1; step <= n; step++){
+      if(paused || !running) return null;
+
+      currentStep = step;
+      updateTopStats();
+
+      if(resultOnlyCheck.checked){
+        stageLabel.innerHTML = `${displayNum(currentExperimentIndex + 1)}번째 실험<br>남은 단계를 빠르게 처리하는 중이다.`;
+        for(let rest = step; rest <= n; rest++){
+          const ai = Math.floor(Math.random() * 2);
+          const bi = Math.floor(Math.random() * 2);
+          rawSwap(ai, bi);
+          currentStep = rest;
+        }
+        updateTopStats();
+        renderPockets();
+        return sum(A);
+      }
+
+      stageLabel.innerHTML = `${displayNum(currentExperimentIndex + 1)}번째 실험<br>${displayNum(step)} / ${displayNum(n)}번째 교환이다.`;
+
+      const ai = Math.floor(Math.random() * 2);
+      const bi = Math.floor(Math.random() * 2);
+      await animateSwap(ai, bi);
+
+      const pace = getProcessPaceDelay();
+      if(pace > 0) await sleep(pace);
+    }
+
+    return sum(A);
+  }
+
+  async function runOneExperimentQuick(n){
+    currentStep = n;
+    updateTopStats();
+    stageLabel.innerHTML = `${displayNum(currentExperimentIndex + 1)}번째 실험<br>결과만 집계 중이다.`;
+
+    const result = sampleStateByTheory(n);
+    setPocketState(representativeState(result));
+    renderPockets();
+
+    const fastDelay = Math.max(0, 80 - getSpeed() * 6);
+    if(fastDelay > 0) await sleep(fastDelay);
+
+    return result;
+  }
+
+  function recordResult(result){
+    currentExperimentIndex += 1;
+    counts[String(result)] += 1;
+    experimentResults.push({ index: currentExperimentIndex, result });
+
+    const freq = {};
+    STATES.forEach(k => {
+      freq[String(k)] = counts[String(k)] / currentExperimentIndex;
+    });
+    convergence.push({
+      repeat: currentExperimentIndex,
+      freq
+    });
+
+    statLastResult.textContent = result;
+    updateTopStats();
+    updateSummaryTable();
+    drawLiveChart();
+    drawConvergenceChart();
+  }
+
+  async function startExperiments(){
+    if(running) return;
+
+    currentN = getN();
+    targetRepeat = getRepeat();
+    paused = false;
+    running = true;
+
+    startBtn.disabled = true;
+    nInput.disabled = true;
+    repeatInput.disabled = true;
+
+    resetExperimentData();
+
+    for(let i = 0; i < targetRepeat; i++){
+      if(paused || !running) break;
+
+      const useQuick = resultOnlyCheck.checked;
+      let result;
+
+      if(useQuick){
+        result = await runOneExperimentQuick(currentN);
+      } else {
+        result = await runOneExperimentVisual(currentN);
+      }
+
+      if(result === null) break;
+      recordResult(result);
+    }
+
+    running = false;
+    startBtn.disabled = false;
+    nInput.disabled = false;
+    repeatInput.disabled = false;
+
+    if(paused){
+      stageLabel.innerHTML = "실험 정지 상태이다.";
+    } else {
+      stageLabel.innerHTML = "반복 실험 완료 상태이다.";
+      currentStep = currentN;
+      updateTopStats();
+    }
+  }
+
+  function resetAll(){
+    paused = true;
+    running = false;
+    nInput.disabled = false;
+    repeatInput.disabled = false;
+    startBtn.disabled = false;
+
+    currentN = getN();
+    targetRepeat = getRepeat();
+
+    resetPockets();
+    resetExperimentData();
+  }
+
+  openHistoryBtn.addEventListener("click", openHistory);
+  closeHistoryBtn.addEventListener("click", closeHistory);
+  historyModal.addEventListener("click", (e) => {
+    if(e.target === historyModal) closeHistory();
+  });
+
+  startBtn.addEventListener("click", startExperiments);
+
+  pauseBtn.addEventListener("click", () => {
+    paused = true;
+    running = false;
+    startBtn.disabled = false;
+    nInput.disabled = false;
+    repeatInput.disabled = false;
+    stageLabel.innerHTML = "실험 정지 상태이다.";
+  });
+
+  resetBtn.addEventListener("click", resetAll);
+
+  nInput.addEventListener("input", () => {
+    if(running) return;
+    currentN = getN();
+    updateTopStats();
+    updateSummaryTable();
+    drawLiveChart();
+    drawConvergenceChart();
+  });
+
+  repeatInput.addEventListener("input", () => {
+    if(running) return;
+    targetRepeat = getRepeat();
+    updateTopStats();
+    drawConvergenceChart();
+  });
+
+  speedInput.addEventListener("input", () => {
+    setSpeed(speedInput.value);
+  });
+
+  speedRange.addEventListener("input", () => {
+    setSpeed(speedRange.value);
+  });
+
+  resultOnlyCheck.addEventListener("change", () => {});
+
+  function init(){
+    makeLegend(convLegend, true);
+    setSpeed(speedInput.value);
+    currentN = getN();
+    targetRepeat = getRepeat();
+    resetPockets();
+    resetExperimentData();
+  }
+
+  init();
+</script>
+</body>
+</html>

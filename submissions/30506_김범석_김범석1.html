@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Simulation Engine</title>
+    <style>
+        /* 1. Design System Definition */
+        :root {
+            --bg-main: #E6E7E3;
+            --accent: #B6E63A;
+            --text-primary: #1A1A1A;
+            --text-secondary: #5F5F5F;
+            --surface: #FFFFFF;
+            --radius-large: 24px; /* 높이 압축을 위해 라운딩 약간 축소 */
+            --radius-medium: 16px;
+            --radius-small: 12px;
+            --shadow: 0px 8px 24px rgba(0, 0, 0, 0.08);
+            --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+            --transition-smooth: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            line-height: 1.4;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; /* 전체 화면 시 스크롤 방지 */
+        }
+
+        /* 2. Layout & Structure (여백 및 간격 대폭 최적화) */
+        .hero-container {
+            width: 100%;
+            max-width: 1440px;
+            padding: 20px 40px; /* 상하 패딩 축소 */
+            display: grid;
+            grid-template-columns: 4fr 5fr;
+            gap: 40px; /* 좌우 패널 간격 축소 */
+            align-items: stretch;
+            height: 100vh;
+            max-height: 900px;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 1024px) {
+            .hero-container {
+                grid-template-columns: 1fr;
+                padding: 16px;
+                overflow-y: auto;
+                height: auto;
+            }
+            body { overflow: auto; }
+        }
+
+        /* 좌측: 통제 및 텍스트 영역 */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px; /* 위젯 간 간격 축소 */
+            justify-content: center;
+        }
+
+        .header-group {
+            margin-bottom: 8px;
+        }
+
+        .header-group .eyebrow {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .header-group h1 {
+            font-size: 32px; /* 헤드라인 크기 축소 */
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0 0 12px 0;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+
+        .header-group p {
+            font-size: 15px; /* 본문 크기 축소 */
+            color: var(--text-secondary);
+            margin: 0;
+        }
+
+        .widget-section {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: var(--radius-medium);
+            padding: 16px 20px; /* 위젯 내부 여백 축소 */
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .widget-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* 3. UI Elements & Animation */
+        select, input[type="number"] {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(0,0,0,0.1);
+            background: var(--surface);
+            font-size: 15px;
+            font-family: inherit;
+            color: var(--text-primary);
+            outline: none;
+            transition: var(--transition-smooth);
+            box-sizing: border-box;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--text-primary);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            border: none;
+        }
+
+        .btn-primary {
+            background-color: var(--accent);
+            color: var(--text-primary);
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0px 8px 20px rgba(182, 230, 58, 0.4);
+        }
+
+        /* 중단 버튼을 위한 추가 스타일 */
+        .btn-danger {
+            background-color: #e74c3c !important;
+            color: #ffffff !important;
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0px 8px 20px rgba(231, 76, 60, 0.4) !important;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--text-primary);
+            flex: 1;
+            padding: 12px 16px; /* 선 두께 감안하여 패딩 조정 */
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            background-color: rgba(26, 26, 26, 0.05);
+        }
+
+        /* 우측 래퍼 */
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 16px; /* 애니메이션과 패널 사이 간격 축소 */
+            justify-content: center;
+        }
+
+        /* 우측: 시각화 패널 */
+        .device-panel {
+            background: var(--surface);
+            border-radius: var(--radius-large);
+            box-shadow: var(--shadow);
+            padding: 24px; /* 패널 내부 여백 축소 */
+            display: flex;
+            flex-direction: column;
+            gap: 20px; /* 패널 내부 컴포넌트 간격 축소 */
+            position: relative;
+        }
+
+        .seq-display {
+            background: var(--bg-main);
+            border-radius: var(--radius-small);
+            padding: 16px; /* 패딩 축소 */
+            font-size: 16px; /* 폰트 축소 */
+            font-weight: 700;
+            text-align: center;
+            color: var(--text-primary);
+            min-height: 22px;
+        }
+
+        /* 한 줄 배치를 위한 플렉스 박스 적용 */
+        .grid-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .data-card {
+            background: var(--bg-main);
+            border-radius: 10px;
+            padding: 12px 6px; 
+            text-align: center;
+            transition: var(--transition-smooth);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1; 
+            min-width: 0;
+        }
+
+        .data-card .value {
+            font-size: 16px; 
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: var(--text-primary);
+        }
+
+        .data-card .label {
+            font-size: 10px; 
+            font-weight: 600;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .data-card.resolved {
+            background: var(--accent);
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(182, 230, 58, 0.3);
+        }
+
+        .terminal-log {
+            background: var(--text-primary);
+            color: #FFFFFF;
+            border-radius: var(--radius-medium);
+            padding: 16px;
+            font-family: "SF Mono", Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            height: 120px; /* 고정 높이 지정 */
+            overflow-y: auto; /* 내용이 넘치면 스크롤 생성 */
+            box-sizing: border-box;
+        }
+
+        /* 스크롤바 디자인 */
+        .terminal-log::-webkit-scrollbar { width: 6px; }
+        .terminal-log::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .terminal-log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+
+        .terminal-log .highlight {
+            color: var(--accent);
+            font-weight: 700;
+        }
+        
+        .terminal-log .sub-text {
+            color: #A0A0A0;
+        }
+        
+        hr.divider {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin: 12px 0;
+        }
+
+        /* 3D 동전 애니메이션 */
+        .animation-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 90px; /* 전체 높이 최적화 */
+            position: relative;
+            padding-bottom: 15px;
+        }
+
+        .stage {
+            width: 70px; 
+            height: 70px; 
+            perspective: 800px;
+            position: relative;
+        }
+
+        .coin-wrapper {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            animation: gravityJump 2s infinite;
+        }
+
+        .coin {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            animation: constantSpin 2s infinite;
+        }
+
+        .coin-side {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #6b4c0a;
+            background: linear-gradient(135deg, #f9d976 0%, #e8b523 50%, #f9d976 100%);
+            border: 4px solid #b38510;
+            box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.6), 
+                        inset 0 0 3px rgba(138, 90, 19, 0.8),
+                        0 3px 8px rgba(0, 0, 0, 0.4);
+            text-shadow: -1px -1px 1px rgba(255, 255, 255, 0.8), 
+                          1px 1px 1px rgba(0, 0, 0, 0.3);
+            backface-visibility: hidden;
+        }
+
+        .front { transform: rotateX(0deg); }
+        .back {
+            background: linear-gradient(135deg, #e8b523 0%, #f9d976 50%, #e8b523 100%);
+            transform: rotateX(180deg) rotateZ(180deg);
+        }
+
+        .shadow {
+            position: absolute;
+            bottom: -20px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px; 
+            height: 6px; 
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 50%;
+            filter: blur(3px);
+            animation: shadowScale 2s infinite;
+        }
+
+        @keyframes gravityJump {
+            0% { transform: translateY(0vh); animation-timing-function: ease-out; }
+            37.5% { transform: translateY(-50px); animation-timing-function: ease-in; }
+            75% { transform: translateY(0); animation-timing-function: linear; }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes constantSpin {
+            0% { transform: rotateX(0deg) rotateY(0deg); animation-timing-function: linear; }
+            37.5% { transform: rotateX(540deg) rotateY(15deg); animation-timing-function: linear; }
+            75% { transform: rotateX(1080deg) rotateY(0deg); animation-timing-function: linear; }
+            100% { transform: rotateX(1080deg) rotateY(0deg); }
+        }
+
+        @keyframes shadowScale {
+            0% { width: 50px; opacity: 0.8; animation-timing-function: ease-out; }
+            37.5% { width: 20px; opacity: 0.1; animation-timing-function: ease-in; }
+            75% { width: 50px; opacity: 0.8; animation-timing-function: linear; }
+            100% { width: 50px; opacity: 0.8; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="hero-container">
+        
+        <div class="control-panel">
+            <div class="header-group">
+                <div class="eyebrow">시뮬레이션 엔진</div>
+                <h1>수학으로 증명하는<br>확률 모델링</h1>
+                <p>서울대학교 기출문제 기반 동전 뒤집기 알고리즘의 최적 해를 탐색합니다. 직접 데이터를 주입하거나, 인공지능이 모든 경우의 수를 시뮬레이션하도록 지시하십시오.</p>
+            </div>
+
+            <div class="widget-section">
+                <div class="widget-title">목표 상태</div>
+                <select id="mode">
+                    <option value="both">HHH 또는 TTT 도달</option>
+                    <option value="hhh">HHH 상태만 도달</option>
+                </select>
+            </div>
+
+            <div class="widget-section">
+                <div class="widget-title">수동 제어</div>
+                <div class="btn-group">
+                    <button class="btn-secondary" onclick="addCoin(10)">10</button>
+                    <button class="btn-secondary" onclick="addCoin(100)">100</button>
+                    <button class="btn-secondary" onclick="addCoin(500)">500</button>
+                    <button class="btn-secondary" style="border-color:#e74c3c; color:#e74c3c;" onclick="resetSequence()">초기화</button>
+                </div>
+            </div>
+
+            <div class="widget-section">
+                <div class="widget-title">자동 탐색</div>
+                <div style="display: flex; gap: 12px;">
+                    <input type="number" id="auto-n" value="3" min="1" style="width: 80px;" title="수열 길이">
+                    <button class="btn-primary" onclick="toggleAutoSim()" id="btn-start-sim">모든 경우의 수 실행</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-column">
+            
+            <div class="animation-container">
+                <div class="stage">
+                    <div class="coin-wrapper">
+                        <div class="coin">
+                            <div class="coin-side front">H</div>
+                            <div class="coin-side back">T</div>
+                        </div>
+                    </div>
+                    <div class="shadow"></div>
+                </div>
+            </div>
+
+            <div class="device-panel">
+                <div>
+                    <div class="widget-title" style="margin-bottom:8px;">현재 입력 수열</div>
+                    <div class="seq-display" id="sequence-display">대기 중</div>
+                </div>
+
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+                        <div class="widget-title">초기 상태별 도달 현황</div>
+                        <div class="widget-title" id="clear-status" style="color: var(--text-secondary);">0 / 6</div>
+                    </div>
+                    <div class="grid-container" id="state-grid">
+                        </div>
+                </div>
+
+                <div class="terminal-log" id="sim-results">
+                    <span class="sub-text">시스템 대기 중. 수동으로 조작하거나 시뮬레이션을 시작하십시오.</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const allStates = ["HHH", "HHT", "HTH", "HTT", "THH", "THT", "TTH", "TTT"];
+        const coins = [10, 100, 500];
+        let sequence = [];
+        let isSimulating = false;
+        
+        function flip(state, coin) {
+            let arr = state.split('');
+            let idx = (coin === 10) ? 0 : (coin === 100) ? 1 : 2;
+            arr[idx] = arr[idx] === 'H' ? 'T' : 'H';
+            return arr.join('');
+        }
+
+        // --- 수동 조작 로직 ---
+        function addCoin(coin) { if(!isSimulating) { sequence.push(coin); updateUI(); } }
+        function resetSequence() { if(!isSimulating) { sequence = []; updateUI(); } }
+        document.getElementById('mode').addEventListener('change', resetSequence);
+
+        function updateUI() {
+            const mode = document.getElementById('mode').value;
+            const seqDisplay = document.getElementById('sequence-display');
+            seqDisplay.innerText = sequence.length > 0 ? sequence.join(' ➔ ') : '대기 중';
+            if(sequence.length > 0) { seqDisplay.style.color = "var(--text-primary)"; }
+            else { seqDisplay.style.color = "var(--text-secondary)"; }
+
+            const targetStates = mode === 'both' ? ["HHH", "TTT"] : ["HHH"];
+            const initialStates = mode === 'both' 
+                ? allStates.filter(s => s !== "HHH" && s !== "TTT") 
+                : allStates.filter(s => s !== "HHH");
+
+            const grid = document.getElementById('state-grid');
+            grid.innerHTML = '';
+            let resolvedCount = 0;
+
+            initialStates.forEach(initState => {
+                let currentState = initState;
+                let stepsToResolve = -1;
+                let isResolved = false;
+
+                for (let i = 0; i < sequence.length; i++) {
+                    currentState = flip(currentState, sequence[i]);
+                    if (targetStates.includes(currentState)) {
+                        stepsToResolve = i + 1;
+                        isResolved = true;
+                        break;
+                    }
+                }
+
+                if (isResolved) resolvedCount++;
+
+                const card = document.createElement('div');
+                card.className = `data-card ${isResolved ? 'resolved' : ''}`;
+                card.innerHTML = `
+                    <div class="value">${initState}</div>
+                    <div class="label">${isResolved ? `${stepsToResolve}회차` : '대기'}</div>
+                `;
+                grid.appendChild(card);
+            });
+
+            const clearStatus = document.getElementById('clear-status');
+            clearStatus.innerText = `${resolvedCount} / ${initialStates.length}`;
+            if (resolvedCount === initialStates.length) {
+                clearStatus.style.color = "var(--text-primary)";
+            } else {
+                clearStatus.style.color = "var(--text-secondary)";
+            }
+        }
+        
+        // 초기화
+        updateUI();
+
+        // --- 자동 시뮬레이션 엔진 로직 ---
+        function getSeqFromIndex(index, length) {
+            let seq = [];
+            let temp = index;
+            for(let i=0; i<length; i++) {
+                seq.push(coins[temp % 3]);
+                temp = Math.floor(temp / 3);
+            }
+            return seq;
+        }
+
+        function restoreStartButton() {
+            const btn = document.getElementById('btn-start-sim');
+            btn.innerText = "모든 경우의 수 실행";
+            btn.classList.remove('btn-danger');
+        }
+
+        // 실행 및 중단을 담당하는 토글 함수
+        function toggleAutoSim() {
+            const btn = document.getElementById('btn-start-sim');
+            const resultsDiv = document.getElementById('sim-results');
+
+            // 1. 이미 시뮬레이션 중이라면 -> 중단 및 초기화 처리
+            if (isSimulating) {
+                isSimulating = false; // 진행 플래그 끄기
+                restoreStartButton();
+                resultsDiv.innerHTML = `<span class="sub-text">사용자에 의해 탐색이 중단되었습니다.</span>`;
+                resetSequence(); // 진행하던 화면 리셋
+                return;
+            }
+
+            // 2. 시뮬레이션 시작 처리
+            isSimulating = true;
+            resetSequence();
+            
+            btn.innerText = "초기화 및 중단";
+            btn.classList.add('btn-danger'); // 붉은색 버튼으로 스타일 변경
+
+            const n = parseInt(document.getElementById('auto-n').value);
+            const mode = document.getElementById('mode').value;
+            
+            const targetStates = mode === 'both' ? ["HHH", "TTT"] : ["HHH"];
+            const initialStates = mode === 'both' 
+                ? allStates.filter(s => s !== "HHH" && s !== "TTT") 
+                : allStates.filter(s => s !== "HHH");
+            const totalInit = initialStates.length;
+
+            const totalCombos = Math.pow(3, n);
+            let checked = 0;
+            let bestProb = 0;
+            let bestResolvedCount = 0;
+            let bestSequences = [];
+
+            function processChunk() {
+                // 사용자가 중단 버튼을 눌렀다면 루프 즉시 탈출
+                if (!isSimulating) return;
+
+                const chunkSize = 250; 
+                for (let c = 0; c < chunkSize && checked < totalCombos; c++) {
+                    const seq = getSeqFromIndex(checked, n);
+                    let resolved = 0;
+                    
+                    for (let init of initialStates) {
+                        let curr = init;
+                        let ok = false;
+                        for (let coin of seq) {
+                            curr = flip(curr, coin);
+                            if (targetStates.includes(curr)) { ok = true; break; }
+                        }
+                        if (ok) resolved++;
+                    }
+                    
+                    const prob = resolved / totalInit;
+                    if (prob > bestProb) {
+                        bestProb = prob;
+                        bestResolvedCount = resolved;
+                        bestSequences = [seq];
+                    } else if (prob === bestProb && bestSequences.length < 3) {
+                        bestSequences.push(seq); 
+                    }
+                    checked++;
+                }
+
+                let currentTesting = checked < totalCombos ? getSeqFromIndex(checked-1, n).join('-') : "완료";
+                let fractionStr = mode === 'both' ? '6' : '7';
+
+                resultsDiv.innerHTML = `
+                    <div class="sub-text">연산 진행률: ${checked} / ${totalCombos} 탐색 완료</div>
+                    <div style="margin-bottom:8px;">현재 검사 중: [${currentTesting}]</div>
+                    <hr class="divider">
+                    <div class="highlight">최대 도달 확률: ${Math.round(bestProb * 100)}% (${bestResolvedCount}/${fractionStr})</div>
+                    <div class="sub-text" style="margin-top:8px;">발견된 최적 수열:</div>
+                    ${bestSequences.map(s => `<div>> ${s.join(', ')}</div>`).join('')}
+                `;
+
+                // 시각화를 위해 화면 수열 임시 업데이트
+                if (checked < totalCombos) {
+                    document.getElementById('sequence-display').innerText = getSeqFromIndex(checked-1, n).join(' ➔ ');
+                    // 터미널 스크롤을 항상 아래로 유지
+                    resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                    requestAnimationFrame(processChunk);
+                } else {
+                    isSimulating = false;
+                    restoreStartButton();
+                    
+                    // 완료 시 최적의 수열 중 첫 번째를 적용
+                    if(bestSequences.length > 0) {
+                        sequence = bestSequences[0];
+                        updateUI();
+                        resultsDiv.innerHTML += `<hr class="divider"><div class="highlight">분석 완료. 위젯에 최적 해가 적용되었습니다.</div>`;
+                        resultsDiv.scrollTop = resultsDiv.scrollHeight;
+                    }
+                }
+            }
+            
+            requestAnimationFrame(processChunk);
+        }
+    </script>
+</body>
+</html>

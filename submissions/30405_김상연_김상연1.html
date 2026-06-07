@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1번</title>
+<style>
+body{margin:0;background:#f4f6fb;color:#222;font-family:Arial,'Malgun Gothic',sans-serif}.wrap{max-width:1150px;margin:auto;padding:24px}h1{text-align:center;font-size:34px;color:#1f2a44}.grid{display:grid;grid-template-columns:330px 1fr;gap:20px}.card{background:#fff;border-radius:18px;box-shadow:0 4px 18px #0001;padding:18px}.title{font-weight:bold;font-size:18px;color:#1f2a44;border-bottom:2px solid #edf0f7;padding-bottom:8px;margin:0 0 14px}.group{margin-bottom:16px}label{font-weight:bold;font-size:14px;display:block;margin-bottom:6px}.row{display:flex;gap:10px;align-items:center}input[type=range]{width:100%}.val{background:#eef2ff;color:#263b83;border-radius:10px;padding:7px 10px;min-width:58px;text-align:center;font-weight:bold}button{border:0;background:#2f65d9;color:#fff;border-radius:10px;padding:10px 14px;font-weight:bold;cursor:pointer}button.gray{background:#697386}.checks{display:flex;flex-direction:column;gap:8px}.checks label{font-weight:normal;display:flex;gap:7px;align-items:center;margin:0}.info{background:#f8faff;border:1px solid #e2e7f3;border-radius:12px;padding:10px;margin-bottom:10px}.info .k{color:#657086;font-size:13px}.info .v{font-size:16px;font-weight:bold;color:#1f2a44;margin-top:4px}canvas{width:100%;height:auto;display:block;border-radius:14px;border:1px solid #e2e7f3;background:#fcfdff}@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap"><h1>1번</h1><div class="grid"><div class="card">
+<p class="title">조작</p>
+<div class="group"><label>점의 개수 n</label><div class="row"><input id="n" type="range" min="3" max="20" step="1" value="6"><span class="val" id="nv">6</span></div></div>
+<div class="group"><label>시간 t</label><div class="row"><input id="t" type="range" min="0" max="12" step="0.01" value="0"><span class="val" id="tv">0.00</span></div></div>
+<div class="group"><label>재생 속도</label><div class="row"><input id="spd" type="range" min="0.1" max="3" step="0.1" value="1"><span class="val" id="sv">1.0x</span></div></div>
+<div class="group row"><button id="play">재생</button><button id="stop" class="gray">정지</button><button id="reset" class="gray">초기화</button></div>
+<div class="group checks"><label><input id="circle" type="checkbox" checked> 초기 원 표시</label><label><input id="trail" type="checkbox" checked> P₁ 궤적 표시</label><label><input id="poly" type="checkbox" checked> 정n각형 표시</label></div>
+<p class="title">현재 상태</p>
+<div class="info"><div class="k">α</div><div class="v" id="av"></div></div>
+<div class="info"><div class="k">현재 반지름</div><div class="v" id="rv"></div></div>
+<div class="info"><div class="k">P₁ 좌표</div><div class="v" id="cv"></div></div>
+<div class="info"><div class="k">이동거리</div><div class="v" id="dist"></div></div>
+<div class="info"><div class="k">이동거리 극한값</div><div class="v" id="lim"></div></div>
+</div><div class="card"><canvas id="c" width="760" height="760"></canvas></div></div></div>
+<script>
+const $=id=>document.getElementById(id),c=$('c'),x=c.getContext('2d');let run=false,last=0;
+function state(){let n=+$('n').value,t=+$('t').value,th=2*Math.PI/n,a=(1-Math.cos(th))/Math.sin(th),r=Math.exp(-a*t);return{n,t,a,r,x:r*Math.cos(t),y:r*Math.sin(t),s:Math.sqrt(1+a*a)/a*(1-r),L:Math.sqrt(1+a*a)/a}}
+function p(x0,y0){return{x:380+280*x0,y:380-280*y0}}
+function axes(){x.strokeStyle='#d4d9e8';x.lineWidth=1.2;x.beginPath();x.moveTo(40,380);x.lineTo(720,380);x.moveTo(380,40);x.lineTo(380,720);x.stroke();x.fillStyle='#687083';x.font='15px Arial';x.fillText('x',730,372);x.fillText('y',390,26);x.fillText('O',388,398)}
+function unit(){if(!$('circle').checked)return;let q=p(0,0);x.strokeStyle='#c8a548';x.lineWidth=2;x.beginPath();x.arc(q.x,q.y,280,0,7);x.stroke()}
+function drawTrail(a,t){if(!$('trail').checked)return;x.strokeStyle='#2f65d9';x.lineWidth=2.5;x.beginPath();for(let i=0;i<=500;i++){let u=t*i/500,r=Math.exp(-a*u),q=p(r*Math.cos(u),r*Math.sin(u));i?x.lineTo(q.x,q.y):x.moveTo(q.x,q.y)}x.stroke()}
+function polygon(st){let pts=[];for(let k=0;k<st.n;k++){let ang=st.t+2*Math.PI*k/st.n;pts.push({x:st.r*Math.cos(ang),y:st.r*Math.sin(ang)})}if($('poly').checked){x.strokeStyle='#687aa8';x.lineWidth=2;x.beginPath();pts.forEach((u,i)=>{let q=p(u.x,u.y);i?x.lineTo(q.x,q.y):x.moveTo(q.x,q.y)});let q=p(pts[0].x,pts[0].y);x.lineTo(q.x,q.y);x.stroke()}pts.forEach((u,i)=>{let q=p(u.x,u.y);x.fillStyle=i?'#34466f':'#e74c3c';x.beginPath();x.arc(q.x,q.y,i?5:7,0,7);x.fill();if(i==0||i<8){x.fillStyle='#222';x.font='14px Arial';x.fillText('P'+(i+1),q.x+8,q.y-8)}});let a=p(pts[0].x,pts[0].y),b=p(pts[1].x,pts[1].y),dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);if(l>1){let ux=dx/l,uy=dy/l,L=46;x.strokeStyle='#e74c3c';x.lineWidth=3;x.beginPath();x.moveTo(a.x,a.y);x.lineTo(a.x+ux*L,a.y+uy*L);x.stroke();let ax=a.x+ux*L,ay=a.y+uy*L;x.fillStyle='#e74c3c';x.beginPath();x.moveTo(ax,ay);x.lineTo(ax-10*ux+6*uy,ay-10*uy-6*ux);x.lineTo(ax-10*ux-6*uy,ay-10*uy+6*ux);x.closePath();x.fill()}}
+function info(st){$('nv').textContent=st.n;$('tv').textContent=st.t.toFixed(2);$('sv').textContent=(+$('spd').value).toFixed(1)+'x';$('av').textContent=st.a.toFixed(6);$('rv').textContent=st.r.toFixed(6);$('cv').textContent='('+st.x.toFixed(5)+', '+st.y.toFixed(5)+')';$('dist').textContent=st.s.toFixed(6);$('lim').textContent=st.L.toFixed(6)}
+function draw(){let st=state();info(st);x.clearRect(0,0,760,760);axes();unit();drawTrail(st.a,st.t);polygon(st);x.fillStyle='#fffffff0';x.fillRect(530,24,200,100);x.strokeStyle='#d8deed';x.strokeRect(530,24,200,100);x.fillStyle='#222';x.font='15px Arial';x.fillText('n = '+st.n,550,52);x.fillText('t = '+st.t.toFixed(2),550,74);x.fillText('α = '+st.a.toFixed(5),550,96);x.fillText('r = '+st.r.toFixed(5),550,118)}
+function anim(ts){if(!run)return;if(!last)last=ts;let nt=+$('t').value+(ts-last)/1000*(+$('spd').value);last=ts;if(nt>12){nt=12;run=false}$('t').value=nt;draw();if(run)requestAnimationFrame(anim)}
+['n','t','spd','circle','trail','poly'].forEach(id=>$(id).addEventListener('input',draw));$('play').onclick=()=>{if(!run){run=true;last=0;requestAnimationFrame(anim)}};$('stop').onclick=()=>{run=false;last=0};$('reset').onclick=()=>{run=false;last=0;$('t').value=0;draw()};draw();
+</script></body></html>

@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>확률 게임 정확 시뮬레이션 - 개선판</title>
+  <style>
+    :root{
+      --board-w: 750px;
+      --board-h: 510px;
+      --cell-w: 130px;
+      --cell-h: 110px;
+      --gap-x: 12px;
+      --gap-y: 14px;
+      --start-x: 20px;
+      --start-y: 18px;
+
+      --bg: #f6f8fc;
+      --panel: #ffffff;
+      --border: #d9deea;
+      --text: #1f2937;
+      --muted: #667085;
+
+      --cell-border: #4b5563;
+      --terminal-bg: #fff1f1;
+      --normal-bg: #ffffff;
+      --active-bg: #eaf3ff;
+
+      --blue: #2f6fed;
+      --blue-soft: #dce9ff;
+      --green: #1ea672;
+      --green-soft: #e7f8f1;
+      --orange: #f59e0b;
+      --orange-soft: #fff4da;
+      --red: #d95050;
+      --red-soft: #ffe8e8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body{
+      margin: 20px;
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    h1{
+      margin: 0 0 10px;
+      font-size: 28px;
+    }
+
+    .desc{
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      line-height: 1.65;
+      margin-bottom: 16px;
+    }
+
+    .wrap{
+      display: grid;
+      grid-template-columns: minmax(980px, 1.25fr) minmax(380px, 0.95fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel{
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .visualWrap{
+      display: grid;
+      grid-template-columns: var(--board-w) 220px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .boardBox{
+      position: relative;
+      width: var(--board-w);
+      height: var(--board-h);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #fbfcff 0%, #f8fbff 100%);
+      border: 1px solid #e6ebf5;
+      overflow: hidden;
+    }
+
+    .edgeSvg, .particleLayer{
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .edgeSvg{
+      z-index: 1;
+    }
+
+    .cell{
+      position: absolute;
+      width: var(--cell-w);
+      height: var(--cell-h);
+      border: 2px solid var(--cell-border);
+      border-radius: 14px;
+      background: var(--normal-bg);
+      padding: 10px 12px;
+      z-index: 2;
+      transition: background 0.25s, transform 0.2s, box-shadow 0.25s, border-color 0.25s;
+      overflow: hidden;
+    }
+
+    .cell.terminal{
+      background: var(--terminal-bg);
+      border-color: #b55a5a;
+    }
+
+    .cell.active{
+      box-shadow: 0 0 0 4px rgba(47,111,237,0.12);
+      transform: translateY(-1px);
+    }
+
+    .cell.sourceFocus{
+      box-shadow: 0 0 0 5px rgba(245,158,11,0.22);
+      border-color: var(--orange);
+    }
+
+    .cell.destPulse{
+      animation: destPulse 0.6s ease;
+    }
+
+    @keyframes destPulse{
+      0%   { box-shadow: 0 0 0 0 rgba(30,166,114,0.25); }
+      50%  { box-shadow: 0 0 0 8px rgba(30,166,114,0.18); }
+      100% { box-shadow: 0 0 0 0 rgba(30,166,114,0.00); }
+    }
+
+    .numLine{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .num{
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .circleMark{
+      width: 22px;
+      height: 22px;
+      border: 3px solid var(--blue);
+      border-radius: 50%;
+      opacity: 0.16;
+      transition: opacity 0.25s;
+      flex: 0 0 auto;
+    }
+
+    .meta{
+      font-size: 13px;
+      line-height: 1.45;
+      color: #263041;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .meta .line{
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta .label{
+      color: var(--muted);
+      margin-right: 4px;
+    }
+
+    .controls{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    button{
+      border: 1px solid #b9c3d6;
+      background: #fff;
+      color: #1f2937;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.2s;
+    }
+
+    button:hover{
+      background: #f1f6ff;
+      border-color: #8cb0ff;
+    }
+
+    button.primary{
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+
+    button.warn{
+      background: #fff8eb;
+      border-color: #f0c56b;
+    }
+
+    .stepInfo{
+      margin-top: 12px;
+      background: #f8fbff;
+      border: 1px solid #d9e7ff;
+      border-radius: 12px;
+      padding: 12px 14px;
+      line-height: 1.65;
+    }
+
+    .badge{
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #cfe0ff;
+      background: #eef5ff;
+      font-size: 12px;
+      margin-right: 6px;
+    }
+
+    .timelinePanel{
+      border: 1px solid #e4e8f2;
+      border-radius: 14px;
+      background: #fcfdff;
+      padding: 12px 12px 8px;
+    }
+
+    .timelineTitle{
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .timeline{
+      position: relative;
+      padding-left: 8px;
+    }
+
+    .timeline::before{
+      content: "";
+      position: absolute;
+      left: 18px;
+      top: 8px;
+      bottom: 8px;
+      width: 3px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, #d6dbea 0%, #c7d4ef 100%);
+    }
+
+    .tItem{
+      position: relative;
+      padding: 0 0 14px 42px;
+      cursor: pointer;
+      min-height: 56px;
+    }
+
+    .tDot{
+      position: absolute;
+      left: 8px;
+      top: 3px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 3px solid #9fb2d7;
+      background: #fff;
+      z-index: 1;
+      transition: 0.2s;
+    }
+
+    .tItem.done .tDot{
+      border-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .tItem.active .tDot{
+      border-color: var(--blue);
+      background: #e9f2ff;
+      box-shadow: 0 0 0 6px rgba(47,111,237,0.12);
+    }
+
+    .tItem.pending .tDot{
+      border-color: #b7c2d9;
+      background: #fff;
+    }
+
+    .tLabel{
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .tSub{
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .summaryGrid{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .card{
+      border: 1px solid #e3e8f2;
+      border-radius: 14px;
+      padding: 12px;
+      background: #fcfdff;
+    }
+
+    .card h3{
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .answer{
+      background: #fff8df;
+      border: 1px solid #ecd98b;
+      border-radius: 12px;
+      padding: 12px;
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    table{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td{
+      border: 1px solid #e2e8f0;
+      padding: 6px 7px;
+      text-align: center;
+    }
+
+    th{
+      background: #f3f6fb;
+      font-weight: 700;
+    }
+
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .processBox{
+      max-height: 330px;
+      overflow: auto;
+      border: 1px solid #e5e9f1;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      line-height: 1.65;
+      font-size: 13px;
+    }
+
+    .logLine{
+      padding: 5px 0;
+      border-bottom: 1px dashed #edf0f6;
+    }
+
+    .logLine:last-child{
+      border-bottom: none;
+    }
+
+    .logHead{
+      font-weight: 700;
+      color: #22314d;
+      margin-bottom: 6px;
+    }
+
+    .transitions{
+      font-size: 13px;
+      line-height: 1.6;
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    .transitions div{
+      padding: 4px 0;
+      border-bottom: 1px dashed #eceff5;
+    }
+
+    .foot{
+      margin-top: 14px;
+      color: #566377;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .edge{
+      stroke: #b9c9e6;
+      stroke-width: 2;
+      opacity: 0.8;
+      transition: 0.15s;
+    }
+
+    .edge.highlight{
+      stroke: #f59e0b;
+      stroke-width: 4;
+      opacity: 1;
+      filter: drop-shadow(0 0 4px rgba(245,158,11,0.25));
+    }
+
+    .particle{
+      position: absolute;
+      transform: translate(-50%, -50%);
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: rgba(47,111,237,0.96);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .miniNote{
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1450px){
+      .wrap{
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>확률 게임 정확 시뮬레이션</h1>
+
+  <div class="desc">
+    이 프로그램은 <b>무작위로 수많이 돌려 근사값을 얻는 방식</b>이 아니라,
+    가능한 모든 경우의 확률을 한 번에 전파하는 <b>정확 시뮬레이션</b>입니다.
+    <br>
+    개선 사항:
+    <b>텍스트 잘림 완화</b>, <b>세로 타임라인으로 단계 표시</b>,
+    <b>확률 질량 이동 애니메이션으로 계산 과정 가시화</b>.
+  </div>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="visualWrap">
+        <div>
+          <div class="boardBox" id="boardBox">
+            <svg id="edgeSvg" class="edgeSvg"></svg>
+            <div id="board"></div>
+            <div id="particleLayer" class="particleLayer"></div>
+          </div>
+
+          <div class="controls">
+            <button id="resetBtn">초기 상태</button>
+            <button id="nextBtn">1단계 즉시 진행</button>
+            <button id="animateBtn" class="warn">현재 단계 애니메이션</button>
+            <button id="finishBtn" class="primary">끝까지 즉시 진행</button>
+            <button id="autoBtn">끝까지 애니메이션</button>
+            <button id="pauseBtn">정지</button>
+          </div>
+
+          <div id="stepInfo" class="stepInfo"></div>
+        </div>
+
+        <div class="timelinePanel">
+          <div class="timelineTitle">단계 타임라인</div>
+          <div id="timeline" class="timeline"></div>
+          <div class="miniNote">
+            현재 단계는 파란색으로 강조됩니다. 각 점을 클릭하면 해당 단계 상태로 바로 이동할 수 있습니다.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="summaryGrid">
+        <div class="card">
+          <h3>문제의 핵심 결과</h3>
+          <div id="answerBox" class="answer"></div>
+        </div>
+
+        <div class="card">
+          <h3>종료점 확률</h3>
+          <table id="terminalTable"></table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:10px;">
+        <h3>확률 계산 과정</h3>
+        <div id="processBox" class="processBox"></div>
+      </div>
+
+      <div class="card" style="margin-top:10px;">
+        <h3>각 숫자의 p<sub>j</sub></h3>
+        <table id="pjTable"></table>
+      </div>
+
+      <div class="card" style="margin-top:10px;">
+        <h3>이동 규칙(자동 생성)</h3>
+        <div id="transitionList" class="transitions"></div>
+      </div>
+
+      <div class="foot">
+        그래프에 순환이 없으므로, 시작 확률 <span class="mono">1/12</span>를 정확히 전파하면
+        유한 단계 후 모든 확률 질량이 종료점 <span class="mono">5, 9, 11, 12</span>에 흡수됩니다.
+        애니메이션은 이 <b>정확 계산</b>을 순차적으로 보여주는 시각화입니다.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class Fraction {
+      constructor(n, d = 1n) {
+        if (d === 0n) throw new Error("분모는 0일 수 없습니다.");
+        if (n === 0n) {
+          this.n = 0n;
+          this.d = 1n;
+          return;
+        }
+        if (d < 0n) {
+          n = -n;
+          d = -d;
+        }
+        const g = Fraction.gcd(n < 0n ? -n : n, d);
+        this.n = n / g;
+        this.d = d / g;
+      }
+      static gcd(a, b) {
+        while (b !== 0n) {
+          const t = a % b;
+          a = b;
+          b = t;
+        }
+        return a;
+      }
+      static zero() { return new Fraction(0n, 1n); }
+      add(o) { return new Fraction(this.n * o.d + o.n * this.d, this.d * o.d); }
+      sub(o) { return new Fraction(this.n * o.d - o.n * this.d, this.d * o.d); }
+      mul(o) { return new Fraction(this.n * o.n, this.d * o.d); }
+      div(o) { return new Fraction(this.n * o.d, this.d * o.n); }
+      divInt(k) { return new Fraction(this.n, this.d * BigInt(k)); }
+      isZero() { return this.n === 0n; }
+      compare(o) {
+        const v = this.n * o.d - o.n * this.d;
+        return v < 0n ? -1 : v > 0n ? 1 : 0;
+      }
+      toString() {
+        return this.d === 1n ? `${this.n}` : `${this.n}/${this.d}`;
+      }
+      toNumber() {
+        return Number(this.n) / Number(this.d);
+      }
+      toDecimal(d = 6) {
+        return this.toNumber().toFixed(d);
+      }
+    }
+
+    const rows = [
+      [1,2,3,4,5],
+      [6,7,8,9],
+      [10,11],
+      [12]
+    ];
+    const terminals = new Set([5,9,11,12]);
+
+    const layout = {
+      boardW: 750,
+      boardH: 510,
+      cellW: 130,
+      cellH: 110,
+      gapX: 12,
+      gapY: 14,
+      startX: 20,
+      startY: 18
+    };
+
+    const pos = {};
+    for (let r = 0; r < rows.length; r++) {
+      for (let c = 0; c < rows[r].length; c++) {
+        pos[rows[r][c]] = { row: r + 1, col: c + 1 };
+      }
+    }
+
+    const out = {};
+    for (let i = 1; i <= 12; i++) {
+      out[i] = [];
+      for (let j = 1; j <= 12; j++) {
+        if (i === j) continue;
+        const a = pos[i], b = pos[j];
+        const sameRowRight = a.row === b.row && b.col > a.col;
+        const sameColDown = a.col === b.col && b.row > a.row;
+        if (sameRowRight || sameColDown) out[i].push(j);
+      }
+      out[i].sort((a,b)=>a-b);
+    }
+
+    function zeroArr() {
+      return Array.from({ length: 13 }, () => Fraction.zero());
+    }
+
+    function cloneArr(arr) {
+      return arr.map(f => new Fraction(f.n, f.d));
+    }
+
+    function sumIndices(arr, indices) {
+      let s = Fraction.zero();
+      for (const i of indices) s = s.add(arr[i]);
+      return s;
+    }
+
+    function sumNonTerminal(arr) {
+      let s = Fraction.zero();
+      for (let i = 1; i <= 12; i++) {
+        if (!terminals.has(i)) s = s.add(arr[i]);
+      }
+      return s;
+    }
+
+    function hasNonTerminalMass(dist) {
+      for (let i = 1; i <= 12; i++) {
+        if (!terminals.has(i) && !dist[i].isZero()) return true;
+      }
+      return false;
+    }
+
+    function makeSnapshot(title, dist, visited, idx) {
+      const terminalMass = sumIndices(dist, [5,9,11,12]);
+      const movingMass = sumNonTerminal(dist);
+      return {
+        title,
+        idx,
+        dist: cloneArr(dist),
+        visited: cloneArr(visited),
+        terminalMass,
+        movingMass
+      };
+    }
+
+    function simulateExactly() {
+      const snapshots = [];
+      const transitions = [];
+
+      let dist = zeroArr();
+      let visited = zeroArr();
+
+      for (let i = 1; i <= 12; i++) {
+        dist[i] = new Fraction(1n, 12n);
+        visited[i] = new Fraction(1n, 12n);
+      }
+
+      snapshots.push(makeSnapshot("시작: 규칙 (a) 직후", dist, visited, 0));
+
+      let bCount = 0;
+      while (hasNonTerminalMass(dist)) {
+        const next = zeroArr();
+        const groups = [];
+
+        for (let i = 1; i <= 12; i++) {
+          if (terminals.has(i)) {
+            next[i] = next[i].add(dist[i]);
+            continue;
+          }
+
+          if (out[i].length === 0) {
+            next[i] = next[i].add(dist[i]);
+            continue;
+          }
+
+          if (dist[i].isZero()) continue;
+
+          const share = dist[i].divInt(out[i].length);
+          groups.push({
+            from: i,
+            mass: new Fraction(dist[i].n, dist[i].d),
+            share: new Fraction(share.n, share.d),
+            to: [...out[i]]
+          });
+
+          for (const j of out[i]) {
+            next[j] = next[j].add(share);
+            visited[j] = visited[j].add(share);
+          }
+        }
+
+        dist = next;
+        bCount++;
+
+        transitions.push({
+          title: `규칙 (b) ${bCount}회 적용`,
+          groups
+        });
+
+        snapshots.push(makeSnapshot(`규칙 (b) ${bCount}회 적용 후`, dist, visited, bCount));
+      }
+
+      return { snapshots, transitions };
+    }
+
+    const { snapshots, transitions } = simulateExactly();
+
+    const board = document.getElementById("board");
+    const edgeSvg = document.getElementById("edgeSvg");
+    const particleLayer = document.getElementById("particleLayer");
+    const timeline = document.getElementById("timeline");
+    const stepInfo = document.getElementById("stepInfo");
+    const answerBox = document.getElementById("answerBox");
+    const terminalTable = document.getElementById("terminalTable");
+    const pjTable = document.getElementById("pjTable");
+    const transitionList = document.getElementById("transitionList");
+    const processBox = document.getElementById("processBox");
+
+    let currentStep = 0;
+    let animating = false;
+    let autoMode = false;
+    let stopRequested = false;
+
+    function fmt(fr) {
+      return `${fr.toString()} <span class="mono">≈ ${fr.toDecimal(6)}</span>`;
+    }
+
+    function cellLeft(i) {
+      return layout.startX + (pos[i].col - 1) * (layout.cellW + layout.gapX);
+    }
+
+    function cellTop(i) {
+      return layout.startY + (pos[i].row - 1) * (layout.cellH + layout.gapY);
+    }
+
+    function cellCenter(i) {
+      return {
+        x: cellLeft(i) + layout.cellW / 2,
+        y: cellTop(i) + layout.cellH / 2
+      };
+    }
+
+    function buildBoard() {
+      board.innerHTML = "";
+      board.style.position = "absolute";
+      board.style.inset = "0";
+
+      for (let i = 1; i <= 12; i++) {
+        const cell = document.createElement("div");
+        cell.className = "cell" + (terminals.has(i) ? " terminal" : "");
+        cell.id = `cell-${i}`;
+        cell.style.left = `${cellLeft(i)}px`;
+        cell.style.top = `${cellTop(i)}px`;
+
+        cell.innerHTML = `
+          <div class="numLine">
+            <div class="num">${i}</div>
+            <div class="circleMark" id="circle-${i}"></div>
+          </div>
+          <div class="meta" id="meta-${i}">
+            <div class="line"><span class="label">현재:</span></div>
+            <div class="line"><span class="label">p<sub>${i}</sub>:</span></div>
+          </div>
+        `;
+        board.appendChild(cell);
+      }
+    }
+
+    function buildEdges() {
+      edgeSvg.setAttribute("width", layout.boardW);
+      edgeSvg.setAttribute("height", layout.boardH);
+      edgeSvg.innerHTML = `
+        <defs>
+          <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L10,5 L0,10 z" fill="#b9c9e6"></path>
+          </marker>
+          <marker id="arrowHeadHi" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L12,6 L0,12 z" fill="#f59e0b"></path>
+          </marker>
+        </defs>
+      `;
+
+      for (let i = 1; i <= 12; i++) {
+        const from = cellCenter(i);
+        for (const j of out[i]) {
+          const to = cellCenter(j);
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          line.setAttribute("x1", from.x);
+          line.setAttribute("y1", from.y);
+          line.setAttribute("x2", to.x);
+          line.setAttribute("y2", to.y);
+          line.setAttribute("class", "edge");
+          line.setAttribute("marker-end", "url(#arrowHead)");
+          line.setAttribute("id", `edge-${i}-${j}`);
+          edgeSvg.appendChild(line);
+        }
+      }
+    }
+
+    function renderTransitionsList() {
+      transitionList.innerHTML = "";
+      for (let i = 1; i <= 12; i++) {
+        const div = document.createElement("div");
+        const dest = out[i].length ? out[i].join(", ") : "(종료)";
+        div.innerHTML = `<span class="mono">${i}</span> → ${dest}`;
+        transitionList.appendChild(div);
+      }
+    }
+
+    function renderTables() {
+      const finalSnap = snapshots[snapshots.length - 1];
+      const p = finalSnap.visited;
+
+      terminalTable.innerHTML = `
+        <tr><th>종료점</th><th>확률</th></tr>
+        <tr><td>5</td><td>${fmt(p[5])}</td></tr>
+        <tr><td>9</td><td>${fmt(p[9])}</td></tr>
+        <tr><td>11</td><td>${fmt(p[11])}</td></tr>
+        <tr><td>12</td><td>${fmt(p[12])}</td></tr>
+      `;
+
+      let html = `<tr><th>j</th><th>p<sub>j</sub></th></tr>`;
+      for (let i = 1; i <= 12; i++) {
+        html += `<tr><td>${i}</td><td>${fmt(p[i])}</td></tr>`;
+      }
+      pjTable.innerHTML = html;
+
+      const entries = [[5,p[5]], [9,p[9]], [11,p[11]], [12,p[12]]];
+      let maxNode = entries[0][0];
+      let maxVal = entries[0][1];
+      for (const [node, val] of entries) {
+        if (val.compare(maxVal) > 0) {
+          maxNode = node;
+          maxVal = val;
+        }
+      }
+
+      answerBox.innerHTML = `
+        <div>문제 (1) <b>p<sub>2</sub> = ${fmt(p[2])}</b></div>
+        <div>문제 (2) <b>p<sub>5</sub> = ${fmt(p[5])}</b>, <b>p<sub>11</sub> = ${fmt(p[11])}</b></div>
+        <div>문제 (3) <b>p<sub>5</sub>, p<sub>9</sub>, p<sub>11</sub>, p<sub>12</sub></b> 중 최댓값은
+          <b>p<sub>${maxNode}</sub> = ${fmt(maxVal)}</b>
+        </div>
+        <div style="margin-top:8px;">
+          <span class="badge">p<sub>2</sub> = 2/21</span>
+          <span class="badge">p<sub>5</sub> = 8/35</span>
+          <span class="badge">p<sub>11</sub> = 1/5</span>
+          <span class="badge">최댓값: p<sub>9</sub> = 2/5</span>
+        </div>
+      `;
+    }
+
+    function renderTimeline() {
+      timeline.innerHTML = "";
+      for (let i = 0; i < snapshots.length; i++) {
+        const snap = snapshots[i];
+        const item = document.createElement("div");
+        const cls = i < currentStep ? "done" : i === currentStep ? "active" : "pending";
+        item.className = `tItem ${cls}`;
+        item.innerHTML = `
+          <div class="tDot"></div>
+          <div class="tLabel">${i === 0 ? "시작: 규칙 (a)" : `규칙 (b) ${i}회`}</div>
+          <div class="tSub">
+            비종료점에 남은 확률: <span class="mono">${snap.movingMass.toString()}</span><br>
+            종료점에 흡수된 확률: <span class="mono">${snap.terminalMass.toString()}</span>
+          </div>
+        `;
+        item.addEventListener("click", () => {
+          if (animating) return;
+          stopRequested = true;
+          autoMode = false;
+          currentStep = i;
+          clearHighlights();
+          clearParticles();
+          renderStep();
+        });
+        timeline.appendChild(item);
+      }
+    }
+
+    function setEdgeHighlight(i, j, on) {
+      const edge = document.getElementById(`edge-${i}-${j}`);
+      if (!edge) return;
+      if (on) {
+        edge.classList.add("highlight");
+        edge.setAttribute("marker-end", "url(#arrowHeadHi)");
+      } else {
+        edge.classList.remove("highlight");
+        edge.setAttribute("marker-end", "url(#arrowHead)");
+      }
+    }
+
+    function clearAllEdgeHighlights() {
+      for (let i = 1; i <= 12; i++) {
+        for (const j of out[i]) setEdgeHighlight(i, j, false);
+      }
+    }
+
+    function clearParticles() {
+      particleLayer.innerHTML = "";
+    }
+
+    function clearHighlights() {
+      clearAllEdgeHighlights();
+      for (let i = 1; i <= 12; i++) {
+        document.getElementById(`cell-${i}`).classList.remove("sourceFocus", "destPulse");
+      }
+    }
+
+    function renderProcessPreview(stepIndex) {
+      if (stepIndex >= transitions.length) {
+        processBox.innerHTML = `
+          <div class="logHead">종료 상태</div>
+          <div class="logLine">비종료점에 남은 확률 질량이 없으므로 더 이상 규칙 (b)를 적용하지 않습니다.</div>
+          <div class="logLine">모든 확률 질량이 종료점 5, 9, 11, 12에 흡수되었습니다.</div>
+        `;
+        return;
+      }
+
+      const tr = transitions[stepIndex];
+      let html = `<div class="logHead">${tr.title}: 다음 단계 계산 미리보기</div>`;
+
+      if (tr.groups.length === 0) {
+        html += `<div class="logLine">이 단계에서 이동할 비종료점 확률이 없습니다.</div>`;
+      } else {
+        for (const g of tr.groups) {
+          html += `
+            <div class="logLine">
+              <b>${g.from}</b>의 확률 <span class="mono">${g.mass.toString()}</span>를
+              가능한 ${g.to.length}곳 <span class="mono">[${g.to.join(", ")}]</span>에 균등분배 →
+              각 목적지로 <span class="mono">${g.share.toString()}</span>
+            </div>
+          `;
+        }
+      }
+      processBox.innerHTML = html;
+    }
+
+    function renderStepInfo() {
+      const snap = snapshots[currentStep];
+      const isFinal = currentStep === snapshots.length - 1;
+
+      stepInfo.innerHTML = `
+        <div><b>${snap.title}</b></div>
+        <div style="margin-top:4px;">
+          <span class="badge">단계 ${currentStep} / ${snapshots.length - 1}</span>
+          <span class="badge">비종료점 확률 ${snap.movingMass.toString()}</span>
+          <span class="badge">종료점 흡수 확률 ${snap.terminalMass.toString()}</span>
+        </div>
+        <div style="margin-top:8px;">
+          ${isFinal
+            ? "현재는 종료 상태입니다. 더 이상 이동이 없습니다."
+            : `다음 버튼 또는 애니메이션 버튼을 누르면 <b>규칙 (b) ${currentStep + 1}회</b>가 적용됩니다.`}
+        </div>
+      `;
+    }
+
+    function renderBoardSnapshot(snap) {
+      for (let i = 1; i <= 12; i++) {
+        const cell = document.getElementById(`cell-${i}`);
+        const circle = document.getElementById(`circle-${i}`);
+        const meta = document.getElementById(`meta-${i}`);
+        const dist = snap.dist[i];
+        const visited = snap.visited[i];
+
+        cell.classList.remove("active");
+        if (!dist.isZero()) cell.classList.add("active");
+
+        const intensity = Math.min(0.60, dist.toNumber() * 3.2);
+        if (terminals.has(i)) {
+          cell.style.background = `rgba(255, 238, 238, ${0.55 + intensity})`;
+        } else {
+          cell.style.background = `rgba(234, 243, 255, ${0.18 + intensity})`;
+        }
+
+        circle.style.opacity = Math.max(0.16, Math.min(1, visited.toNumber() * 2.2)).toFixed(3);
+
+        meta.innerHTML = `
+          <div class="line"><span class="label">현재:</span><span class="mono">${dist.toString()}</span></div>
+          <div class="line"><span class="label">p<sub>${i}</sub>:</span><span class="mono">${visited.toString()}</span></div>
+        `;
+
+        cell.title = `숫자 ${i}\n현재 위치 확률: ${dist.toString()} (${dist.toDecimal(6)})\np_${i}: ${visited.toString()} (${visited.toDecimal(6)})`;
+      }
+    }
+
+    function renderStep() {
+      clearHighlights();
+      clearParticles();
+      renderBoardSnapshot(snapshots[currentStep]);
+      renderTimeline();
+      renderStepInfo();
+      renderProcessPreview(currentStep);
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function appendProcessLog(html) {
+      processBox.innerHTML += `<div class="logLine">${html}</div>`;
+      processBox.scrollTop = processBox.scrollHeight;
+    }
+
+    function setProcessHeader(html) {
+      processBox.innerHTML = `<div class="logHead">${html}</div>`;
+    }
+
+    function animateParticle(fromNode, toNode, label) {
+      return new Promise(resolve => {
+        const from = cellCenter(fromNode);
+        const to = cellCenter(toNode);
+        const el = document.createElement("div");
+        el.className = "particle mono";
+        el.textContent = label;
+        particleLayer.appendChild(el);
+
+        const duration = 700;
+        const start = performance.now();
+
+        function frame(now) {
+          const t = Math.min(1, (now - start) / duration);
+          const ease = 1 - Math.pow(1 - t, 3);
+          const x = from.x + (to.x - from.x) * ease;
+          const y = from.y + (to.y - from.y) * ease;
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
+
+          if (t < 1) {
+            requestAnimationFrame(frame);
+          } else {
+            el.remove();
+            resolve();
+          }
+        }
+        requestAnimationFrame(frame);
+      });
+    }
+
+    async function animateCurrentTransition() {
+      if (animating || currentStep >= transitions.length) return;
+      animating = true;
+      stopRequested = false;
+
+      clearHighlights();
+      clearParticles();
+
+      const tr = transitions[currentStep];
+      setProcessHeader(`${tr.title}: 순차 애니메이션`);
+
+      if (tr.groups.length === 0) {
+        appendProcessLog(`이 단계에서 이동할 비종료점 확률이 없습니다.`);
+        animating = false;
+        return;
+      }
+
+      for (const g of tr.groups) {
+        if (stopRequested) break;
+
+        const sourceCell = document.getElementById(`cell-${g.from}`);
+        sourceCell.classList.add("sourceFocus");
+
+        for (const j of g.to) setEdgeHighlight(g.from, j, true);
+
+        appendProcessLog(
+          `<b>${g.from}</b>의 확률 <span class="mono">${g.mass.toString()}</span>를
+           ${g.to.length}곳으로 균등분배 →
+           각 목적지 <span class="mono">${g.share.toString()}</span>`
+        );
+        appendProcessLog(
+          `전달 대상: <span class="mono">[${g.to.join(", ")}]</span>`
+        );
+
+        await sleep(220);
+        const tasks = g.to.map(j => animateParticle(g.from, j, g.share.toString()));
+        await Promise.all(tasks);
+
+        for (const j of g.to) {
+          document.getElementById(`cell-${j}`).classList.add("destPulse");
+        }
+
+        appendProcessLog(
+          `<b>${g.from}</b> → ${g.to.join(", ")} 로 전달 완료`
+        );
+
+        await sleep(220);
+
+        sourceCell.classList.remove("sourceFocus");
+        for (const j of g.to) setEdgeHighlight(g.from, j, false);
+        for (const j of g.to) {
+          document.getElementById(`cell-${j}`).classList.remove("destPulse");
+        }
+      }
+
+      if (!stopRequested) {
+        currentStep++;
+        renderStep();
+      }
+
+      animating = false;
+
+      if (autoMode && !stopRequested && currentStep < transitions.length) {
+        await sleep(350);
+        await animateCurrentTransition();
+      }
+    }
+
+    function resetToStart() {
+      if (animating) return;
+      autoMode = false;
+      stopRequested = true;
+      currentStep = 0;
+      renderStep();
+    }
+
+    function nextInstant() {
+      if (animating) return;
+      autoMode = false;
+      stopRequested = true;
+      if (currentStep < snapshots.length - 1) {
+        currentStep++;
+        renderStep();
+      }
+    }
+
+    function finishInstant() {
+      if (animating) return;
+      autoMode = false;
+      stopRequested = true;
+      currentStep = snapshots.length - 1;
+      renderStep();
+    }
+
+    async function autoAnimateAll() {
+      if (animating || currentStep >= transitions.length) return;
+      autoMode = true;
+      stopRequested = false;
+      await animateCurrentTransition();
+    }
+
+    function requestStop() {
+      autoMode = false;
+      stopRequested = true;
+    }
+
+    document.getElementById("resetBtn").addEventListener("click", resetToStart);
+    document.getElementById("nextBtn").addEventListener("click", nextInstant);
+    document.getElementById("animateBtn").addEventListener("click", async () => {
+      autoMode = false;
+      await animateCurrentTransition();
+    });
+    document.getElementById("finishBtn").addEventListener("click", finishInstant);
+    document.getElementById("autoBtn").addEventListener("click", autoAnimateAll);
+    document.getElementById("pauseBtn").addEventListener("click", requestStop);
+
+    buildBoard();
+    buildEdges();
+    renderTransitionsList();
+    renderTables();
+    renderStep();
+  </script>
+</body>
+</html>

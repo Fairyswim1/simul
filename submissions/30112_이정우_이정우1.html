@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>곡선 C 위의 접선과 삼각형 시뮬레이터</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 20px;
+        }
+        #main-container {
+            position: relative;
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 1000px;
+        }
+        /* 우측 상단 토글 스위치 */
+        #toggle-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #eee;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc; transition: .3s; border-radius: 22px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+            background-color: white; transition: .3s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #9c27b0; }
+        input:checked + .slider:before { transform: translateX(18px); }
+
+        canvas {
+            border: 1px solid #ddd;
+            background-color: #fafafa;
+            border-radius: 6px;
+        }
+        #control-panel {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .slider-group {
+            margin-bottom: 18px;
+        }
+        .slider-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #444;
+        }
+        .value-display {
+            float: right;
+            color: #007bff;
+        }
+        .p-prime-label { color: #9c27b0 !px; }
+        
+        /* 하단 넓이 표시 구역 */
+        #data-panel {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: auto;
+        }
+        .area-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 15px;
+            margin-bottom: 5px;
+        }
+        .area-row:last-child { margin-bottom: 0; }
+        .area-number {
+            font-size: 18px;
+            font-weight: bold;
+            font-family: monospace;
+        }
+        .color-box {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>곡선 C: y = x^3 - kx 접선 시뮬레이터</h1>
+    
+    <div id="main-container">
+        <div id="toggle-container">
+            <span>점 P' 활성화</span>
+            <label class="switch">
+                <input type="checkbox" id="p-prime-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <canvas id="simCanvas" width="600" height="600"></canvas>
+
+        <div id="control-panel">
+            <div>
+                <div class="slider-group" style="margin-top: 30px;">
+                    <label for="k-slider">상수 k 값: <span id="k-val" class="value-display">3.00</span></label>
+                    <input type="range" id="k-slider" min="0" max="8" step="0.05" value="3.00">
+                </div>
+
+                <div class="slider-group">
+                    <label for="p-slider">점 P의 x 좌표: <span id="p-val" class="value-display">-1.00</span></label>
+                    <input type="range" id="p-slider" min="-3" max="3" step="0.01" value="-1.00">
+                </div>
+
+                <div class="slider-group">
+                    <label for="q-slider">점 Q의 x 좌표: <span id="q-val" class="value-display">1.00</span></label>
+                    <input type="range" id="q-slider" min="-3" max="3" step="0.01" value="1.00">
+                </div>
+
+                <div class="slider-group" id="p-prime-control" style="display: none;">
+                    <label for="pp-slider" style="color: #9c27b0;">점 P'의 x 좌표: <span id="pp-val" class="value-display" style="color: #9c27b0;">0.50</span></label>
+                    <input type="range" id="pp-slider" min="-3" max="3" step="0.01" value="0.50">
+                </div>
+            </div>
+
+            <div id="data-panel">
+                <div class="area-row">
+                    <span><span class="color-box" style="background: rgba(255, 193, 7, 0.6);"></span>삼각형 OPQ 넓이 S:</span>
+                    <span class="area-number" id="area-S" style="color: #ffca28;">0.0000</span>
+                </div>
+                <div class="area-row" id="area-Sp-row" style="display: none;">
+                    <span><span class="color-box" style="background: rgba(156, 39, 176, 0.4);"></span>삼각형 OP'Q 넓이 S':</span>
+                    <span class="area-number" id="area-Sp" style="color: #e040fb;">0.0000</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 제어 데이터 변수
+    let k = 3.00;
+    let px = -1.00;
+    let qx = 1.00;
+    let ppx = 0.50; // P'의 x좌표
+    let showPPrime = false;
+    
+    // 좌표 변환 설정
+    const scale = 80; 
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    // DOM 요소 링크
+    const kSlider = document.getElementById('k-slider');
+    const pSlider = document.getElementById('p-slider');
+    const qSlider = document.getElementById('q-slider');
+    const ppSlider = document.getElementById('pp-slider');
+    const pPrimeToggle = document.getElementById('p-prime-toggle');
+    
+    const pPrimeControl = document.getElementById('p-prime-control');
+    const areaSpRow = document.getElementById('area-Sp-row');
+
+    const kVal = document.getElementById('k-val');
+    const pVal = document.getElementById('p-val');
+    const qVal = document.getElementById('q-val');
+    const ppVal = document.getElementById('pp-val');
+    const areaSDisplay = document.getElementById('area-S');
+    const areaSpDisplay = document.getElementById('area-Sp');
+
+    // 수학 공식 정의
+    function f(x) { return x*x*x - k*x; }
+    function f_prime(x) { return 3*x*x - k; }
+
+    function toScreenX(x) { return cx + x * scale; }
+    function toScreenY(y) { return cy - y * scale; }
+
+    // 두 접선의 교점 좌표 구하기
+    function getIntersection(m1, x1, y1, m2, x2, y2) {
+        if (Math.abs(m1 - m2) < 1e-5) return null;
+        const x = (m1 * x1 - m2 * x2 - y1 + y2) / (m1 - m2);
+        const y = m1 * (x - x1) + y1;
+        return { x, y };
+    }
+
+    // 신발끈 공식으로 세 교점의 삼각형 넓이 구하기
+    function getTriangleArea(pt1, pt2, pt3) {
+        if (!pt1 || !pt2 || !pt3) return 0;
+        return 0.5 * Math.abs(
+            pt1.x * pt2.y + pt2.x * pt3.y + pt3.x * pt1.y -
+            (pt2.x * pt1.y + pt3.x * pt2.y + pt1.x * pt3.y)
+        );
+    }
+
+    // 직선 그리기 함수
+    function drawTangentLine(m, x0, y0, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        let xL = -5, xR = 5;
+        ctx.moveTo(toScreenX(xL), toScreenY(m * (xL - x0) + y0));
+        ctx.lineTo(toScreenX(xR), toScreenY(m * (xR - x0) + y0));
+        ctx.stroke();
+    }
+
+    // 메인 그리기 루프
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. x축, y축 격자선
+        ctx.strokeStyle = '#eee';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy);
+        ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height);
+        ctx.stroke();
+
+        // 2. 곡선 C 그리기
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let sx = 0; sx < canvas.width; sx++) {
+            let mx = (sx - cx) / scale;
+            let my = f(mx);
+            let sy = toScreenY(my);
+            if (sx === 0) ctx.moveTo(sx, sy);
+            else ctx.lineTo(sx, sy);
+        }
+        ctx.stroke();
+
+        // 접선의 기본 데이터 계산
+        const mO = f_prime(0); // 원점 접선의 기울기
+        const mQ = f_prime(qx); const yq = f(qx); // Q
+
+        // 3. 첫 번째 삼각형 (O, P, Q 접선 교점) 계산 및 하이라이트
+        const mP = f_prime(px); const yp = f(px); // P
+        const pt_OP = getIntersection(mO, 0, 0, mP, px, yp);
+        const pt_OQ = getIntersection(mO, 0, 0, mQ, qx, yq);
+        const pt_PQ = getIntersection(mP, px, yp, mQ, qx, yq);
+
+        if (pt_OP && pt_OQ && pt_PQ) {
+            ctx.fillStyle = 'rgba(255, 193, 7, 0.35)'; // 노란색 채우기
+            ctx.beginPath();
+            ctx.moveTo(toScreenX(pt_OP.x), toScreenY(pt_OP.y));
+            ctx.lineTo(toScreenX(pt_OQ.x), toScreenY(pt_OQ.y));
+            ctx.lineTo(toScreenX(pt_PQ.x), toScreenY(pt_PQ.y));
+            ctx.closePath();
+            ctx.fill();
+            areaSDisplay.innerText = getTriangleArea(pt_OP, pt_OQ, pt_PQ).toFixed(4);
+        } else {
+            areaSDisplay.innerText = "0.0000";
+        }
+
+        // 4. 두 번째 삼각형 (O, P', Q 접선 교점) 계산 및 하이라이트
+        if (showPPrime) {
+            const mPP = f_prime(ppx); const ypp = f(ppx); // P'
+            const pt_OPp = getIntersection(mO, 0, 0, mPP, ppx, ypp);
+            const pt_PQp = getIntersection(mPP, ppx, ypp, mQ, qx, yq);
+            // pt_OQ는 공통으로 사용
+
+            if (pt_OPp && pt_OQ && pt_PQp) {
+                ctx.fillStyle = 'rgba(156, 39, 176, 0.25)'; // 보라색 채우기
+                ctx.beginPath();
+                ctx.moveTo(toScreenX(pt_OPp.x), toScreenY(pt_OPp.y));
+                ctx.lineTo(toScreenX(pt_OQ.x), toScreenY(pt_OQ.y));
+                ctx.lineTo(toScreenX(pt_PQp.x), toScreenY(pt_PQp.y));
+                ctx.closePath();
+                ctx.fill();
+                areaSpDisplay.innerText = getTriangleArea(pt_OPp, pt_OQ, pt_PQp).toFixed(4);
+            } else {
+                areaSpDisplay.innerText = "0.0000";
+            }
+            // P' 접선 그리기 (보라색)
+            drawTangentLine(mPP, ppx, ypp, '#9c27b0');
+        }
+
+        // 5. 기본 접선들 그리기
+        drawTangentLine(mO, 0, 0, '#28a745'); // 원점 O (초록)
+        drawTangentLine(mP, px, yp, '#dc3545'); // P (빨강)
+        drawTangentLine(mQ, qx, yq, '#007bff'); // Q (파랑)
+
+        // 6. 좌표 위에 점 마킹하기
+        function drawCircle(x, y, color, label) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(toScreenX(x), toScreenY(y), 5, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(label, toScreenX(x) + 7, toScreenY(y) - 7);
+        }
+
+        drawCircle(0, 0, '#28a745', 'O');
+        drawCircle(px, yp, '#dc3545', 'P');
+        drawCircle(qx, yq, '#007bff', 'Q');
+        if (showPPrime) {
+            drawCircle(ppx, f(ppx), '#9c27b0', "P'");
+        }
+    }
+
+    // 슬라이더 조작 이벤트 리스너 설정
+    kSlider.addEventListener('input', (e) => { k = parseFloat(e.target.value); kVal.innerText = k.toFixed(2); draw(); });
+    pSlider.addEventListener('input', (e) => { px = parseFloat(e.target.value); pVal.innerText = px.toFixed(2); draw(); });
+    qSlider.addEventListener('input', (e) => { qx = parseFloat(e.target.value); qVal.innerText = qx.toFixed(2); draw(); });
+    ppSlider.addEventListener('input', (e) => { ppx = parseFloat(e.target.value); ppVal.innerText = ppx.toFixed(2); draw(); });
+
+    // 스위치 토글 기능 제어
+    pPrimeToggle.addEventListener('change', (e) => {
+        showPPrime = e.target.checked;
+        if (showPPrime) {
+            pPrimeControl.style.display = 'block';
+            areaSpRow.style.display = 'flex';
+        } else {
+            pPrimeControl.style.display = 'none';
+            areaSpRow.style.display = 'none';
+        }
+        draw();
+    });
+
+    // 앱 구동 초기 시화
+    draw();
+</script>
+</body>
+</html>

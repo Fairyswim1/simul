@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>정사각형 OPQR: 기하학적 분석 시뮬레이터</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 1250px; margin: 0 auto; background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        
+        /* 1. 문제 원문 영역 */
+        .problem-header { background: #1e293b; color: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 20px; line-height: 1.7; }
+        .problem-header h3 { margin: 0 0 10px 0; color: #fbbf24; font-size: 1.1rem; }
+        .problem-header p { margin: 0; font-size: 0.95rem; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+        .tab { padding: 10px 20px; cursor: pointer; border-radius: 8px 8px 0 0; font-weight: 600; background: #f1f5f9; color: #64748b; border: 1px solid transparent; margin-bottom: -2px; }
+        .tab.active { background: white; border: 1px solid #e2e8f0; border-bottom: 3px solid var(--primary); color: var(--primary); }
+        
+        .layout { display: grid; grid-template-columns: 1fr 350px; gap: 25px; }
+        canvas { background: white; border: 1px solid #cbd5e1; border-radius: 12px; width: 100%; }
+        
+        .desc-area { margin-bottom: 15px; padding: 15px; background: #f1f5f9; border-radius: 10px; border-left: 5px solid var(--primary); font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
+        
+        .card { background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; margin-bottom: 15px; }
+        .card h3 { margin: 0 0 12px 0; font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .color-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+        .color-dot { width: 100%; padding-bottom: 100%; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .color-dot.active { border-color: #1e293b; transform: scale(1.1); }
+        
+        .control-item { margin-bottom: 12px; font-size: 0.85rem; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .metric-card { background: #f1f5f9; padding: 10px; border-radius: 8px; text-align: center; }
+        .metric-val { display: block; font-size: 1.1rem; font-weight: 700; color: var(--primary); }
+        .metric-label { font-size: 0.7rem; color: #64748b; }
+        
+        .stats-box { background: #0f172a; color: #f1f5f9; padding: 15px; border-radius: 10px; font-family: monospace; font-size: 0.8rem; line-height: 1.6; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 6px; background: #475569; color: white; font-weight: 600; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="problem-header">
+        <h3>[문제 원문]</h3>
+        <p>좌표평면에서 중심이 (a, 0)이고 반지름의 길이가 a인 원 위의 원점이 아닌 점 P에 대하여, 선분 OP를 한 변으로 하고 선분 OP로부터 시계 반대 방향으로 정해진 다른 한 변을 OQ라 하는 정사각형 OPQR을 만든다. 점 P가 원 위를 움직일 때, 선분 QR이 지나가는 영역의 넓이를 구하시오.</p>
+    </div>
+    
+    <div id="ui-desc" class="desc-area"></div>
+
+    <div class="tabs">
+        <div class="tab active" data-mode="alg">대수적 자취 분석</div>
+        <div class="tab" data-mode="geo">기하적 정점 분석</div>
+    </div>
+
+    <div class="layout">
+        <div class="view">
+            <canvas id="simCanvas" width="850" height="600"></canvas>
+        </div>
+
+        <div class="panel">
+            <div class="card">
+                <h3>자취 색상</h3>
+                <div class="color-grid" id="colorGrid"></div>
+            </div>
+
+            <div class="card">
+                <h3>환경 제어</h3>
+                <div class="control-item">
+                    <label style="display:flex; justify-content:space-between">반지름 a <span id="valA">75</span></label>
+                    <input type="range" id="sliderA" min="40" max="110" value="75">
+                </div>
+                <div class="control-item">
+                    <label style="display:flex; justify-content:space-between">속도 <span id="valSpeed">2</span></label>
+                    <input type="range" id="sliderSpeed" min="0" max="10" value="2">
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem;">
+                    <label><input type="checkbox" id="chkGrid" checked> 격자</label>
+                    <label><input type="checkbox" id="chkAxis" checked> 좌표축</label>
+                    <label><input type="checkbox" id="chkTrace" checked> 선분 자취</label>
+                    <label><input type="checkbox" id="chkLineTrace"> 직선 QR 자취</label>
+                    <label><input type="checkbox" id="chkParam" checked> 매개변수 φ</label>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>측량 데이터</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">현재 QR 길이</span>
+                        <span class="metric-val" id="metricLen">0.00a</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">이론 영역 넓이</span>
+                        <span class="metric-val" id="metricArea">(π/2 + 1)a²</span>
+                    </div>
+                </div>
+                <button id="btnReset" style="margin-top:15px;">자취 초기화</button>
+            </div>
+
+            <div class="stats-box" id="statPanel"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const CONTENT = {
+    alg: "[방법 1: 대수적 분석]\n점 P의 좌표를 매개변수 phi를 이용해 표현하고, 회전 변환을 통해 Q와 R의 궤적을 구합니다. 선분 QR이 만드는 영역의 경계(Envelope)를 수식으로 확정합니다.",
+    geo: "[방법 2: 기하적 분석]\n모든 직선 QR이 정점 K(0, 2a)를 지난다는 사실에 주목합니다. K를 회전축으로 하는 선분의 움직임을 통해 영역이 부채꼴과 원호의 조합임을 이해합니다."
+};
+
+const colors = ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#64748b'];
+let activeColor = colors[0];
+let mode = 'alg';
+let a = 75;
+let phi = -Math.PI/2;
+let lastLine = null;
+const origin = { x: 300, y: 350 };
+
+// 자취용 오프스크린 캔버스 (빈틈 없는 렌더링용)
+const tCanvas = document.createElement('canvas');
+tCanvas.width = 850; tCanvas.height = 600;
+const tCtx = tCanvas.getContext('2d');
+
+const updateUI = () => { document.getElementById('ui-desc').innerText = mode === 'alg' ? CONTENT.alg : CONTENT.geo; };
+updateUI();
+
+const colorGrid = document.getElementById('colorGrid');
+colors.forEach(c => {
+    const dot = document.createElement('div');
+    dot.className = 'color-dot' + (c === activeColor ? ' active' : '');
+    dot.style.backgroundColor = c;
+    dot.onclick = () => {
+        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+        dot.classList.add('active'); activeColor = c;
+    };
+    colorGrid.appendChild(dot);
+});
+
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const speed = document.getElementById('sliderSpeed').value * 0.006;
+
+    // 기하 계산
+    let r_p = 2 * a * Math.cos(phi);
+    let px = r_p * Math.cos(phi), py = r_p * Math.sin(phi);
+    let rx = -py, ry = px;
+    let qx = px - py, qy = py + px;
+
+    // 2. 빈틈 없는 채우기 (Polygon Fill)
+    if (document.getElementById('chkTrace').checked && speed > 0) {
+        if (lastLine) {
+            tCtx.beginPath();
+            tCtx.fillStyle = activeColor + "15"; // 8% 투명도 채우기
+            tCtx.moveTo(origin.x + lastLine.rx, origin.y - lastLine.ry);
+            tCtx.lineTo(origin.x + lastLine.qx, origin.y - lastLine.qy);
+            tCtx.lineTo(origin.x + qx, origin.y - qy);
+            tCtx.lineTo(origin.x + rx, origin.y - ry);
+            tCtx.closePath(); tCtx.fill();
+        }
+        lastLine = {rx, ry, qx, qy};
+    }
+
+    // 직선 QR 자취 (별도 옵션)
+    if (document.getElementById('chkLineTrace').checked && speed > 0) {
+        let k = (qy - ry) / (qx - rx);
+        let b = ry - k * rx;
+        tCtx.beginPath();
+        tCtx.strokeStyle = activeColor + "05";
+        tCtx.moveTo(0, origin.y - (k * (-origin.x) + b));
+        tCtx.lineTo(canvas.width, origin.y - (k * (canvas.width - origin.x) + b));
+        tCtx.stroke();
+    }
+
+    // 배경 렌더링
+    if(document.getElementById('chkGrid').checked) {
+        ctx.strokeStyle = "#f1f5f9"; ctx.beginPath();
+        for(let i=-600; i<800; i+=50) { ctx.moveTo(origin.x+i, 0); ctx.lineTo(origin.x+i, canvas.height); ctx.moveTo(0, origin.y-i); ctx.lineTo(canvas.width, origin.y-i); }
+        ctx.stroke();
+    }
+    ctx.drawImage(tCanvas, 0, 0);
+    if(document.getElementById('chkAxis').checked) {
+        ctx.strokeStyle = "#cbd5e1"; ctx.lineWidth = 1.5; ctx.beginPath();
+        ctx.moveTo(0, origin.y); ctx.lineTo(canvas.width, origin.y); ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, canvas.height);
+        ctx.stroke();
+    }
+
+    // 매개변수 시각화 (좌표 텍스트 제거로 간섭 해결)
+    if(document.getElementById('chkParam').checked) {
+        ctx.strokeStyle = "#f59e0b"; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.arc(origin.x, origin.y, 40, 0, -phi, phi > 0); ctx.stroke();
+        ctx.fillStyle = "#f59e0b"; ctx.font = "bold 13px sans-serif";
+        ctx.fillText(`φ: ${phi.toFixed(2)}`, origin.x + 45, origin.y - 10);
+    }
+
+    const pO = {x: origin.x, y: origin.y}, pP = {x: origin.x + px, y: origin.y - py};
+    const pQ = {x: origin.x + qx, y: origin.y - qy}, pR = {x: origin.x + rx, y: origin.y - ry};
+
+    // 4. 기하 모드 정점 K 좌표 명시
+    if(mode === 'geo') {
+        const pK = {x: origin.x, y: origin.y - 2*a};
+        ctx.fillStyle = "#f59e0b"; ctx.beginPath(); ctx.arc(pK.x, pK.y, 5, 0, 7); ctx.fill();
+        ctx.font = "bold 12px sans-serif";
+        ctx.fillText("K(0, 2a)", pK.x + 10, pK.y - 10);
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = "#f59e0b"; ctx.beginPath(); ctx.moveTo(pK.x, pK.y); ctx.lineTo(pQ.x, pQ.y); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // 정사각형 본체
+    ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 2.5; ctx.beginPath();
+    ctx.moveTo(pO.x, pO.y); ctx.lineTo(pP.x, pP.y); ctx.lineTo(pQ.x, pQ.y); ctx.lineTo(pR.x, pR.y); ctx.closePath(); ctx.stroke();
+
+    // 점 레이블 (좌표 송출 제거)
+    const pts = [{v:pO, n:'O'}, {v:pP, n:'P'}, {v:pQ, n:'Q'}, {v:pR, n:'R'}];
+    ctx.font = "bold 12px sans-serif"; ctx.fillStyle = "#1e293b";
+    pts.forEach(p => {
+        ctx.beginPath(); ctx.arc(p.v.x, p.v.y, 4, 0, 7); ctx.fill();
+        ctx.fillText(p.n, p.v.x + 8, p.v.y - 8);
+    });
+
+    let qrLen = Math.sqrt(Math.pow(qx-rx, 2) + Math.pow(qy-ry, 2));
+    document.getElementById('metricLen').innerText = (qrLen/a).toFixed(2) + "a";
+
+    document.getElementById('statPanel').innerHTML = `
+        &gt; 매개변수 φ = ${phi.toFixed(3)} rad<br>
+        &gt; 선분 QR 길이 = ${(qrLen/a).toFixed(2)}a<br>
+        &gt; 영역 넓이 공식 = (π/2 + 1)a²
+    `;
+
+    phi += speed; if(phi > Math.PI/2) { phi = -Math.PI/2; lastLine = null; }
+    requestAnimationFrame(draw);
+}
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    t.classList.add('active'); mode = t.dataset.mode; updateUI(); 
+    tCtx.clearRect(0,0,850,600); lastLine = null;
+});
+document.getElementById('sliderA').oninput = (e) => { 
+    a = parseInt(e.target.value); document.getElementById('valA').innerText = a; 
+    tCtx.clearRect(0,0,850,600); lastLine = null; 
+};
+document.getElementById('sliderSpeed').oninput = (e) => { document.getElementById('valSpeed').innerText = e.target.value; };
+document.getElementById('btnReset').onclick = () => { tCtx.clearRect(0,0,850,600); lastLine = null; };
+
+draw();
+</script>
+</body>
+</html>

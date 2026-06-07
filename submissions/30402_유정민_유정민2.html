@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: #f0f4f8;
+            color: #1e293b;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            padding: 25px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        h2 {
+            margin-top: 0;
+            color: #0f172a;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 12px;
+        }
+        .main-layout {
+            display: flex;
+            gap: 25px;
+            margin-top: 20px;
+        }
+        .left-panel {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .right-panel {
+            flex: 1;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+            background-color: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        input[type=range] {
+            flex-grow: 1;
+            cursor: pointer;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            background-color: #f1f5f9;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-top: 5px;
+        }
+        .blue-text { color: #2563eb; }
+        .red-text { color: #dc2626; }
+        
+        canvas {
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background-color: #ffffff;
+        }
+
+        .calc-btn {
+            background-color: #0f172a;
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .calc-btn:hover {
+            background-color: #1e293b;
+        }
+        
+        /* 극도로 깔끔하고 미니멀해진 정답 리스트 디자인 */
+        .solution-list {
+            margin-top: 10px;
+            list-style: none;
+            padding: 0;
+            overflow-y: auto;
+            max-height: 250px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .solution-item {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.95rem;
+            color: #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .solution-item:hover {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+        .solution-item::after {
+            content: '→ 이동';
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-family: 'Pretendard', sans-serif;
+            font-weight: 500;
+        }
+        .solution-item:hover::after {
+            color: #3b82f6;
+        }
+
+        .legend {
+            margin-top: auto;
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2> 합성함수 기하학적 분석 & 정적분 해 탐색기</h2>
+    
+    <div class="main-layout">
+        <div class="left-panel">
+            <div class="control-panel">
+                <div class="slider-container">
+                    <label for="a-slider"><strong>실수 a 값 조절:</strong></label>
+                    <input type="range" id="a-slider" min="-0.2" max="2.0" step="0.0001" value="1.0000">
+                    <span id="a-value" style="font-family: monospace; font-weight: bold; width: 80px; text-align: right;">1.0000</span>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat-box blue-text">
+                    <span>∫ g(x) dx</span>
+                    <span id="area-g" class="stat-value">0.000000</span>
+                </div>
+                <div class="stat-box red-text">
+                    <span>∫ g(g(g(x))) dx</span>
+                    <span id="area-g3" class="stat-value">0.000000</span>
+                </div>
+                <div class="stat-box">
+                    <span style="color: #64748b;">미분 불가능한 점(총합)</span>
+                    <span id="kink-count" class="stat-value" style="color: #0f172a;">0</span>
+                </div>
+            </div>
+
+            <canvas id="graphCanvas" width="850" height="500"></canvas>
+        </div>
+
+        <div class="right-panel">
+            <h3 style="margin-top: 0; font-size: 1.0rem; color: #0f172a;">정적분 방정식 해결</h3>
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px; line-height: 1.4;">
+                방정식 <span style="font-family: Times New Roman; font-style: italic; font-weight: bold;">∫g(x)dx = ∫g(g(g(x)))dx</span>를 만족하는 <span style="font-family: Times New Roman; font-style: italic;">a</span>를 탐색합니다.
+            </p>
+            <button class="calc-btn" onclick="runAutoCalculator()">정적분 값이 같아지는 a 찾기</button>
+            
+            <h4 style="margin-bottom: 5px; font-size: 0.9rem; color: #334155; margin-top: 15px;">탐색된 정답 리스트</h4>
+            <ul id="solution-list" class="solution-list">
+                <li style="color: #94a3b8; font-size: 0.8rem; text-align: center; padding: 15px; border: 1px dashed #cbd5e1; border-radius: 6px;">버튼을 누르면 계산이 시작됩니다.</li>
+            </ul>
+
+            <div class="legend">
+                <strong style="color: #334155; margin-bottom: 2px;"> 꼭짓점 (미분불능점) Y좌표 범례</strong>
+                <div class="legend-item"><span class="dot" style="background-color: #2563eb;"></span> <span>y = 0 </span></div>
+                <div class="legend-item"><span class="dot" style="background-color: #dc2626;"></span> <span>y = a </span></div>
+                <div class="legend-item"><span class="dot" style="background-color: #16a34a;"></span> <span>0 &lt; y &lt; a</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function f(x) {
+        if (x < 0) return 0;
+        if (x >= 0 && x < 0.5) return 2 * x;
+        if (x >= 0.5 && x < 1) return 2 - 2 * x;
+        return 0;
+    }
+
+    function g(x, a) {
+        return a * f(x);
+    }
+
+    function g3(x, a) {
+        return g(g(g(x, a), a), a);
+    }
+
+    function getIntegrals(a) {
+        const N = 5000;
+        const dx = 1 / N;
+        let areaG = 0;
+        let areaG3 = 0;
+        
+        for (let i = 0; i < N; i++) {
+            let x1 = i / N;
+            let x2 = (i + 1) / N;
+            
+            areaG += (g(x1, a) + g(x2, a)) * dx / 2;
+            areaG3 += (g3(x1, a) + g3(x2, a)) * dx / 2;
+        }
+        return { gArea: areaG, g3Area: areaG3, diff: areaG - areaG3 };
+    }
+
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    const slider = document.getElementById('a-slider');
+    const aValueDisplay = document.getElementById('a-value');
+    const areaGDisplay = document.getElementById('area-g');
+    const areaG3Display = document.getElementById('area-g3');
+    const kinkCountDisplay = document.getElementById('kink-count');
+    const solutionListUI = document.getElementById('solution-list');
+
+    const xMin = -0.1, xMax = 1.1;
+    const yMin = -0.2, yMax = 2.2;
+
+    function mapX(x) { return (x - xMin) / (xMax - xMin) * canvas.width; }
+    function mapY(y) { return canvas.height - (y - yMin) / (yMax - yMin) * canvas.height; }
+
+    function drawBaseSystem(a) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        ctx.moveTo(0, mapY(0)); ctx.lineTo(canvas.width, mapY(0));
+        ctx.moveTo(mapX(0), 0); ctx.lineTo(mapX(0), canvas.height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = '#94a3b8';
+        
+        ctx.moveTo(0, mapY(a)); ctx.lineTo(canvas.width, mapY(a));
+        ctx.stroke();
+        ctx.setLineDash([]); 
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '12px sans-serif';
+        ctx.fillText("x=0", mapX(0) - 25, mapY(0) + 15);
+        ctx.fillText("x=0.5", mapX(0.5) - 13, mapY(0) + 15);
+        ctx.fillText("x=1", mapX(1) - 5, mapY(0) + 15);
+        
+        ctx.fillText("y=0", mapX(1.02), mapY(0) - 5);
+        ctx.fillText(`y=a (${a.toFixed(4)})`, mapX(1.02), mapY(a) - 5);
+    }
+
+    function draw() {
+        const a = parseFloat(slider.value);
+        aValueDisplay.textContent = a.toFixed(4);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBaseSystem(a);
+
+        const segments = 10000; 
+        const dx = 1 / segments;
+        const pointsG = [];
+        const pointsG3 = [];
+
+        for(let i=0; i<=segments; i++) {
+            let x = i/segments;
+            pointsG.push({x: x, y: g(x, a)});
+            pointsG3.push({x: x, y: g3(x, a)});
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(mapX(0), mapY(0));
+        pointsG.forEach(p => ctx.lineTo(mapX(p.x), mapY(p.y)));
+        ctx.lineTo(mapX(1), mapY(0));
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.08)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(mapX(0), mapY(g(0, a)));
+        for(let x=0; x<=1.0001; x+=0.005) ctx.lineTo(mapX(x), mapY(g(x,a)));
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(mapX(0), mapY(0));
+        pointsG3.forEach(p => ctx.lineTo(mapX(p.x), mapY(p.y)));
+        ctx.lineTo(mapX(1), mapY(0));
+        ctx.fillStyle = 'rgba(220, 38, 38, 0.12)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(mapX(0), mapY(g3(0, a)));
+        for(let x=0; x<=1.0001; x+=0.0005) ctx.lineTo(mapX(x), mapY(g3(x,a)));
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const kinks = [];
+        
+        for(let i=1; i<pointsG3.length-1; i++) {
+            let leftSlope = (pointsG3[i].y - pointsG3[i-1].y) / dx;
+            let rightSlope = (pointsG3[i+1].y - pointsG3[i].y) / dx;
+            
+            if(Math.abs(leftSlope - rightSlope) > 1e-2) {
+                if(kinks.length === 0 || (pointsG3[i].x - kinks[kinks.length-1].x) > 0.002) {
+                    kinks.push(pointsG3[i]);
+                }
+            }
+        }
+
+        if (a > 0) {
+            if(kinks.length === 0 || kinks[0].x > 0.005) kinks.unshift(pointsG3[0]);
+            if(kinks[kinks.length-1].x < 0.995) kinks.push(pointsG3[pointsG3.length-1]);
+        }
+
+        const colorTolerance = 0.015; 
+        
+        kinks.forEach(k => {
+            ctx.beginPath();
+            ctx.arc(mapX(k.x), mapY(k.y), 4.5, 0, Math.PI * 2);
+            
+            if (Math.abs(k.y) < colorTolerance) {
+                ctx.fillStyle = '#2563eb';
+            } else if (Math.abs(k.y - a) < colorTolerance && a > 0) {
+                ctx.fillStyle = '#dc2626';
+            } else {
+                ctx.fillStyle = '#16a34a';
+            }
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        });
+
+        const dataInfo = getIntegrals(a);
+        areaGDisplay.textContent = dataInfo.gArea.toFixed(6);
+        areaG3Display.textContent = dataInfo.g3Area.toFixed(6);
+        kinkCountDisplay.textContent = (a <= 0) ? "0" : `${kinks.length} 개`;
+    }
+
+    function runAutoCalculator() {
+        solutionListUI.innerHTML = '<li style="color:#2563eb; text-align:center; padding:15px; font-size:0.8rem; border:1px solid #cbd5e1; border-radius:6px;">스캔 분석 중...</li>';
+        
+        setTimeout(() => {
+            const answers = [];
+            const startA = -0.2;
+            const endA = 2.0;
+            const scanSteps = 1000;
+            const stepSize = (endA - startA) / scanSteps;
+            
+            let prevA = startA;
+            let prevDiff = getIntegrals(prevA).diff;
+
+            for(let i=1; i<=scanSteps; i++) {
+                let currA = startA + i * stepSize;
+                let currDiff = getIntegrals(currA).diff;
+                
+                if(prevDiff * currDiff < 0) {
+                    let low = prevA;
+                    let high = currA;
+                    
+                    for(let iter=0; iter<32; iter++) {
+                        let mid = (low + high) / 2;
+                        let midDiff = getIntegrals(mid).diff;
+                        
+                        if(prevDiff * midDiff < 0) {
+                            high = mid;
+                        } else {
+                            low = mid;
+                        }
+                    }
+                    answers.push((low + high) / 2);
+                } else if(Math.abs(currDiff) < 1e-7) {
+                    answers.push(currA);
+                }
+                
+                prevA = currA;
+                prevDiff = currDiff;
+            }
+
+            const filteredAnswers = [];
+            answers.forEach(val => {
+                if(!filteredAnswers.some(target => Math.abs(target - val) < 1e-4)) {
+                    if(Math.abs(getIntegrals(val).diff) < 1e-4) {
+                        // 미세한 부동소수점 오차 보정 (-0.000...을 0으로 강제 변환)
+                        if (Math.abs(val) < 1e-7) val = 0;
+                        filteredAnswers.push(val);
+                    }
+                }
+            });
+
+            solutionListUI.innerHTML = '';
+            if(filteredAnswers.length === 0) {
+                solutionListUI.innerHTML = '<li style="color:#dc2626; text-align:center; padding:15px; font-size:0.8rem; border:1px solid #cbd5e1; border-radius:6px;">만족하는 실수가 없습니다.</li>';
+            } else {
+                filteredAnswers.forEach(ans => {
+                    const li = document.createElement('li');
+                    li.className = 'solution-item';
+                    
+                    // 텍스트 포맷팅 처리 (지저분한 소수점 없애고 0.0, 0.5, 1.0 등으로 깔끔하게 출력)
+                    let displayStr;
+                    if (ans === 0) {
+                        displayStr = "0.0";
+                    } else {
+                        // 불필요한 뒷자리 0을 지우면서 최소 소수점 1자리는 보장
+                        displayStr = parseFloat(ans.toFixed(10)).toString();
+                        if (!displayStr.includes('.')) {
+                            displayStr += ".0";
+                        }
+                    }
+
+                    li.textContent = displayStr; 
+                    li.onclick = () => {
+                        slider.value = ans;
+                        draw(); 
+                    };
+                    solutionListUI.appendChild(li);
+                });
+            }
+        }, 50);
+    }
+
+    slider.addEventListener('input', draw);
+    draw();
+</script>
+
+</body>
+</html>

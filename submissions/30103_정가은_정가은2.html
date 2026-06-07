@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>정육면체 내 직원기둥 최적화 시뮬레이터</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root { --main-blue: #339af0; --bg-gray: #f1f3f5; --accent: #fa5252; --orange: #fd7e14; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg-gray); margin: 0; padding: 20px; color: #495057; }
+        .dashboard { display: grid; grid-template-columns: 1fr 450px; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        
+        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { font-size: 1.1rem; margin-top: 0; display: flex; align-items: center; gap: 8px; color: #212529; }
+        h2::before { content: ''; width: 4px; height: 18px; background: var(--main-blue); border-radius: 2px; display: inline-block; }
+        
+        canvas { width: 100%; background: #fff; border-radius: 10px; border: 1px solid #e9ecef; }
+        #c3d { height: 500px; cursor: move; }
+        #c2d { height: 350px; }
+
+        .data-item { background: #e7f5ff; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 10px; }
+        .data-label { font-size: 0.8rem; color: #666; font-weight: 600; }
+        .data-value { font-size: 1.4rem; font-weight: 800; color: var(--main-blue); display: block; }
+
+        .solution-card { background: #fff9db; border: 1px solid #ffe066; }
+        .step-box { margin-bottom: 15px; font-size: 0.95rem; line-height: 1.6; }
+        .step-title { font-weight: 800; color: #e67e22; display: block; margin-bottom: 5px; }
+        
+        .slider-box { padding: 10px 0; }
+        input[type="range"] { width: 100%; accent-color: var(--main-blue); }
+        .btn-max { width: 100%; padding: 12px; border: none; border-radius: 8px; background: var(--main-blue); color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="main-column">
+        <div class="card">
+            <h2>(1) 동적 기하 시각화 (3D Perspective)</h2>
+            <canvas id="c3d" width="800" height="500"></canvas>
+        </div>
+        <div class="card">
+            <h2>(2) 정사영 구조 상세 분석 (Projection)</h2>
+            <canvas id="c2d" width="800" height="350"></canvas>
+        </div>
+    </div>
+
+    <div class="side-column">
+        <div class="card">
+            <h2>(3) 실시간 조절 및 데이터</h2>
+            <div class="slider-box">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                    <span>기둥 반지름 \(r\)</span>
+                    <b id="rv_val" style="color:var(--orange)">0.200</b>
+                </div>
+                <input type="range" id="rs" min="0.01" max="0.608" step="0.001" value="0.2">
+                <button class="btn-max" onclick="setMax()">최적 조건 적용 (\(r \approx 0.408\))</button>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:15px;">
+                <div class="data-item"><span class="data-label">높이 \(h\)</span><span class="data-value" id="hv">0.000</span></div>
+                <div class="data-item"><span class="data-label">정사영 \(S'\)</span><span class="data-value" id="sv">0.000</span></div>
+            </div>
+            <div class="data-item" style="background:#fff0f0; border:1px solid #ffc9c9;">
+                <span class="data-label">기둥 부피 \(V\)</span>
+                <span class="data-value" id="vv" style="color:var(--accent); font-size:1.8rem;">0.0000</span>
+            </div>
+        </div>
+
+        <div class="card solution-card">
+            <h2>(4) 수학적 인사이트 (Solution)</h2>
+            <div class="step-box">
+                <span class="step-title">STEP 1. 높이의 결정</span>
+                정육면체 대각선 길이는 \(\sqrt{3}\)이며, 반지름 \(r\)인 기둥 내접 시 높이 \(h\)는:
+                <div style="text-align:center; margin:10px 0;">\[h = \sqrt{3} - 2\sqrt{2}r\]</div>
+            </div>
+            <div class="step-box">
+                <span class="step-title">STEP 2. 부피 최적화</span>
+                \(V = \pi r^2 h\) 이므로 임계점 조사 시:
+                <div style="text-align:center; margin:10px 0; color:var(--accent); font-weight:bold;">
+                    \(r = 1/\sqrt{6} \approx 0.408\)에서 최대
+                </div>
+            </div>
+            <div class="step-box" style="margin-bottom:0;">
+                <span class="step-title">STEP 3. 정사영의 형태</span>
+                밑면에 투영 시 중앙의 **직사각형**(길이 \(h\sqrt{2/3}\))과 장축 \(\sqrt{3}r\)인 **반타원 2개**가 결합됩니다.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const c3 = document.getElementById('c3d'), ctx3 = c3.getContext('2d');
+    const c2 = document.getElementById('c2d'), ctx2 = c2.getContext('2d');
+    const rs = document.getElementById('rs');
+    
+    let r = 0.2, angX = 0.6, angY = 0.7;
+    let isDown = false, px, py;
+
+    function project(x, y, z) {
+        let tx = x * Math.cos(angY) - z * Math.sin(angY);
+        let tz = x * Math.sin(angY) + z * Math.cos(angY);
+        let ty = y * Math.cos(angX) - tz * Math.sin(angX);
+        let fZ = y * Math.sin(angX) + tz * Math.cos(angX);
+        let sc = 800 / (fZ + 7);
+        return { x: 400 + tx * sc, y: 250 - ty * sc };
+    }
+
+    function draw() {
+        ctx3.clearRect(0,0,800,500);
+        ctx2.clearRect(0,0,800,350);
+
+        // 3D 큐브 가이드
+        const pts = [];
+        for(let i=0; i<8; i++) pts.push(project(i&1?2:-2, i&2?2:-2, i&4?2:-2));
+        const edges = [[0,1],[1,3],[3,2],[2,0],[4,5],[5,7],[7,6],[6,4],[0,4],[1,5],[2,6],[3,7]];
+        ctx3.strokeStyle = '#dee2e6'; ctx3.lineWidth = 1.5;
+        edges.forEach(e => { ctx3.beginPath(); ctx3.moveTo(pts[e[0]].x, pts[e[0]].y); ctx3.lineTo(pts[e[1]].x, pts[e[1]].y); ctx3.stroke(); });
+
+        const h = Math.max(0, Math.sqrt(3) - 2 * Math.sqrt(2) * r);
+        const volume = Math.PI * r * r * h;
+
+        // --- 3D 기둥 묘사 (강화된 버전) ---
+        if(h > 0) {
+            ctx3.lineWidth = 1.2;
+            const color = r > 0.408 ? '250, 82, 82' : '51, 154, 240';
+            ctx3.strokeStyle = `rgba(${color}, 0.7)`;
+            ctx3.fillStyle = `rgba(${color}, 0.2)`;
+
+            // 1. 기둥 옆면 골격선
+            for(let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
+                ctx3.beginPath();
+                for(let t = -h/2; t <= h/2; t += h) {
+                    let ux = r * Math.cos(a), uy = r * Math.sin(a);
+                    let px = (t + ux/Math.sqrt(2) + uy/Math.sqrt(6)) * 2.3;
+                    let py = (t - ux/Math.sqrt(2) + uy/Math.sqrt(6)) * 2.3;
+                    let pz = (t - 2*uy/Math.sqrt(6)) * 2.3;
+                    let pos = project(px, py, pz);
+                    if (t === -h/2) ctx3.moveTo(pos.x, pos.y);
+                    else ctx3.lineTo(pos.x, pos.y);
+                }
+                ctx3.stroke();
+            }
+
+            // 2. 기둥 양끝 밑면 (뚜껑)
+            [-h/2, h/2].forEach(t => {
+                ctx3.beginPath();
+                for(let a = 0; a <= Math.PI * 2.1; a += 0.2) {
+                    let ux = r * Math.cos(a), uy = r * Math.sin(a);
+                    let px = (t + ux/Math.sqrt(2) + uy/Math.sqrt(6)) * 2.3;
+                    let py = (t - ux/Math.sqrt(2) + uy/Math.sqrt(6)) * 2.3;
+                    let pz = (t - 2*uy/Math.sqrt(6)) * 2.3;
+                    let pos = project(px, py, pz);
+                    if (a === 0) ctx3.moveTo(pos.x, pos.y);
+                    else ctx3.lineTo(pos.x, pos.y);
+                }
+                ctx3.fill();
+                ctx3.stroke();
+            });
+        }
+
+        // 2D 정사영 시각화
+        const scale = 180;
+        ctx2.save();
+        ctx2.translate(400, 175);
+        ctx2.strokeStyle = '#e9ecef'; ctx2.strokeRect(-scale, -scale, scale*2, scale*2);
+
+        ctx2.rotate(Math.PI/4);
+        const rectW = h * Math.sqrt(2/3) * scale * 2;
+        const eMaj = r * Math.sqrt(3) * scale;
+        const eMin = r * scale;
+
+        ctx2.fillStyle = 'rgba(51, 154, 240, 0.2)';
+        ctx2.strokeStyle = 'var(--main-blue)'; ctx2.lineWidth = 2;
+        
+        ctx2.fillRect(-rectW/2, -eMin, rectW, eMin*2);
+        ctx2.strokeRect(-rectW/2, -eMin, rectW, eMin*2);
+        ctx2.beginPath(); ctx2.ellipse(rectW/2, 0, eMaj/2.5, eMin, 0, -Math.PI/2, Math.PI/2); ctx2.fill(); ctx2.stroke();
+        ctx2.beginPath(); ctx2.ellipse(-rectW/2, 0, eMaj/2.5, eMin, 0, Math.PI/2, 3*Math.PI/2); ctx2.fill(); ctx2.stroke();
+        ctx2.restore();
+
+        // 수치 업데이트
+        document.getElementById('rv_val').innerText = r.toFixed(3);
+        document.getElementById('hv').innerText = h.toFixed(3);
+        document.getElementById('sv').innerText = (Math.PI * Math.sqrt(3) * r * r).toFixed(3);
+        document.getElementById('vv').innerText = volume.toFixed(4);
+    }
+
+    rs.oninput = (e) => { r = parseFloat(e.target.value); draw(); };
+    function setMax() { r = 0.408; rs.value = 0.408; draw(); }
+
+    c3.onmousedown = (e) => { isDown = true; px = e.clientX; py = e.clientY; };
+    window.onmousemove = (e) => { if(!isDown) return; angY += (e.clientX-px)*0.01; angX += (e.clientY-py)*0.01; px=e.clientX; py=e.clientY; draw(); };
+    window.onmouseup = () => isDown = false;
+
+    draw();
+</script>
+</body>
+</html>

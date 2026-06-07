@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>벡터와 도형의 방정식 시뮬레이터 (개선판)</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0; padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        h1 { text-align: center; }
+        .control-panel {
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex; flex-direction: column; gap: 15px;
+            align-items: center;
+        }
+        .slider-group {
+            display: flex; align-items: center; gap: 15px;
+            background: #f0f4f8; padding: 10px 20px; border-radius: 8px; width: 80%; justify-content: center;
+        }
+        input[type="range"] { width: 300px; cursor: pointer; }
+        .theta-display {
+            font-size: 1.1em; font-weight: bold; color: #0056b3;
+            width: 140px; text-align: left;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .plot-container {
+            background: white; padding: 15px; border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .plot-desc { font-size: 0.95em; color: #555; margin-bottom: 10px; line-height: 1.5; }
+        
+        /* 모바일 등 작은 화면에서는 세로로 배치 */
+        @media (max-width: 900px) {
+            .grid-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>공간 벡터와 자취 시뮬레이터</h1>
+    
+    <div class="control-panel">
+        <div class="slider-group">
+            <label for="theta1Slider"><b>(1)번 평면 각도 θ₁:</b></label>
+            <input type="range" id="theta1Slider" min="0" max="360" value="45" step="1">
+            <span class="theta-display" id="theta1Value">45° (π/4)</span>
+        </div>
+        <div class="slider-group">
+            <label for="theta2Slider"><b>(2), (3)번 공간 각도 θ₂:</b></label>
+            <input type="range" id="theta2Slider" min="0" max="360" value="30" step="1">
+            <span class="theta-display" id="theta2Value">30° (π/6)</span>
+        </div>
+    </div>
+
+    <div class="grid-container">
+        <div class="plot-container">
+            <h2 style="text-align: center;">(1) 평면 벡터의 자취</h2>
+            <div class="plot-desc">
+                단순히 기하학적 형태를 파악하기 위한 변수 <b>θ₁</b>을 조절합니다.<br>
+                반지름 r(시뮬레이션상 r=5)인 원을 그리는 것을 확인하세요.
+            </div>
+            <div id="plot1" style="height: 500px;"></div>
+        </div>
+
+        <div class="plot-container">
+            <h2 style="text-align: center;">(2) & (3) 공간 자취와 정사영 통합</h2>
+            <div class="plot-desc">
+                공간상의 변수 <b>θ₂</b>를 조절하여 점 P가 원을 그리는 모습과,<br>
+                그 점이 xy평면(z=0, 반투명 면)에 정사영된 점 P'이 타원을 그리는 모습을 동시 확인하세요.<br>
+                <span style="color:red; font-weight:bold;">θ₂ = 30° 일 때 점 P가 Q(2, 1, 1)와 일치함을 확인하세요.</span>
+            </div>
+            <div id="plot2" style="height: 500px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 상수 설정
+        const r1 = 5; 
+        const sqrt3 = Math.sqrt(3);
+        
+        // 1번 문제 (2D 원) 경로 데이터
+        const circle1_x = [], circle1_y = [];
+        for(let t=0; t<=360; t++) {
+            circle1_x.push(r1 * Math.cos(t * Math.PI / 180));
+            circle1_y.push(r1 * Math.sin(t * Math.PI / 180));
+        }
+
+        // 2&3번 문제 (3D 원 및 2D 정사영) 경로 데이터
+        const circle2_x = [], circle2_y = [], circle2_z = [];
+        const ellipse_z = []; // xy평면이므로 z=0
+        for(let t=0; t<=360; t++) {
+            let rad = t * Math.PI / 180;
+            let cx = sqrt3 * Math.cos(rad) + 1 * Math.sin(rad);
+            let cy = sqrt3 * Math.cos(rad) - 1 * Math.sin(rad);
+            let cz = 2 * Math.sin(rad);
+            
+            circle2_x.push(cx);
+            circle2_y.push(cy);
+            circle2_z.push(cz);
+            ellipse_z.push(0);
+        }
+
+        // --- 1번 그래프 업데이트 ---
+        function updatePlot1(thetaDeg, isInit = false) {
+            const theta = thetaDeg * Math.PI / 180;
+            const p1_x = r1 * Math.cos(theta);
+            const p1_y = r1 * Math.sin(theta);
+
+            const data1 = [
+                { x: circle1_x, y: circle1_y, mode: 'lines', name: '자취 (원)', line: {color: 'lightgray', width: 2} },
+                { x: [0, r1], y: [0, 0], mode: 'lines+markers', name: '벡터 OA', line: {color: 'blue', width: 3} },
+                { x: [0, 0], y: [0, r1], mode: 'lines+markers', name: '벡터 OB', line: {color: 'green', width: 3} },
+                { x: [0, p1_x], y: [0, p1_y], mode: 'lines+markers+text', name: '벡터 OP', text: ['','P'], textposition: 'top right', line: {color: 'red', width: 3}, marker: {size: 8, color:'red'} }
+            ];
+            const layout1 = {
+                xaxis: { range: [-6, 6], zeroline: true },
+                yaxis: { range: [-6, 6], zeroline: true, scaleanchor: "x", scaleratio: 1 },
+                margin: { l: 30, r: 30, t: 30, b: 30 }, showlegend: false
+            };
+
+            if(isInit) Plotly.newPlot('plot1', data1, layout1, {displayModeBar: false});
+            else Plotly.react('plot1', data1, layout1);
+        }
+
+        // --- 2&3번 통합 3D 그래프 업데이트 ---
+        function updatePlot23(thetaDeg, isInit = false) {
+            const theta = thetaDeg * Math.PI / 180;
+            
+            // 점 P (공간)
+            const p2_x = sqrt3 * Math.cos(theta) + Math.sin(theta);
+            const p2_y = sqrt3 * Math.cos(theta) - Math.sin(theta);
+            const p2_z = 2 * Math.sin(theta);
+
+            const data2 = [
+                // xy 평면 (z=0) 시각화용 반투명 면
+                { type: 'mesh3d', x: [-4, 4, 4, -4], y: [-4, -4, 4, 4], z: [0, 0, 0, 0], opacity: 0.15, color: '#aaaaaa', name: 'xy 평면 (z=0)' },
+                
+                // 궤적
+                { x: circle2_x, y: circle2_y, z: circle2_z, type: 'scatter3d', mode: 'lines', name: '공간 자취 (원)', line: {color: 'black', width: 3} },
+                { x: circle2_x, y: circle2_y, z: ellipse_z, type: 'scatter3d', mode: 'lines', name: '정사영 자취 (타원)', line: {color: 'gray', width: 3, dash: 'dash'} },
+                
+                // 벡터들
+                { x: [0, sqrt3], y: [0, sqrt3], z: [0, 0], type: 'scatter3d', mode: 'lines', name: '벡터 OM', line: {color: 'blue', width: 4} },
+                { x: [0, 1], y: [0, -1], z: [0, 2], type: 'scatter3d', mode: 'lines', name: '벡터 ON', line: {color: 'green', width: 4} },
+                
+                // 정해진 점 Q와 그 정사영 Q'
+                { x: [2], y: [1], z: [1], type: 'scatter3d', mode: 'markers+text', name: '점 Q', text: ['Q(2,1,1)'], textposition: 'top right', marker: {size: 5, color: 'purple', symbol: 'diamond'} },
+                { x: [2], y: [1], z: [0], type: 'scatter3d', mode: 'markers+text', name: '점 Q 정사영', text: ["Q'(2,1,0)"], textposition: 'bottom right', marker: {size: 4, color: 'purple'} },
+                { x: [2, 2], y: [1, 1], z: [1, 0], type: 'scatter3d', mode: 'lines', name: 'Q 정사영 선', line: {color: 'purple', width: 2, dash: 'dot'} },
+
+                // 움직이는 점 P와 그 정사영 P' (선 연결)
+                { x: [0, p2_x], y: [0, p2_y], z: [0, p2_z], type: 'scatter3d', mode: 'lines', name: '벡터 OP', line: {color: 'red', width: 5} },
+                { x: [p2_x], y: [p2_y], z: [p2_z], type: 'scatter3d', mode: 'markers+text', name: '점 P', text: ['P'], textposition: 'top right', marker: {size: 6, color: 'red'} },
+                { x: [0, p2_x], y: [0, p2_y], z: [0, 0], type: 'scatter3d', mode: 'lines', name: "벡터 OP'", line: {color: 'darkred', width: 3, dash:'dash'} },
+                { x: [p2_x], y: [p2_y], z: [0], type: 'scatter3d', mode: 'markers+text', name: '점 P 정사영', text: ["P'"], textposition: 'bottom right', marker: {size: 5, color: 'darkred'} },
+                
+                // P에서 P'으로 수선의 발 내리는 점선 (프로젝션 라인)
+                { x: [p2_x, p2_x], y: [p2_y, p2_y], z: [p2_z, 0], type: 'scatter3d', mode: 'lines', name: '수선의 발', line: {color: 'orange', width: 3, dash: 'dot'} }
+            ];
+            
+            const layout2 = {
+                scene: {
+                    xaxis: {range: [-3, 3], title: 'X'}, 
+                    yaxis: {range: [-3, 3], title: 'Y'}, 
+                    zaxis: {range: [-3, 3], title: 'Z'},
+                    aspectmode: 'cube'
+                },
+                margin: { l: 0, r: 0, t: 0, b: 0 }, showlegend: false
+            };
+
+            if(isInit) Plotly.newPlot('plot2', data2, layout2);
+            else Plotly.react('plot2', data2, layout2);
+        }
+
+        // --- 이벤트 리스너 및 초기화 ---
+        function getRadText(deg) {
+            if(deg == 0 || deg == 360) return " (0 / 2π)";
+            if(deg == 30) return " (π/6)";
+            if(deg == 45) return " (π/4)";
+            if(deg == 60) return " (π/3)";
+            if(deg == 90) return " (π/2)";
+            if(deg == 180) return " (π)";
+            if(deg == 270) return " (3π/2)";
+            return "";
+        }
+
+        document.getElementById('theta1Slider').addEventListener('input', function() {
+            let deg = this.value;
+            document.getElementById('theta1Value').innerHTML = `${deg}°${getRadText(deg)}`;
+            updatePlot1(deg);
+        });
+
+        document.getElementById('theta2Slider').addEventListener('input', function() {
+            let deg = this.value;
+            document.getElementById('theta2Value').innerHTML = `${deg}°${getRadText(deg)}`;
+            updatePlot23(deg);
+        });
+
+        // 초기 렌더링
+        updatePlot1(45, true);
+        updatePlot23(30, true); // 초기값을 30으로 두어 Q점과 일치하는 것을 바로 보여줌
+    </script>
+</body>
+</html>

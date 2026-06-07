@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>심화수학 탐구: 타원의 준원(Director Circle) 시뮬레이터</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --panel-bg: #252525;
+            --accent-blue: #00e5ff;
+            --accent-green: #00ff88;
+            --accent-purple: #cc66ff;
+            --text-main: #e0e0e0;
+            --text-dim: #a0a0a0;
+            --border-color: #333;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* 메인 레이아웃: Desmos 스타일 */
+        #main-layout {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 왼쪽: 컨트롤 패널 */
+        #sidebar {
+            width: 420px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+        }
+
+        /* 오른쪽: 그래프 영역 */
+        #viewport {
+            flex: 1;
+            position: relative;
+            background-color: #111;
+            cursor: crosshair;
+        }
+
+        .header {
+            padding: 25px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            margin: 0;
+            color: var(--accent-blue);
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin: 5px 0 0 0;
+        }
+
+        .control-group {
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .group-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 15px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        /* 수식 스타일 슬라이더 */
+        .slider-container {
+            margin-bottom: 20px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-family: 'Cambria', serif;
+            font-style: italic;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+            appearance: none;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px; height: 16px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* 인포메이션 카드 */
+        .info-card {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+        }
+
+        .math-text {
+            font-family: 'Times New Roman', serif;
+            font-size: 1.1rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .status-active { background: var(--accent-green); color: #000; }
+        .status-idle { background: #444; color: #fff; }
+
+        .btn-main {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary { background: var(--accent-blue); color: #000; }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        .btn-main:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* 증명 과정 텍스트박스 */
+        #derivation-panel {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-dim);
+            display: none;
+            padding: 10px;
+            background: #1a1a1a;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        #inferred-equation {
+            font-size: 1.2rem;
+            color: var(--accent-green);
+            text-align: center;
+            padding: 15px;
+            border: 1px dashed var(--accent-green);
+            margin: 10px 0;
+            border-radius: 8px;
+        }
+
+        #warning-overlay {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(255, 0, 60, 0.2);
+            color: #ff4d4d;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #ff4d4d;
+            font-weight: bold;
+            display: none;
+            backdrop-filter: blur(5px);
+        }
+    </style>
+</head>
+<body>
+
+<div id="main-layout">
+    <aside id="sidebar">
+        <div class="header">
+            <h1>Ellipse Director Circle</h1>
+            <p>타원의 직교 접선과 자취 탐구 시뮬레이터</p>
+        </div>
+
+        <div class="control-group">
+            <div class="group-title">Parameters (Ellipsoid)</div>
+            <div class="slider-container">
+                <div class="slider-label"><span>Semi-major axis (a)</span><span id="label-a">4.0</span></div>
+                <input type="range" id="input-a" min="1" max="7" step="0.1" value="4">
+            </div>
+            <div class="slider-container">
+                <div class="slider-label"><span>Semi-minor axis (b)</span><span id="label-b">3.0</span></div>
+                <input type="range" id="input-b" min="1" max="7" step="0.1" value="3">
+            </div>
+            <button id="btn-auto" class="btn-main btn-primary">자취 자동 생성 시작</button>
+            <button id="btn-reset" class="btn-main btn-outline">자취 초기화</button>
+        </div>
+
+        <div class="control-group">
+            <div class="group-title">Analysis & Inference</div>
+            <div class="info-card">
+                <div id="perp-status" class="status-badge status-idle">IDLE</div>
+                <div class="slider-label">Current Point P: <span id="data-p" class="accent-blue">(0, 0)</span></div>
+                <div class="slider-label">Slopes: <span id="data-m" class="accent-purple">m1, m2</span></div>
+                <div class="slider-label">Product: <span id="data-mult" class="accent-green">0.00</span></div>
+            </div>
+            
+            <div id="inferred-equation">
+                \[ x^2 + y^2 = a^2 + b^2 \]
+            </div>
+
+            <button id="btn-show-proof" class="btn-main btn-outline" style="font-size: 0.8rem;">수학적 유도 과정 보기</button>
+            <div id="derivation-panel">
+                1. 기울기가 \(m\)인 타원 접선:<br>
+                \(y = mx \pm \sqrt{a^2m^2 + b^2}\)<br>
+                2. 점 \(P(x_0, y_0)\)를 대입하여 정리:<br>
+                \((x_0^2 - a^2)m^2 - 2x_0y_0m + (y_0^2 - b^2) = 0\)<br>
+                3. 두 접선이 수직이면 근과 계수의 관계에 의해 \(m_1m_2 = -1\):<br>
+                \(\frac{y_0^2 - b^2}{x_0^2 - a^2} = -1\)<br>
+                4. 정리하면 자취의 방정식:<br>
+                <strong>\(x^2 + y^2 = a^2 + b^2\)</strong>
+            </div>
+        </div>
+    </aside>
+
+    <main id="viewport">
+        <div id="warning-overlay">타원 내부에서는 접선을 정의할 수 없습니다.</div>
+    </main>
+</div>
+
+<script>
+    let a = 4, b = 3;
+    let px = 6, py = 4;
+    let scale = 50;
+    let locusPoints = [];
+    let isAuto = false;
+    let autoTheta = 0;
+    let tangentLengthA = 0, tangentLengthB = 0; // 애니메이션용
+
+    function setup() {
+        let canvas = createCanvas(document.getElementById('viewport').clientWidth, windowHeight);
+        canvas.parent('viewport');
+        
+        // UI 연동
+        document.getElementById('input-a').addEventListener('input', updateParams);
+        document.getElementById('input-b').addEventListener('input', updateParams);
+        document.getElementById('btn-reset').addEventListener('click', () => locusPoints = []);
+        document.getElementById('btn-auto').addEventListener('click', toggleAuto);
+        document.getElementById('btn-show-proof').addEventListener('click', toggleProof);
+        
+        updateInference();
+    }
+
+    function updateParams() {
+        a = parseFloat(document.getElementById('input-a').value);
+        b = parseFloat(document.getElementById('input-b').value);
+        document.getElementById('label-a').innerText = a.toFixed(1);
+        document.getElementById('label-b').innerText = b.toFixed(1);
+        locusPoints = []; // 파라미터 변경 시 자취 초기화
+        updateInference();
+    }
+
+    function toggleAuto() {
+        isAuto = !isAuto;
+        this.innerText = isAuto ? "자동 생성 중지" : "자취 자동 생성 시작";
+        if(isAuto) autoTheta = atan2(py, px);
+    }
+
+    function toggleProof() {
+        let p = document.getElementById('derivation-panel');
+        p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+    }
+
+    function updateInference() {
+        let r2 = (a*a + b*b).toFixed(2);
+        let eq = document.getElementById('inferred-equation');
+        eq.innerHTML = `\\[ x^2 + y^2 = ${r2} \\]`;
+        MathJax.typeset();
+    }
+
+    function draw() {
+        background(15);
+        translate(width/2, height/2);
+        
+        drawGrid();
+        
+        // P 위치 업데이트
+        if (isAuto) {
+            let r = Math.sqrt(a*a + b*b);
+            px = r * cos(autoTheta);
+            py = r * sin(autoTheta);
+            autoTheta += 0.02;
+        } else if (mouseIsPressed && mouseX > 0) {
+            px = (mouseX - width/2) / scale;
+            py = -(mouseY - height/2) / scale;
+        }
+
+        // 타원 그리기
+        noFill();
+        stroke(100);
+        strokeWeight(1);
+        ellipse(0, 0, a*2*scale, b*2*scale);
+        
+        // 접선 계산 및 그리기
+        let isInside = (px*px)/(a*a) + (py*py)/(b*b) < 1;
+        document.getElementById('warning-overlay').style.display = isInside ? 'block' : 'none';
+
+        if (!isInside) {
+            handleTangents();
+        }
+
+        // 자취 그리기 (회전 오류 방지를 위해 absolute 좌표로 유지)
+        drawLocus();
+
+        // 점 P
+        fill(255);
+        noStroke();
+        ellipse(px*scale, -py*scale, 10, 10);
+    }
+
+    function drawGrid() {
+        stroke(40);
+        for(let i = -10; i <= 10; i++) {
+            line(i*scale, -height, i*scale, height);
+            line(-width, i*scale, width, i*scale);
+        }
+        stroke(80);
+        line(-width, 0, width, 0);
+        line(0, -height, 0, height);
+    }
+
+    function handleTangents() {
+        // 극선을 이용한 접점 좌표 계산
+        let L = px / (a*a), M = py / (b*b);
+        // (L)x + (M)y = 1 이라는 직선과 타원의 교점 구하기
+        // x^2/a^2 + y^2/b^2 = 1 연립
+        let pts = intersectLineEllipse(px/(a*a), py/(b*b), 1);
+        
+        if (pts) {
+            let m1 = (pts.y1 - py) / (pts.x1 - px);
+            let m2 = (pts.y2 - py) / (pts.x2 - px);
+            let mult = m1 * m2;
+
+            // 애니메이션 길이 증가
+            tangentLengthA = lerp(tangentLengthA, 15, 0.1);
+            
+            // 접선 시각화
+            drawAnimatedTangent(px, py, pts.x1, pts.y1, '#00e5ff');
+            drawAnimatedTangent(px, py, pts.x2, pts.y2, '#cc66ff');
+
+            // 수직 판정 (근사치)
+            let isPerp = abs(mult + 1) < 0.03;
+            updateUI(m1, m2, mult, isPerp);
+
+            if (isPerp || isAuto) {
+                // 자취 추가 (중복 최소화)
+                if (frameCount % 2 === 0) {
+                    locusPoints.push({x: px, y: py});
+                }
+            }
+        }
+    }
+
+    function drawAnimatedTangent(x1, y1, x2, y2, col) {
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        
+        stroke(col);
+        strokeWeight(2);
+        // 점 P에서 접점 방향으로 뻗어나가는 광선 표현
+        drawingContext.shadowBlur = 15;
+        drawingContext.shadowColor = col;
+        line(x1*scale, -y1*scale, (x1 + dx*5)*scale, -(y1 + dy*5)*scale);
+        drawingContext.shadowBlur = 0;
+        
+        fill(col);
+        ellipse(x2*scale, -y2*scale, 6, 6);
+    }
+
+    function drawLocus() {
+        noFill();
+        stroke('#00ff88');
+        strokeWeight(3);
+        beginShape();
+        for(let p of locusPoints) {
+            vertex(p.x * scale, -p.y * scale);
+        }
+        endShape();
+    }
+
+    function updateUI(m1, m2, mult, isPerp) {
+        document.getElementById('data-p').innerText = `(${px.toFixed(2)}, ${py.toFixed(2)})`;
+        document.getElementById('data-m').innerText = `${m1.toFixed(2)}, ${m2.toFixed(2)}`;
+        document.getElementById('data-mult').innerText = mult.toFixed(3);
+        
+        let badge = document.getElementById('perp-status');
+        if (isPerp) {
+            badge.innerText = "PERPENDICULAR";
+            badge.className = "status-badge status-active";
+        } else {
+            badge.innerText = "SEARCHING...";
+            badge.className = "status-badge status-idle";
+        }
+    }
+
+    // 직선 Lx + My = C 와 타원 x^2/a^2 + y^2/b^2 = 1의 교점 계산기
+    function intersectLineEllipse(L, M, C) {
+        // 대수적 해법 적용
+        let A = (1/(a*a)) + (L*L)/(M*M*b*b);
+        let B = - (2*L*C) / (M*M*b*b);
+        let K = (C*C)/(M*M*b*b) - 1;
+        
+        let det = B*B - 4*A*K;
+        if (det < 0) return null;
+        
+        let x1 = (-B + sqrt(det)) / (2*A);
+        let y1 = (C - L*x1) / M;
+        let x2 = (-B - sqrt(det)) / (2*A);
+        let y2 = (C - L*x2) / M;
+        
+        return {x1, y1, x2, y2};
+    }
+</script>
+
+</body>
+</html>

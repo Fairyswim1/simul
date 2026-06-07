@@ -1,92 +1,78 @@
-const state = {
-  data: null,
-  activeClass: 'all',
-  scrollIndex: 0,
-  visibleCount: 4,
-};
+const CLASS_ORDER = ['301', '302', '303', '304', '305'];
 
-const filterEl = document.getElementById('filter');
-const trackEl = document.getElementById('track');
+const ROW_COLORS = [
+  { accent: '#6366f1', soft: 'rgba(99, 102, 241, 0.1)' },
+  { accent: '#8b5cf6', soft: 'rgba(139, 92, 246, 0.1)' },
+  { accent: '#ec4899', soft: 'rgba(236, 72, 153, 0.1)' },
+  { accent: '#f59e0b', soft: 'rgba(245, 158, 11, 0.1)' },
+  { accent: '#10b981', soft: 'rgba(16, 185, 129, 0.1)' },
+];
+
+const galleryEl = document.getElementById('gallery');
+const classNavEl = document.getElementById('classNav');
 const emptyMsg = document.getElementById('emptyMsg');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
+
+let data = null;
 
 async function loadData() {
   try {
     const res = await fetch('data/students.json');
     if (!res.ok) throw new Error('not found');
-    state.data = await res.json();
+    data = await res.json();
   } catch {
-    state.data = { classes: [], students: [] };
+    data = { classes: [], students: [] };
   }
 }
 
-function getCards() {
-  if (!state.data) return [];
+function getStudentsByClass(classId) {
+  return (data?.students ?? []).filter((s) => s.classId === classId);
+}
+
+function getClassCards(classId) {
   const cards = [];
-
-  for (const student of state.data.students) {
-    if (state.activeClass !== 'all' && student.classId !== state.activeClass) continue;
-
+  for (const student of getStudentsByClass(classId)) {
     for (const sim of student.simulations) {
       cards.push({ student, sim });
     }
   }
-
   return cards;
 }
 
-function renderFilter() {
-  const classes = state.data?.classes ?? [];
-  const buttons = [
-    { id: 'all', label: '전체' },
-    ...classes.map((c) => ({ id: c, label: `${c}반` })),
-  ];
-
-  filterEl.innerHTML = buttons
-    .map(
-      (b) =>
-        `<button class="filter__btn${b.id === state.activeClass ? ' filter__btn--active' : ''}" data-class="${b.id}">${b.label}</button>`
-    )
-    .join('');
-
-  filterEl.querySelectorAll('.filter__btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.activeClass = btn.dataset.class;
-      state.scrollIndex = 0;
-      renderFilter();
-      renderCards();
-    });
-  });
+function getSimIndex(title) {
+  const match = title.match(/(\d+)/);
+  return match ? match[1] : '';
 }
 
-function createCard({ student, sim }) {
+function createCard({ student, sim }, color) {
   const card = document.createElement('article');
   card.className = 'card';
+  card.style.setProperty('--row-accent', color.accent);
+  card.style.setProperty('--row-accent-soft', color.soft);
 
   const hasReport = !!student.report;
+  const simNum = getSimIndex(sim.title);
 
   card.innerHTML = `
-    <div class="card__thumb" data-href="${sim.path}" role="button" tabindex="0" aria-label="${sim.title} 시뮬레이션 열기">
-      <iframe src="${sim.path}" title="${sim.title} 미리보기" loading="lazy"></iframe>
+    <div class="card__thumb" role="button" tabindex="0" aria-label="${student.studentName} ${sim.title} 시뮬레이션 열기">
+      <iframe src="${sim.path}" title="${sim.title} 미리보기" loading="lazy" sandbox=""></iframe>
       <div class="card__thumb-overlay">
         <div class="card__play">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </div>
       </div>
-      <div class="card__badge">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-      </div>
+      ${simNum ? `<span class="card__sim-badge">Sim ${simNum}</span>` : ''}
     </div>
     <div class="card__body">
-      <span class="card__tag">${student.studentId}</span>
+      <div class="card__top">
+        <span class="card__tag">${student.studentId}</span>
+        <span class="card__student">${student.studentName}</span>
+      </div>
       <h3 class="card__title">${sim.title}</h3>
-      <p class="card__student">${student.studentName}</p>
       <div class="card__actions">
-        <a class="card__btn card__btn--play" href="${sim.path}" target="_blank" rel="noopener">시뮬레이션 실행</a>
+        <a class="card__btn card__btn--play" href="${sim.path}" target="_blank" rel="noopener">실행</a>
         ${
           hasReport
-            ? `<a class="card__btn card__btn--report" href="${student.report}" target="_blank" rel="noopener">보고서 보기</a>`
+            ? `<a class="card__btn card__btn--report" href="${student.report}" target="_blank" rel="noopener">보고서</a>`
             : `<span class="card__btn card__btn--report" aria-disabled="true">보고서 없음</span>`
         }
       </div>
@@ -106,77 +92,80 @@ function createCard({ student, sim }) {
   return card;
 }
 
-function updateArrows(cardCount) {
-  const maxIndex = Math.max(0, cardCount - state.visibleCount);
-  prevBtn.disabled = state.scrollIndex <= 0;
-  nextBtn.disabled = state.scrollIndex >= maxIndex;
-}
+function createClassRow(classId, index) {
+  const color = ROW_COLORS[index % ROW_COLORS.length];
+  const students = getStudentsByClass(classId);
+  const cards = getClassCards(classId);
 
-function updateVisibleCount() {
-  const w = window.innerWidth;
-  if (w < 640) state.visibleCount = 1;
-  else if (w < 900) state.visibleCount = 2;
-  else if (w < 1100) state.visibleCount = 3;
-  else state.visibleCount = 4;
-}
+  const section = document.createElement('section');
+  section.className = 'class-row';
+  section.id = `class-${classId}`;
+  section.style.setProperty('--row-accent', color.accent);
+  section.style.setProperty('--row-accent-soft', color.soft);
 
-function scrollToIndex() {
-  const cardWidth = 280 + 20;
-  trackEl.style.transform = `translateX(-${state.scrollIndex * cardWidth}px)`;
-}
+  section.innerHTML = `
+    <div class="class-row__header">
+      <div class="class-row__title-group">
+        <div class="class-row__indicator"></div>
+        <div>
+          <h2 class="class-row__title">${classId}반</h2>
+          <p class="class-row__meta">${students.length}명 · 시뮬레이션 ${cards.length}개</p>
+        </div>
+      </div>
+      <span class="class-row__count">${cards.length} works</span>
+    </div>
+    <div class="class-row__body">
+      <div class="class-row__scroll">
+        <div class="class-row__track"></div>
+      </div>
+    </div>
+  `;
 
-function renderCards() {
-  const cards = getCards();
-  trackEl.innerHTML = '';
+  const track = section.querySelector('.class-row__track');
 
   if (cards.length === 0) {
+    section.querySelector('.class-row__body').innerHTML =
+      '<p class="class-row__empty">아직 제출된 작품이 없습니다.</p>';
+  } else {
+    cards.forEach((c) => track.appendChild(createCard(c, color)));
+  }
+
+  return section;
+}
+
+function renderClassNav() {
+  classNavEl.innerHTML = CLASS_ORDER.map((classId) => {
+    const count = getClassCards(classId).length;
+    return `
+      <a class="class-nav__link" href="#class-${classId}">
+        ${classId}반
+        <span class="class-nav__count">${count}</span>
+      </a>
+    `;
+  }).join('');
+}
+
+function renderGallery() {
+  galleryEl.innerHTML = '';
+
+  const totalCards = CLASS_ORDER.reduce((sum, id) => sum + getClassCards(id).length, 0);
+
+  if (totalCards === 0) {
     emptyMsg.hidden = false;
-    prevBtn.style.display = 'none';
-    nextBtn.style.display = 'none';
     return;
   }
 
   emptyMsg.hidden = true;
-  prevBtn.style.display = '';
-  nextBtn.style.display = '';
 
-  cards.forEach((c) => trackEl.appendChild(createCard(c)));
-
-  updateVisibleCount();
-  const maxIndex = Math.max(0, cards.length - state.visibleCount);
-  if (state.scrollIndex > maxIndex) state.scrollIndex = maxIndex;
-  scrollToIndex();
-  updateArrows(cards.length);
+  CLASS_ORDER.forEach((classId, index) => {
+    galleryEl.appendChild(createClassRow(classId, index));
+  });
 }
-
-prevBtn.addEventListener('click', () => {
-  if (state.scrollIndex > 0) {
-    state.scrollIndex--;
-    scrollToIndex();
-    updateArrows(getCards().length);
-  }
-});
-
-nextBtn.addEventListener('click', () => {
-  const cards = getCards();
-  const maxIndex = Math.max(0, cards.length - state.visibleCount);
-  if (state.scrollIndex < maxIndex) {
-    state.scrollIndex++;
-    scrollToIndex();
-    updateArrows(cards.length);
-  }
-});
-
-window.addEventListener('resize', () => {
-  updateVisibleCount();
-  scrollToIndex();
-  updateArrows(getCards().length);
-});
 
 async function init() {
   await loadData();
-  renderFilter();
-  renderCards();
+  renderClassNav();
+  renderGallery();
 }
 
 init();

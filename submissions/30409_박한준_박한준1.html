@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 수학 시뮬레이터: 나선 궤적과 삼각형 PAH 넓이</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Malgun Gothic', sans-serif; background-color: #e0eaf5; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            width: 320px;
+            z-index: 10;
+        }
+        h2 { margin-top: 0; font-size: 18px; color: #333; }
+        .control-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .data-box { background: #f4f4f4; padding: 10px; border-radius: 5px; font-size: 14px; line-height: 1.5; }
+        .legend { margin-top: 15px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+        .color-box { width: 12px; height: 12px; display: inline-block; margin-right: 8px; border-radius: 50%; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div id="ui-panel">
+    <h2>문제 상황 시뮬레이터</h2>
+    <div class="control-group">
+        <label for="timeSlider">시간 (t): <span id="timeValue">0</span> 초</label>
+        <input type="range" id="timeSlider" min="0" max="30" step="0.1" value="0">
+    </div>
+    
+    <div class="data-box">
+        <div><strong>θ (각도):</strong> <span id="thetaValue">0.00</span> rad</div>
+        <hr style="border: 0.5px solid #ccc; margin: 10px 0;">
+        <div><strong>점 P 좌표:</strong> <span id="pCoord">(2.00, 0.00, 0.00)</span></div>
+        <div><strong>점 H 좌표:</strong> <span id="hCoord">(2.00, 0.00, 0.00)</span></div>
+        <hr style="border: 0.5px solid #ccc; margin: 10px 0;">
+        <div style="color: #d32f2f; font-weight: bold;">
+            삼각형 PAH 넓이 (S): <span id="areaValue" style="font-size: 18px;">0.00</span>
+        </div>
+    </div>
+
+    <div class="legend">
+        <strong>[점 및 색상 안내]</strong>
+        <div class="legend-item" style="margin-top: 5px;">
+            <span class="color-box" style="background-color: #0000ff;"></span> 점 A (시작점, 2,0,0)
+        </div>
+        <div class="legend-item">
+            <span class="color-box" style="background-color: #000000;"></span> 점 B (도착점)
+        </div>
+        <div class="legend-item">
+            <span class="color-box" style="background-color: #ff0000;"></span> 점 P (나선을 도는 점)
+        </div>
+        <div class="legend-item">
+            <span class="color-box" style="background-color: #00aa00;"></span> 점 H (수선의 발)
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. 씬, 카메라, 렌더러 설정
+    THREE.Object3D.DefaultUp.set(0, 0, 1);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xe0eaf5);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(12, 15, 12); 
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, 4.5);
+    controls.update();
+
+    // 2. 조명 및 헬퍼
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(10, 10, 10);
+    scene.add(dirLight);
+
+    const axesHelper = new THREE.AxesHelper(6);
+    scene.add(axesHelper);
+    const gridHelper = new THREE.GridHelper(12, 12);
+    gridHelper.rotation.x = Math.PI / 2;
+    scene.add(gridHelper);
+
+    // 3. 고정 구조물 (원기둥 기본 상태로 안정화)
+    const cylHeight = 3 * Math.PI;
+    const geometryCyl = new THREE.CylinderGeometry(2, 2, cylHeight, 32, 1, true);
+    geometryCyl.rotateX(Math.PI / 2);
+    geometryCyl.translate(0, 0, cylHeight / 2);
+    const materialCyl = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+    const cylinder = new THREE.Mesh(geometryCyl, materialCyl);
+    scene.add(cylinder);
+
+    // 4. 점 객체들 생성
+    const meshA = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), new THREE.MeshBasicMaterial({ color: 0x0000ff }));
+    meshA.position.set(2, 0, 0);
+    scene.add(meshA);
+
+    const meshB = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    meshB.position.set(2, 0, cylHeight);
+    scene.add(meshB);
+
+    const meshP = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+    scene.add(meshP);
+
+    const meshH = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), new THREE.MeshBasicMaterial({ color: 0x00aa00 }));
+    scene.add(meshH);
+
+    // 전체 회색 가이드 궤적
+    const fullPathPoints = [];
+    for(let i = 0; i <= 100; i++) {
+        let th = (2 * Math.PI) * (i / 100);
+        fullPathPoints.push(new THREE.Vector3(2 * Math.cos(th), 2 * Math.sin(th), 1.5 * th));
+    }
+    const fullPathGeo = new THREE.BufferGeometry().setFromPoints(fullPathPoints);
+    scene.add(new THREE.Line(fullPathGeo, new THREE.LineBasicMaterial({ color: 0xaaaaaa })));
+
+    // 실시간 동적 빨간색 궤적
+    const MAX_POINTS = 500; 
+    const activePathGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(MAX_POINTS * 3);
+    activePathGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const activePath = new THREE.Line(activePathGeo, new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 }));
+    scene.add(activePath);
+
+    // 삼각형 PAH 외곽 테두리선 (버그가 발생하지 않는 LineLoop 구조)
+    const triLineGeo = new THREE.BufferGeometry();
+    const triLinePositions = new Float32Array(9);
+    triLineGeo.setAttribute('position', new THREE.BufferAttribute(triLinePositions, 3));
+    const triLineMat = new THREE.LineBasicMaterial({ color: 0xff5500, linewidth: 2 });
+    const triLine = new THREE.LineLoop(triLineGeo, triLineMat);
+    triLine.frustumCulled = false;
+    scene.add(triLine);
+
+    // 5. UI 및 시뮬레이션 연동
+    const timeSlider = document.getElementById('timeSlider');
+    const timeValue = document.getElementById('timeValue');
+    const thetaValue = document.getElementById('thetaValue');
+    const pCoord = document.getElementById('pCoord');
+    const hCoord = document.getElementById('hCoord');
+    const areaValue = document.getElementById('areaValue');
+
+    function updateSimulation() {
+        const t = parseFloat(timeSlider.value);
+        const theta = (Math.PI / 15) * t;
+
+        const px = 2 * Math.cos(theta);
+        const py = 2 * Math.sin(theta);
+        const pz = 1.5 * theta;
+
+        meshP.position.set(px, py, pz);
+        meshH.position.set(px, py, 0);
+
+        // 삼각형 구조선(테두리) 좌표만 안전하게 업데이트
+        const linePos = triLine.geometry.attributes.position;
+        linePos.setXYZ(0, 2, 0, 0);       // 점 A
+        linePos.setXYZ(1, px, py, pz);    // 점 P
+        linePos.setXYZ(2, px, py, 0);     // 점 H
+        linePos.needsUpdate = true;
+        triLine.geometry.computeBoundingSphere();
+
+        // 진행 궤적 배열 업데이트
+        const steps = Math.min(MAX_POINTS - 1, Math.max(1, Math.floor(t * 10)));
+        const pathPos = activePath.geometry.attributes.position;
+        for(let i = 0; i <= steps; i++) {
+            let tempT = t * (i / steps);
+            let tempTheta = (Math.PI / 15) * tempT;
+            pathPos.setXYZ(i, 2 * Math.cos(tempTheta), 2 * Math.sin(tempTheta), 1.5 * tempTheta);
+        }
+        activePath.geometry.setDrawRange(0, steps + 1);
+        activePath.geometry.attributes.position.needsUpdate = true;
+
+        // 대수적 면적 계산
+        const base = Math.sqrt(Math.pow(px - 2, 2) + Math.pow(py, 2));
+        const height = pz;
+        const area = 0.5 * base * height;
+
+        // 텍스트 패널 업데이트
+        timeValue.textContent = t.toFixed(1);
+        thetaValue.textContent = theta.toFixed(2) + ' rad';
+        pCoord.textContent = `(${px.toFixed(2)}, ${py.toFixed(2)}, ${pz.toFixed(2)})`;
+        hCoord.textContent = `(${px.toFixed(2)}, ${py.toFixed(2)}, 0.00)`;
+        areaValue.textContent = area.toFixed(4);
+    }
+
+    timeSlider.addEventListener('input', updateSimulation);
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    updateSimulation();
+    animate();
+</script>
+</body>
+</html>

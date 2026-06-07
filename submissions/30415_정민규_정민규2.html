@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>반직선 컨트롤러 - 수리논술 시뮬레이터</title>
+    <style>
+        body { font-family: sans-serif; display: flex; margin: 0; height: 100vh; background: #1e1e1e; color: #eee; overflow: hidden; }
+        #canvas-container { flex: 1; position: relative; cursor: grab; }
+        #canvas-container:active { cursor: grabbing; }
+        canvas { background: #ffffff; }
+        #controls { width: 340px; padding: 25px; border-left: 1px solid #444; background: #2d2d2d; display: flex; flex-direction: column; gap: 15px; z-index: 10; box-shadow: -5px 0 15px rgba(0,0,0,0.3); }
+        
+        h2 { color: #00d4ff; margin-top: 0; font-size: 22px; border-bottom: 2px solid #00d4ff; padding-bottom: 10px; }
+        .control-group { background: #3d3d3d; padding: 15px; border-radius: 8px; display: flex; flex-direction: column; gap: 10px; }
+        label { font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        
+        button { padding: 12px; cursor: pointer; font-size: 15px; border-radius: 6px; border: none; font-weight: bold; transition: 0.2s; }
+        #btn-step { background: #007bff; color: white; }
+        #btn-step:hover { background: #0056b3; }
+        #btn-reset { background: #e74c3c; color: white; }
+        #btn-reset:hover { background: #c0392b; }
+        
+        .counter-box { display: flex; justify-content: space-around; background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; }
+        .counter-item { text-align: center; }
+        .counter-label { font-size: 11px; color: #aaa; text-transform: uppercase; }
+        .counter-value { font-size: 20px; font-weight: bold; color: #00ffcc; display: block; }
+
+        .info { font-size: 12px; line-height: 1.6; color: #aaa; background: #222; padding: 10px; border-radius: 6px; }
+        .kbd { background: #555; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: white; }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container">
+    <canvas id="simCanvas"></canvas>
+</div>
+
+<div id="controls">
+    <h2>반직선 컨트롤러</h2>
+    
+    <div class="counter-box">
+        <div class="counter-item">
+            <span class="counter-label">실행 횟수</span>
+            <span id="step-count" class="counter-value">0</span>
+        </div>
+        <div class="counter-item">
+            <span class="counter-label">총 직선 수</span>
+            <span id="line-count" class="counter-value">4</span>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label>조절 수치 (a) <span id="a-val" style="color:#00ffcc">1.0</span></label>
+        <input type="range" id="a-slider" min="0.1" max="5.0" step="0.1" value="1.0">
+    </div>
+
+    <div class="control-group">
+        <label for="showRange" style="cursor:pointer">하늘색 범위 표시 <input type="checkbox" id="showRange" checked></label>
+    </div>
+
+    <button id="btn-step">새로운 반직선 생성</button>
+    <button id="btn-reset">모두 초기화</button>
+    
+    <div class="info">
+        <b>조작 가이드:</b><br>
+        - <span class="kbd">마우스 휠</span> : 확대 / 축소<br>
+        - <span class="kbd">클릭 드래그</span> : 화면 이동<br>
+        - <b>A(2,2)</b>를 맞출 수 있는 $a$를 찾아보세요!
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+const btnStep = document.getElementById('btn-step');
+const btnReset = document.getElementById('btn-reset');
+const aSlider = document.getElementById('a-slider');
+const aValText = document.getElementById('a-val');
+const showRangeCheck = document.getElementById('showRange');
+const stepCountText = document.getElementById('step-count');
+const lineCountText = document.getElementById('line-count');
+
+let camera = { x: 220, y: 320, zoom: 45 };
+let isDragging = false;
+let lastMouse = { x: 0, y: 0 };
+let stepCount = 0;
+
+function resize() {
+    canvas.width = window.innerWidth - 340;
+    canvas.height = window.innerHeight;
+    render();
+}
+window.addEventListener('resize', resize);
+
+function toCanvas(x, y) {
+    return { x: camera.x + x * camera.zoom, y: camera.y - y * camera.zoom };
+}
+
+const initialLines = [
+    { p: {x: 6, y: 4}, v: {x: -1, y: 0}, color: '#3498db' },
+    { p: {x: 1, y: 5}, v: {x: 0, y: -1}, color: '#2ecc71' },
+    { p: {x: 0, y: 3}, v: {x: 1, y: -1}, color: '#f39c12' },
+    { p: {x: 0, y: -1}, v: {x: 1, y: 1}, color: '#9b59b6' }
+];
+
+let currentLines = [];
+
+function drawGrid() {
+    const gridLimit = 100;
+    ctx.strokeStyle = '#f0f0f0';
+    ctx.lineWidth = 1;
+    for(let i = -gridLimit; i <= gridLimit; i++) {
+        let p1 = toCanvas(i, -gridLimit), p2 = toCanvas(i, gridLimit);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        let p3 = toCanvas(-gridLimit, i), p4 = toCanvas(gridLimit, i);
+        ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke();
+    }
+}
+
+function drawArrow(p, v, color, width) {
+    const start = toCanvas(p.x, p.y);
+    const end = toCanvas(p.x + v.x * 200, p.y + v.y * 200);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+}
+
+function drawRange(p_orig, v1, v2) {
+    if(!showRangeCheck.checked) return;
+    const p = toCanvas(p_orig.x, p_orig.y);
+    const end1 = toCanvas(p_orig.x + v1.x * 200, p_orig.y + v1.y * 200);
+    const end2 = toCanvas(p_orig.x + v2.x * 200, p_orig.y + v2.y * 200);
+    ctx.fillStyle = 'rgba(0, 191, 255, 0.07)';
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(end1.x, end1.y);
+    ctx.lineTo(end2.x, end2.y);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function getIntersection(l1, l2) {
+    const det = l1.v.x * (-l2.v.y) - (-l2.v.x) * l1.v.y;
+    if (Math.abs(det) < 0.0001) return null;
+    const dx = l2.p.x - l1.p.x, dy = l2.p.y - l1.p.y;
+    const t = (dx * (-l2.v.y) - (-l2.v.x) * dy) / det;
+    const s = (l1.v.x * dy - dx * l1.v.y) / det;
+    if (t > 0.01 && s > 0.01) return { x: l1.p.x + t * l1.v.x, y: l1.p.y + t * l1.v.y };
+    return null;
+}
+
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGrid();
+
+    const posA = toCanvas(2, 2);
+    ctx.fillStyle = 'red';
+    ctx.beginPath(); ctx.arc(posA.x, posA.y, 6 * (camera.zoom/45), 0, Math.PI*2); ctx.fill();
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText("A(2,2)", posA.x + 10, posA.y + 5);
+
+    for(let i=0; i<currentLines.length; i++) {
+        for(let j=i+1; j<currentLines.length; j++) {
+            const pt = getIntersection(currentLines[i], currentLines[j]);
+            if(pt) drawRange(pt, currentLines[i].v, currentLines[j].v);
+        }
+    }
+
+    currentLines.forEach((line, idx) => {
+        const isInitial = idx < 4;
+        drawArrow(line.p, line.v, isInitial ? line.color : '#000000', isInitial ? 3 : 0.6);
+    });
+}
+
+canvas.onmousedown = (e) => { isDragging = true; lastMouse = { x: e.clientX, y: e.clientY }; };
+window.onmouseup = () => { isDragging = false; };
+window.onmousemove = (e) => {
+    if(!isDragging) return;
+    camera.x += (e.clientX - lastMouse.x);
+    camera.y += (e.clientY - lastMouse.y);
+    lastMouse = { x: e.clientX, y: e.clientY };
+    render();
+};
+canvas.onwheel = (e) => {
+    e.preventDefault();
+    camera.zoom *= (e.deltaY > 0 ? 0.9 : 1.1);
+    render();
+};
+
+aSlider.oninput = () => { aValText.innerText = aSlider.value; };
+
+btnStep.onclick = () => {
+    let newlyFound = [];
+    const a = parseFloat(aSlider.value);
+    for(let i=0; i<currentLines.length; i++) {
+        for(let j=i+1; j<currentLines.length; j++) {
+            const pt = getIntersection(currentLines[i], currentLines[j]);
+            if(pt) {
+                newlyFound.push({p: pt, v: { x: a*currentLines[i].v.x + currentLines[j].v.x, y: a*currentLines[i].v.y + currentLines[j].v.y }});
+                newlyFound.push({p: pt, v: { x: currentLines[i].v.x + a*currentLines[j].v.x, y: currentLines[i].v.y + a*currentLines[j].v.y }});
+            }
+        }
+    }
+    if(newlyFound.length > 20) newlyFound = newlyFound.slice(0, 20);
+    currentLines = [...currentLines, ...newlyFound];
+    stepCount++;
+    stepCountText.innerText = stepCount;
+    lineCountText.innerText = currentLines.length;
+    render();
+};
+
+btnReset.onclick = () => {
+    currentLines = JSON.parse(JSON.stringify(initialLines));
+    stepCount = 0;
+    camera = { x: 220, y: 320, zoom: 45 };
+    stepCountText.innerText = "0";
+    lineCountText.innerText = "4";
+    render();
+};
+
+showRangeCheck.onchange = render;
+resize();
+currentLines = JSON.parse(JSON.stringify(initialLines));
+render();
+</script>
+</body>
+</html>

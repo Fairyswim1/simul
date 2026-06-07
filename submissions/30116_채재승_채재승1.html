@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사면체 OABC와 삼각형 OHC 넓이 최솟값 시뮬레이터</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f1f5f9; font-family: 'Pretendard', sans-serif; }
+        canvas { display: block; position: relative; z-index: 10; }
+        
+        #background-copyright {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            text-align: center;
+            color: rgba(30, 41, 59, 0.08);
+            font-size: 5vw;
+            font-weight: 900;
+            line-height: 1.2;
+            pointer-events: none;
+            z-index: 1;
+            user-select: none;
+            white-space: pre-line;
+        }
+
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 340px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+        }
+        .control-panel.minimized {
+            transform: translateX(-320px);
+            opacity: 0.5;
+        }
+        .control-panel.minimized:hover {
+            transform: translateX(-300px);
+            opacity: 0.8;
+        }
+
+        #minimize-btn {
+            position: absolute;
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 48px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.05);
+        }
+
+        .congrats-msg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 50px;
+            font-weight: 900;
+            font-size: 2rem;
+            box-shadow: 0 20px 50px rgba(239, 68, 68, 0.4);
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .congrats-msg.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .opacity-controller {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 5px 10px;
+            border-radius: 8px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 10px;
+            color: #64748b;
+        }
+        .opacity-controller input { width: 60px; height: 4px; cursor: pointer; }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* Toggle Switch 스타일 */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider-round {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider-round:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider-round { background-color: #ef4444; }
+        input:checked + .slider-round:before { transform: translateX(14px); }
+    </style>
+</head>
+<body>
+
+<div id="background-copyright">
+    이 프로그램의 저작권은 제작자 채재승에게 있습니다.
+    영리적/상업적 목적으로 사용 및 배포할 경우
+    제작자의 허락을 받아야 합니다.
+    단 현진쌤은 예외!
+    ©채재승
+</div>
+
+<div id="congrats" class="congrats-msg">
+    최솟값입니다!!! 축하드립니다!!! 🎉
+</div>
+
+<div class="control-panel text-slate-800" id="mainPanel">
+    <button id="minimize-btn" title="패널 접기/펴기">
+        <span id="minIcon">◀</span>
+    </button>
+
+    <h1 class="text-lg font-black mb-4 flex items-center gap-2">
+        <span class="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+        OHC 넓이 시뮬레이터
+    </h1>
+    
+    <div class="space-y-4 mb-5">
+        <div>
+            <div class="flex justify-between items-center mb-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">위치 계수 t (0 ~ 1)</label>
+            </div>
+            <input type="range" min="0" max="1" step="0.0001" value="0.5" class="slider" id="tSlider">
+        </div>
+        <div>
+            <div class="flex justify-between items-center mb-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase">자동 재생 속도 (음수: 역방향)</label>
+                <span id="speedVal" class="text-[9px] font-mono text-slate-400">0.0015</span>
+            </div>
+            <input type="range" min="-0.01" max="0.01" step="0.0001" value="0.0015" class="slider" id="speedSlider">
+        </div>
+        <div class="flex justify-between items-center p-2 bg-slate-50 rounded-lg border border-slate-100">
+            <label class="text-[10px] font-bold text-slate-500 uppercase">최솟값 도달 시 재생 중지</label>
+            <label class="switch">
+                <input type="checkbox" id="stopAtMinToggle" checked>
+                <span class="slider-round"></span>
+            </label>
+        </div>
+        <div>
+            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">텍스트 크기</label>
+            <input type="range" min="0.5" max="4" step="0.1" value="1.5" class="slider" id="fontSizeSlider">
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2 mb-5">
+        <div class="bg-white p-2 rounded-lg border border-slate-100">
+            <label class="block text-[9px] font-bold text-slate-400">분수 입력</label>
+            <div class="flex items-center gap-1 font-mono text-xs">
+                <input type="number" id="tNum" value="1" class="w-full text-center outline-none">
+                <span>/</span>
+                <input type="number" id="tDen" value="2" class="w-full text-center outline-none">
+            </div>
+        </div>
+        <div class="bg-white p-2 rounded-lg border border-slate-100">
+            <label class="block text-[9px] font-bold text-slate-400">소수 입력</label>
+            <input type="number" id="tDec" value="0.5" step="0.0001" class="w-full text-center font-mono text-xs outline-none">
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-2 mb-4">
+        <div class="flex gap-2">
+            <button id="playBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-lg transition-all active:scale-95 shadow-lg shadow-indigo-100">자동 재생</button>
+            <button id="minBtn" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2.5 rounded-lg transition-all active:scale-95 shadow-lg shadow-rose-100">최솟값 이동</button>
+        </div>
+        <button id="resetBtn" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-bold py-1.5 rounded-md transition-all">초기화</button>
+    </div>
+
+    <div class="bg-slate-900 p-4 rounded-xl text-white">
+        <div class="flex justify-between items-center mb-1">
+            <span class="text-[9px] font-bold opacity-50">T-VALUE</span>
+            <span id="tValueDisplay" class="font-mono text-sm text-blue-400">0.5000</span>
+        </div>
+        <div class="flex justify-between items-end">
+            <span class="text-[9px] font-bold opacity-50 mb-1">AREA OHC</span>
+            <span id="areaDisplay" class="text-xl font-mono font-black">0.000000</span>
+        </div>
+    </div>
+</div>
+
+<div class="opacity-controller">
+    <span>©</span>
+    <input type="range" id="opacitySlider" min="0" max="0.3" step="0.01" value="0.08">
+</div>
+
+<script>
+    const targetT = 86 / 95;
+    const O = new THREE.Vector3(0, 0, 0);
+    const A = new THREE.Vector3(3, 0, 0);
+    const B = new THREE.Vector3(7/3, 4 * Math.sqrt(2) / 3, 0);
+    const Cx = 1/3;
+    const Cy = 67 / (24 * Math.sqrt(2));
+    const Cz = Math.sqrt(Math.abs(80/9 - Cy * Cy));
+    const C = new THREE.Vector3(Cx, Cy, Cz);
+
+    const scene = new THREE.Scene();
+    scene.background = null;
+    
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(8, 6, 10);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.target.set(1.5, 1, 0.5);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+    const light = new THREE.DirectionalLight(0xffffff, 0.5);
+    light.position.set(5, 10, 5);
+    scene.add(light);
+
+    const labels = [];
+    function createLabel(text, pos, color = "#1e293b", size = 30) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 512; canvas.height = 256;
+        ctx.font = `bold ${size * 2}px Arial`;
+        ctx.fillStyle = color;
+        ctx.textAlign = "center";
+        ctx.fillText(text, 256, 128);
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture }));
+        sprite.position.copy(pos);
+        sprite.scale.set(1.5, 0.75, 1);
+        scene.add(sprite);
+        labels.push({ sprite, baseScale: new THREE.Vector2(1.5, 0.75) });
+    }
+
+    createLabel("O", O.clone().add(new THREE.Vector3(-0.4, -0.4, 0)));
+    createLabel("A", A.clone().add(new THREE.Vector3(0.5, -0.2, 0)));
+    createLabel("B", B.clone().add(new THREE.Vector3(0.1, 0.5, 0)));
+    createLabel("C", C.clone().add(new THREE.Vector3(0, 0, 0.5)), "#f59e0b");
+    
+    createLabel("3", O.clone().lerp(A, 0.5).add(new THREE.Vector3(0, -0.3, 0)), "#94a3b8", 20);
+    createLabel("3", O.clone().lerp(B, 0.5).add(new THREE.Vector3(-0.3, 0.3, 0)), "#94a3b8", 20);
+    createLabel("2", A.clone().lerp(B, 0.5).add(new THREE.Vector3(0.5, 0.3, 0)), "#94a3b8", 20);
+    createLabel("3", B.clone().lerp(C, 0.5).add(new THREE.Vector3(-0.2, 0.4, 0.4)), "#94a3b8", 20);
+    createLabel("4", A.clone().lerp(C, 0.5).add(new THREE.Vector3(0, -0.4, 0.4)), "#94a3b8", 20);
+
+    function createLine(p1, p2, color = 0xd1d5db) {
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p1, p2]), new THREE.LineBasicMaterial({ color })));
+    }
+    [ [O,A],[O,B],[O,C],[A,B],[B,C],[C,A] ].forEach(pts => createLine(pts[0], pts[1]));
+
+    const hMesh = new THREE.Mesh(new THREE.SphereGeometry(0.18, 32, 32), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+    scene.add(hMesh);
+
+    const ohcGeometry = new THREE.BufferGeometry();
+    const ohcMaterial = new THREE.MeshPhongMaterial({ color: 0xef4444, side: THREE.DoubleSide, transparent: true, opacity: 0.85, shininess: 100 });
+    const ohcMesh = new THREE.Mesh(ohcGeometry, ohcMaterial);
+    scene.add(ohcMesh);
+
+    const ohcWire = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 }));
+    scene.add(ohcWire);
+
+    const ui = {
+        tSlider: document.getElementById('tSlider'),
+        speedSlider: document.getElementById('speedSlider'),
+        speedVal: document.getElementById('speedVal'),
+        fontSizeSlider: document.getElementById('fontSizeSlider'),
+        opacitySlider: document.getElementById('opacitySlider'),
+        bgCopyright: document.getElementById('background-copyright'),
+        tNum: document.getElementById('tNum'),
+        tDen: document.getElementById('tDen'),
+        tDec: document.getElementById('tDec'),
+        tDisplay: document.getElementById('tValueDisplay'),
+        areaDisplay: document.getElementById('areaDisplay'),
+        playBtn: document.getElementById('playBtn'),
+        minBtn: document.getElementById('minBtn'),
+        resetBtn: document.getElementById('resetBtn'),
+        congrats: document.getElementById('congrats'),
+        mainPanel: document.getElementById('mainPanel'),
+        minimizeBtn: document.getElementById('minimize-btn'),
+        minIcon: document.getElementById('minIcon'),
+        stopAtMinToggle: document.getElementById('stopAtMinToggle')
+    };
+
+    let isPlaying = false;
+    let congratsTimeout = null;
+    let autoPlayT = 0.5;
+
+    function togglePlay(state) {
+        isPlaying = (state !== undefined) ? state : !isPlaying;
+        ui.playBtn.innerText = isPlaying ? "일시 정지" : "자동 재생";
+        ui.playBtn.className = isPlaying 
+            ? "flex-1 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold py-2.5 rounded-lg transition-all active:scale-95 shadow-lg shadow-orange-100" 
+            : "flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2.5 rounded-lg transition-all active:scale-95 shadow-lg shadow-indigo-100";
+    }
+
+    function update(t) {
+        t = Math.max(0, Math.min(1, t));
+        autoPlayT = t; 
+        ui.tDisplay.innerText = t.toFixed(4);
+        
+        const H = new THREE.Vector3().lerpVectors(A, B, t);
+        hMesh.position.copy(H);
+
+        const posAttr = new Float32Array([O.x, O.y, O.z, H.x, H.y, H.z, C.x, C.y, C.z]);
+        ohcGeometry.setAttribute('position', new THREE.BufferAttribute(posAttr, 3));
+        ohcWire.geometry.setAttribute('position', new THREE.BufferAttribute(posAttr, 3));
+        ohcGeometry.computeVertexNormals();
+        ohcGeometry.attributes.position.needsUpdate = true;
+        ohcWire.geometry.attributes.position.needsUpdate = true;
+
+        const area = (new THREE.Vector3().subVectors(H, O).cross(new THREE.Vector3().subVectors(C, O))).length() / 2;
+        ui.areaDisplay.innerText = area.toFixed(6);
+
+        const dist = Math.abs(t - targetT);
+        
+        // 최솟값 지점 감지 및 UI 표시
+        if (dist < 0.0005) {
+            if (!ui.congrats.classList.contains('show')) {
+                ui.congrats.classList.add('show');
+                if (congratsTimeout) clearTimeout(congratsTimeout);
+                congratsTimeout = setTimeout(() => ui.congrats.classList.remove('show'), 2000);
+            }
+            ohcMaterial.color.setHex(0xff0000);
+            hMesh.material.color.setHex(0xff0000);
+        } else {
+            const redness = Math.max(0, 1 - dist * 4);
+            const color = new THREE.Color().setHSL(0.6 * (1 - redness), 0.9, 0.4 + redness * 0.1);
+            ohcMaterial.color.copy(color);
+            hMesh.material.color.copy(color);
+        }
+    }
+
+    function sync(val, src) {
+        if (src !== 'slider') ui.tSlider.value = val;
+        if (src !== 'decimal') ui.tDec.value = val.toFixed(4);
+        update(val);
+    }
+
+    let isMinimized = false;
+    ui.minimizeBtn.onclick = (e) => {
+        e.stopPropagation();
+        isMinimized = !isMinimized;
+        ui.mainPanel.classList.toggle('minimized', isMinimized);
+        ui.minIcon.innerText = isMinimized ? "▶" : "◀";
+    };
+
+    ui.tSlider.oninput = (e) => sync(parseFloat(e.target.value), 'slider');
+    ui.tDec.oninput = (e) => sync(parseFloat(e.target.value), 'decimal');
+    ui.speedSlider.oninput = (e) => {
+        ui.speedVal.innerText = parseFloat(e.target.value).toFixed(4);
+    };
+    ui.fontSizeSlider.oninput = (e) => {
+        const s = parseFloat(e.target.value);
+        labels.forEach(l => l.sprite.scale.set(l.baseScale.x * s, l.baseScale.y * s, 1));
+    };
+    ui.opacitySlider.oninput = (e) => {
+        ui.bgCopyright.style.color = `rgba(30, 41, 59, ${e.target.value})`;
+    };
+    
+    const fractUpdate = () => sync((parseFloat(ui.tNum.value)||0) / (parseFloat(ui.tDen.value)||1), 'fract');
+    ui.tNum.oninput = fractUpdate; ui.tDen.oninput = fractUpdate;
+
+    ui.playBtn.onclick = () => togglePlay();
+    ui.minBtn.onclick = () => { togglePlay(false); ui.tNum.value = 86; ui.tDen.value = 95; fractUpdate(); };
+    ui.resetBtn.onclick = () => { location.reload(); };
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        
+        if (isPlaying) {
+            const speed = parseFloat(ui.speedSlider.value);
+            const prevT = autoPlayT;
+            let nextT = autoPlayT + speed;
+            
+            // 루프 처리
+            if (nextT > 1) nextT -= 1;
+            if (nextT < 0) nextT += 1;
+
+            // 옵션이 켜져 있을 때 최솟값 통과 여부 확인
+            if (ui.stopAtMinToggle.checked) {
+                // 현재 구간 [prevT, nextT] 사이에 targetT가 있는지 확인 (방향성 고려)
+                const minVal = Math.min(prevT, nextT);
+                const maxVal = Math.max(prevT, nextT);
+                
+                // 일반적인 경우 또는 루프 지점을 건너뛰는 경우 체크
+                const isPassing = (targetT >= minVal && targetT <= maxVal);
+                
+                if (isPassing) {
+                    autoPlayT = targetT;
+                    sync(autoPlayT, 'slider');
+                    togglePlay(false);
+                } else {
+                    autoPlayT = nextT;
+                    sync(autoPlayT, 'slider');
+                }
+            } else {
+                autoPlayT = nextT;
+                sync(autoPlayT, 'slider');
+            }
+        }
+        
+        renderer.render(scene, camera);
+    }
+
+    window.onload = () => { update(0.5); animate(); };
+    window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+</script>
+</body>
+</html>

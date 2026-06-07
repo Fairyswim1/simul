@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>반직선 생성 시뮬레이터</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #f6f8fc;
+      color: #0f172a;
+    }
+    .wrap {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+    }
+    .lead {
+      margin: 0 0 16px;
+      color: #475569;
+      line-height: 1.7;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 22px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+      overflow: hidden;
+    }
+    .controls {
+      padding: 18px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: grid;
+      gap: 14px;
+    }
+    .control-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .control {
+      display: grid;
+      gap: 8px;
+    }
+    .control-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: #334155;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #2563eb;
+    }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 15px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    .primary { background: #2563eb; color: #fff; }
+    .secondary { background: #eef2ff; color: #1d4ed8; }
+    .ghost { background: #f1f5f9; color: #334155; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(780px, 1fr) 340px;
+      gap: 18px;
+      padding: 18px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #dbe4f0;
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    .card-head {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .card-head h2, .card-head h3 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+    .card-head p {
+      margin: 0;
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .canvas-box {
+      padding: 10px;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+    }
+    #mainCanvas { aspect-ratio: 920 / 620; }
+    #regionCanvas { aspect-ratio: 1260 / 420; }
+    .side {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+    .info-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 14px 15px;
+      background: #fff;
+    }
+    .info-card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 8px 10px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .kv div:nth-child(odd) {
+      color: #64748b;
+      font-weight: 700;
+    }
+    .pill {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ecfeff;
+      color: #0f766e;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .mono {
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      word-break: break-word;
+    }
+    .small {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.75;
+    }
+    .legend {
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #334155;
+    }
+    .swatch {
+      width: 26px;
+      height: 8px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+      border: 1px solid rgba(0,0,0,0.15);
+    }
+    .bottom {
+      margin-top: 18px;
+      padding: 18px;
+    }
+    .warning {
+      color: #b45309;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    @media (max-width: 1180px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 860px) {
+      .control-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>반직선 생성 시뮬레이터</h1>
+    <p class="lead">
+      네 개의 초기 반직선 <span class="mono">l₁, l₂, l₃, l₄</span>에서 출발하여, 교점이 생길 때마다 새 반직선을 생성하는 과정을 단계별로 시각화한다.
+      아래 맨 밑 그림에는 <span class="mono">현재 a값</span>이 아니라 <span class="mono">전체 a 구간</span>에 대해 현재 단계까지 생성될 수 있는 모든 반직선의 분포를 누적해서 색칠했다.
+      따라서 점 <span class="mono">A=(2,2)</span>가 전체적으로 포함되는지, 또는 끝까지 비껴가는지를 직관적으로 확인할 수 있다.
+    </p>
+
+    <section class="panel">
+      <div class="controls">
+        <div class="control-grid">
+          <div class="control">
+            <div class="control-head">
+              <span>실수 a</span>
+              <span id="aLabel" class="mono">a = 1.00</span>
+            </div>
+            <input id="aSlider" type="range" min="0" max="800" step="5" value="100" />
+          </div>
+          <div class="control">
+            <div class="control-head">
+              <span>생성 단계</span>
+              <span id="depthLabel" class="mono">depth = 0</span>
+            </div>
+            <input id="depthSlider" type="range" min="0" max="5" step="1" value="0" />
+          </div>
+        </div>
+        <div class="btn-row">
+          <button id="stepBtn" class="primary">한 단계 생성</button>
+          <button id="fullBtn" class="secondary">최대 단계까지 생성</button>
+          <button id="sweepBtn" class="secondary">a 자동 변화 시작</button>
+          <button id="vectorBtn" class="secondary">법선벡터 표시 켜기</button>
+          <button id="resetBtn" class="ghost">초기화</button>
+        </div>
+      </div>
+
+      <div class="layout">
+        <div class="card">
+          <div class="card-head">
+            <h2>반직선 생성 과정</h2>
+            <p>초기 반직선, 교점, 그리고 각 단계에서 새로 생긴 반직선을 색으로 구분하여 표시한다.</p>
+          </div>
+          <div class="canvas-box">
+            <canvas id="mainCanvas" width="920" height="620"></canvas>
+          </div>
+        </div>
+
+        <div class="side">
+          <div class="info-card">
+            <h3>현재 상태</h3>
+            <div class="kv">
+              <div>a 값</div><div id="infoA" class="mono"></div>
+              <div>단계</div><div id="infoDepth" class="mono"></div>
+              <div>반직선 수</div><div id="infoRayCount" class="mono"></div>
+              <div>교점 수</div><div id="infoInterCount" class="mono"></div>
+              <div>A 포함 여부</div><div id="infoContains" class="mono"></div>
+            </div>
+            <div id="statusPill" class="pill">현재 상태 관찰 중</div>
+          </div>
+
+          <div class="info-card">
+            <h3>선택한 반직선</h3>
+            <div class="kv">
+              <div>시작점</div><div id="selectedStart" class="mono">클릭해서 선택</div>
+              <div>방향벡터</div><div id="selectedDir" class="mono">-</div>
+              <div>법선벡터</div><div id="selectedNormal" class="mono">-</div>
+              <div>w·PA</div><div id="selectedDot" class="mono">-</div>
+              <div>부호</div><div id="selectedSign" class="mono">-</div>
+            </div>
+            <div class="small" style="margin-top:10px;">
+              반직선을 클릭하면 해당 반직선의 시작점, 방향벡터, 수직인 법선벡터 <span class="mono">w=(-d,c)</span>, 그리고 <span class="mono">w·PA</span>의 부호를 확인할 수 있다.
+            </div>
+          </div>
+
+          <div class="info-card">
+            <h3>색상 범례</h3>
+            <div class="legend">
+              <div class="legend-item"><span class="swatch" style="background:#111827"></span> 0단계: 초기 반직선</div>
+              <div class="legend-item"><span class="swatch" style="background:#2563eb"></span> 1단계 생성 반직선</div>
+              <div class="legend-item"><span class="swatch" style="background:#f59e0b"></span> 2단계 생성 반직선</div>
+              <div class="legend-item"><span class="swatch" style="background:#ef4444"></span> 3단계 생성 반직선</div>
+              <div class="legend-item"><span class="swatch" style="background:#22c55e"></span> 4단계 생성 반직선</div>
+              <div class="legend-item"><span class="swatch" style="background:#8b5cf6"></span> 5단계 생성 반직선</div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <h3>해석 포인트</h3>
+            <div class="small">
+              점 <span class="mono">A=(2,2)</span>를 굵은 자홍색 점으로 표시했다.
+              위 그림은 현재 하나의 <span class="mono">a</span>값에서 생성된 반직선들이고, 아래 그림은 전체 <span class="mono">a</span> 구간을 훑으며 생기는 분포를 누적해서 칠한 것이다.
+              따라서 아래쪽 그림에서 점 A가 비어 있는 영역에 남는지 확인하면 해설의 결론을 더 강하게 직관화할 수 있다.
+            </div>
+          </div>
+
+          <div id="warningBox" class="warning" style="display:none;"></div>
+        </div>
+      </div>
+
+      <div class="bottom">
+        <div class="card">
+          <div class="card-head">
+            <h3>전체 a 구간에 대한 반직선 분포 영역</h3>
+            <p>현재 단계까지, <span class="mono">a ∈ [0.00, 8.00]</span> 전체 구간을 여러 값으로 촘촘히 샘플링하여 생성 가능한 모든 반직선의 분포를 색칠했다. 이 그림은 현재의 한 a값과 무관하게, 전체적으로 지나가는 영역과 지나가지 않는 영역을 함께 보여준다.</p>
+          </div>
+          <div class="canvas-box">
+            <canvas id="regionCanvas" width="1260" height="420"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const regionCanvas = document.getElementById('regionCanvas');
+    const rtx = regionCanvas.getContext('2d');
+
+    const aSlider = document.getElementById('aSlider');
+    const depthSlider = document.getElementById('depthSlider');
+    const aLabel = document.getElementById('aLabel');
+    const depthLabel = document.getElementById('depthLabel');
+    const stepBtn = document.getElementById('stepBtn');
+    const fullBtn = document.getElementById('fullBtn');
+    const sweepBtn = document.getElementById('sweepBtn');
+    const vectorBtn = document.getElementById('vectorBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const infoA = document.getElementById('infoA');
+    const infoDepth = document.getElementById('infoDepth');
+    const infoRayCount = document.getElementById('infoRayCount');
+    const infoInterCount = document.getElementById('infoInterCount');
+    const infoContains = document.getElementById('infoContains');
+    const statusPill = document.getElementById('statusPill');
+    const warningBox = document.getElementById('warningBox');
+    const selectedStart = document.getElementById('selectedStart');
+    const selectedDir = document.getElementById('selectedDir');
+    const selectedNormal = document.getElementById('selectedNormal');
+    const selectedDot = document.getElementById('selectedDot');
+    const selectedSign = document.getElementById('selectedSign');
+
+    const VIEW = {
+      xMin: -2.0,
+      xMax: 8.0,
+      yMin: -3.2,
+      yMax: 7.2,
+      pad: 48
+    };
+
+    const REGION_VIEW = {
+      xMin: -2.5,
+      xMax: 9.5,
+      yMin: -3.5,
+      yMax: 8.5,
+      pad: 40
+    };
+
+    const INIT_RAYS = [
+      { start: { x: 6, y: 4 }, dir: { x: -1, y: 0 }, depth: 0, label: 'l₁' },
+      { start: { x: 1, y: 5 }, dir: { x: 0, y: -1 }, depth: 0, label: 'l₂' },
+      { start: { x: 0, y: 3 }, dir: { x: 1, y: -1 }, depth: 0, label: 'l₃' },
+      { start: { x: 0, y: -1 }, dir: { x: 1, y: 1 }, depth: 0, label: 'l₄' }
+    ];
+
+    const A = { x: 2, y: 2 };
+    const MAX_DEPTH = 5;
+    const MAX_RAYS = 5000;
+    const EPS = 1e-7;
+    const SWEEP_DELAY_MS = 90;
+
+    let sweepRunning = false;
+    let sweepTimer = null;
+    let sweepOverlay = null;
+    let currentSystem = null;
+    let selectedRayId = null;
+    let showVectors = false;
+    const regionCache = new Map();
+
+    function getA() {
+      return Number(aSlider.value) / 100;
+    }
+
+    function getDepth() {
+      return Number(depthSlider.value);
+    }
+
+    function fmt(n, digits = 2) {
+      if (Math.abs(n) < 1e-12) n = 0;
+      return Number(n).toFixed(digits);
+    }
+
+    function getDepthColor(depth) {
+      const colors = [
+        '#111827',
+        '#2563eb',
+        '#f59e0b',
+        '#ef4444',
+        '#22c55e',
+        '#8b5cf6',
+        '#06b6d4',
+        '#ec4899'
+      ];
+      return colors[Math.min(depth, 7)];
+    }
+
+    function cross(u, v) {
+      return u.x * v.y - u.y * v.x;
+    }
+
+    function subtract(a, b) {
+      return { x: a.x - b.x, y: a.y - b.y };
+    }
+
+    function norm(v) {
+      return Math.hypot(v.x, v.y);
+    }
+
+    function normalize(v) {
+      const n = norm(v);
+      if (n < EPS) return null;
+      return { x: v.x / n, y: v.y / n };
+    }
+
+    function rayKey(ray) {
+      const d = normalize(ray.dir);
+      return [ray.start.x, ray.start.y, d.x, d.y].map(v => Math.round(v * 1000000) / 1000000).join('|');
+    }
+
+    function intersectRays(ray1, ray2) {
+      const p = ray1.start;
+      const q = ray2.start;
+      const r = ray1.dir;
+      const s = ray2.dir;
+      const den = cross(r, s);
+      if (Math.abs(den) < EPS) return null;
+      const qp = subtract(q, p);
+      const t = cross(qp, s) / den;
+      const u = cross(qp, r) / den;
+      if (t > EPS && u > EPS) {
+        return {
+          x: p.x + t * r.x,
+          y: p.y + t * r.y,
+          t1: t,
+          t2: u
+        };
+      }
+      return null;
+    }
+
+    function pointOnRay(ray, point) {
+      const ap = subtract(point, ray.start);
+      const cr = cross(ap, ray.dir);
+      const dot = ap.x * ray.dir.x + ap.y * ray.dir.y;
+      return Math.abs(cr) < 1e-6 && dot >= -1e-8;
+    }
+
+    function dot(u, v) {
+      return u.x * v.x + u.y * v.y;
+    }
+
+    function normalVector(ray) {
+      return { x: -ray.dir.y, y: ray.dir.x };
+    }
+
+    function dotWithA(ray) {
+      const w = normalVector(ray);
+      const PA = subtract(A, ray.start);
+      return dot(w, PA);
+    }
+
+    function formatVec(v) {
+      return `(${fmt(v.x, 3)}, ${fmt(v.y, 3)})`;
+    }
+
+    function distancePointToRayScreen(ray, mouse) {
+      const p1 = toCanvas(mainCanvas, ray.start.x, ray.start.y);
+      const end = { x: ray.start.x + ray.dir.x * 60, y: ray.start.y + ray.dir.y * 60 };
+      const p2 = toCanvas(mainCanvas, end.x, end.y);
+      const vx = p2.x - p1.x;
+      const vy = p2.y - p1.y;
+      const wx = mouse.x - p1.x;
+      const wy = mouse.y - p1.y;
+      const len2 = vx * vx + vy * vy;
+      if (len2 < 1e-9) return Infinity;
+      const t = (wx * vx + wy * vy) / len2;
+      if (t < 0) return Infinity;
+      const projX = p1.x + t * vx;
+      const projY = p1.y + t * vy;
+      return Math.hypot(mouse.x - projX, mouse.y - projY);
+    }
+
+    function generateSystem(a, depthLimit) {
+      const rays = INIT_RAYS.map((r, idx) => ({ ...r, id: idx }));
+      const rayKeySet = new Set(rays.map(rayKey));
+      const processedPairs = new Set();
+      const intersections = [];
+      let nextId = rays.length;
+      let truncated = false;
+
+      for (let depth = 1; depth <= depthLimit; depth++) {
+        const currentCount = rays.length;
+        const newRays = [];
+
+        for (let i = 0; i < currentCount; i++) {
+          for (let j = i + 1; j < currentCount; j++) {
+            const r1 = rays[i];
+            const r2 = rays[j];
+            if (depth > 1 && !(r1.depth === depth - 1 || r2.depth === depth - 1)) continue;
+            const pairKey = `${Math.min(r1.id, r2.id)}_${Math.max(r1.id, r2.id)}`;
+            if (processedPairs.has(pairKey)) continue;
+            processedPairs.add(pairKey);
+
+            const inter = intersectRays(r1, r2);
+            if (!inter) continue;
+            intersections.push({ x: inter.x, y: inter.y, depth });
+
+            const candidates = [
+              { x: a * r1.dir.x + r2.dir.x, y: a * r1.dir.y + r2.dir.y },
+              { x: r1.dir.x + a * r2.dir.x, y: r1.dir.y + a * r2.dir.y }
+            ];
+
+            for (const dir of candidates) {
+              if (norm(dir) < EPS) continue;
+              const newRay = {
+                start: { x: inter.x, y: inter.y },
+                dir,
+                depth,
+                id: nextId++
+              };
+              const key = rayKey(newRay);
+              if (rayKeySet.has(key)) continue;
+              rayKeySet.add(key);
+              newRays.push(newRay);
+
+              if (rays.length + newRays.length >= MAX_RAYS) {
+                truncated = true;
+                break;
+              }
+            }
+            if (truncated) break;
+          }
+          if (truncated) break;
+        }
+
+        rays.push(...newRays);
+        if (truncated || newRays.length === 0) break;
+      }
+
+      const containsA = rays.some(ray => pointOnRay(ray, A));
+      return { rays, intersections, containsA, truncated };
+    }
+
+    function getTransform(targetCanvas, view = VIEW) {
+      const usableW = targetCanvas.width - 2 * view.pad;
+      const usableH = targetCanvas.height - 2 * view.pad;
+      const scale = Math.min(usableW / (view.xMax - view.xMin), usableH / (view.yMax - view.yMin));
+      const extraX = (usableW - scale * (view.xMax - view.xMin)) / 2;
+      const extraY = (usableH - scale * (view.yMax - view.yMin)) / 2;
+      return { scale, extraX, extraY };
+    }
+
+    function toCanvas(targetCanvas, x, y, view = VIEW) {
+      const t = getTransform(targetCanvas, view);
+      return {
+        x: view.pad + t.extraX + (x - view.xMin) * t.scale,
+        y: targetCanvas.height - view.pad - t.extraY - (y - view.yMin) * t.scale
+      };
+    }
+
+    function drawGrid(g, targetCanvas, view = VIEW) {
+      g.save();
+      g.lineWidth = 1;
+      g.strokeStyle = '#edf2f7';
+      for (let x = Math.ceil(view.xMin); x <= view.xMax; x += 1) {
+        const p1 = toCanvas(targetCanvas, x, view.yMin, view);
+        const p2 = toCanvas(targetCanvas, x, view.yMax, view);
+        g.beginPath();
+        g.moveTo(p1.x, p1.y);
+        g.lineTo(p2.x, p2.y);
+        g.stroke();
+      }
+      for (let y = Math.ceil(view.yMin); y <= view.yMax; y += 1) {
+        const p1 = toCanvas(targetCanvas, view.xMin, y, view);
+        const p2 = toCanvas(targetCanvas, view.xMax, y, view);
+        g.beginPath();
+        g.moveTo(p1.x, p1.y);
+        g.lineTo(p2.x, p2.y);
+        g.stroke();
+      }
+      g.restore();
+    }
+
+    function drawAxes(g, targetCanvas, view = VIEW) {
+      g.save();
+      g.strokeStyle = '#94a3b8';
+      g.fillStyle = '#64748b';
+      g.lineWidth = 1.7;
+
+      const x1 = toCanvas(targetCanvas, view.xMin, 0, view);
+      const x2 = toCanvas(targetCanvas, view.xMax, 0, view);
+      const y1 = toCanvas(targetCanvas, 0, view.yMin, view);
+      const y2 = toCanvas(targetCanvas, 0, view.yMax, view);
+
+      g.beginPath();
+      g.moveTo(x1.x, x1.y);
+      g.lineTo(x2.x, x2.y);
+      g.stroke();
+
+      g.beginPath();
+      g.moveTo(y1.x, y1.y);
+      g.lineTo(y2.x, y2.y);
+      g.stroke();
+
+      g.font = '12px Pretendard, sans-serif';
+      g.fillText('x', x2.x - 12, x2.y - 8);
+      g.fillText('y', y2.x + 8, y2.y + 12);
+
+      for (let x = Math.ceil(Math.max(0, view.xMin)); x <= Math.floor(view.xMax - 1e-9); x += 1) {
+        const p = toCanvas(targetCanvas, x, 0, view);
+        g.beginPath();
+        g.moveTo(p.x, p.y - 4);
+        g.lineTo(p.x, p.y + 4);
+        g.stroke();
+        if (x !== 0) g.fillText(String(x), p.x - 4, p.y + 16);
+      }
+      for (let y = Math.ceil(view.yMin); y <= Math.floor(view.yMax - 1e-9); y += 1) {
+        const p = toCanvas(targetCanvas, 0, y, view);
+        g.beginPath();
+        g.moveTo(p.x - 4, p.y);
+        g.lineTo(p.x + 4, p.y);
+        g.stroke();
+        if (y !== 0) g.fillText(String(y), p.x - 20, p.y + 4);
+      }
+      g.restore();
+    }
+
+    function drawRay(g, targetCanvas, ray, color, width, alpha = 1, view = VIEW) {
+      const far = 60;
+      const end = {
+        x: ray.start.x + ray.dir.x * far,
+        y: ray.start.y + ray.dir.y * far
+      };
+      const p1 = toCanvas(targetCanvas, ray.start.x, ray.start.y, view);
+      const p2 = toCanvas(targetCanvas, end.x, end.y, view);
+      g.save();
+      g.globalAlpha = alpha;
+      g.strokeStyle = color;
+      g.lineWidth = width;
+      g.beginPath();
+      g.moveTo(p1.x, p1.y);
+      g.lineTo(p2.x, p2.y);
+      g.stroke();
+      g.restore();
+    }
+
+    function drawPoint(g, targetCanvas, pt, color, radius, label = '', dx = 8, dy = -8, view = VIEW) {
+      const p = toCanvas(targetCanvas, pt.x, pt.y, view);
+      g.save();
+      g.fillStyle = color;
+      g.beginPath();
+      g.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      g.fill();
+      if (label) {
+        g.fillStyle = '#111827';
+        g.font = '13px Pretendard, sans-serif';
+        g.fillText(label, p.x + dx, p.y + dy);
+      }
+      g.restore();
+    }
+
+    function drawInitialLabels(g, targetCanvas, view = VIEW) {
+      drawPoint(g, targetCanvas, { x: 6, y: 4 }, '#0f172a', 5, 'P₁(6,4)', 10, -10, view);
+      drawPoint(g, targetCanvas, { x: 1, y: 5 }, '#0f172a', 5, 'P₂(1,5)', 10, -10, view);
+      drawPoint(g, targetCanvas, { x: 0, y: 3 }, '#0f172a', 5, 'P₃(0,3)', 10, -10, view);
+      drawPoint(g, targetCanvas, { x: 0, y: -1 }, '#0f172a', 5, 'P₄(0,-1)', 10, 18, view);
+    }
+
+    function drawArrow(g, targetCanvas, start, vec, color, label, scale = 0.75) {
+      const n = norm(vec);
+      if (n < EPS) return;
+      const u = { x: vec.x / n, y: vec.y / n };
+      const end = { x: start.x + u.x * scale, y: start.y + u.y * scale };
+      const p1 = toCanvas(targetCanvas, start.x, start.y);
+      const p2 = toCanvas(targetCanvas, end.x, end.y);
+      const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      const head = 10;
+      g.save();
+      g.strokeStyle = color;
+      g.fillStyle = color;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(p1.x, p1.y);
+      g.lineTo(p2.x, p2.y);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(p2.x, p2.y);
+      g.lineTo(p2.x - head * Math.cos(angle - Math.PI / 6), p2.y - head * Math.sin(angle - Math.PI / 6));
+      g.lineTo(p2.x - head * Math.cos(angle + Math.PI / 6), p2.y - head * Math.sin(angle + Math.PI / 6));
+      g.closePath();
+      g.fill();
+      g.font = '13px Pretendard, sans-serif';
+      g.fillText(label, p2.x + 8, p2.y - 8);
+      g.restore();
+    }
+
+    function drawSelectedRayInfo(ray) {
+      drawRay(ctx, mainCanvas, ray, '#000000', 4.5, 0.95);
+      drawPoint(ctx, mainCanvas, ray.start, '#000000', 6, '선택', 10, 16);
+      if (showVectors) {
+        drawArrow(ctx, mainCanvas, ray.start, ray.dir, '#111827', 'v');
+        drawArrow(ctx, mainCanvas, ray.start, normalVector(ray), '#7c3aed', 'w');
+      }
+    }
+
+    function drawBaseMain(g) {
+      g.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+      drawGrid(g, mainCanvas);
+      drawAxes(g, mainCanvas);
+    }
+
+    function renderMain(system, options = {}) {
+      const accumulationCanvas = options.accumulationCanvas || null;
+      ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+      if (accumulationCanvas) {
+        ctx.drawImage(accumulationCanvas, 0, 0);
+      } else {
+        drawGrid(ctx, mainCanvas);
+        drawAxes(ctx, mainCanvas);
+      }
+
+      for (const ray of system.rays) {
+        const color = getDepthColor(ray.depth);
+        const width = ray.depth === 0 ? 2.8 : 2.1;
+        const alpha = accumulationCanvas ? 0.85 : 0.95;
+        drawRay(ctx, mainCanvas, ray, color, width, alpha);
+      }
+
+      for (const inter of system.intersections) {
+        drawPoint(ctx, mainCanvas, inter, '#94a3b8', 2.3);
+      }
+
+      drawInitialLabels(ctx, mainCanvas);
+      drawPoint(ctx, mainCanvas, A, '#d946ef', 7, 'A(2,2)', 10, -10);
+
+      if (system.containsA) {
+        drawPoint(ctx, mainCanvas, A, '#b91c1c', 9);
+      }
+
+      if (selectedRayId !== null) {
+        const selected = system.rays.find(ray => ray.id === selectedRayId);
+        if (selected) drawSelectedRayInfo(selected);
+      }
+
+      if (options.sweeping) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+        ctx.font = '13px Pretendard, sans-serif';
+        ctx.fillText('a 값을 증가시키며 현재 단계의 반직선을 누적해서 그리고 있음', 18, 26);
+        ctx.restore();
+      }
+    }
+
+    function getRegionSampleCount(depth) {
+      return Math.max(12, 30 - depth * 2);
+    }
+
+    function buildRegionCache(depth) {
+      const key = `depth_${depth}`;
+      if (regionCache.has(key)) return regionCache.get(key);
+
+      const off = document.createElement('canvas');
+      off.width = regionCanvas.width;
+      off.height = regionCanvas.height;
+      const og = off.getContext('2d');
+
+      og.clearRect(0, 0, off.width, off.height);
+      drawGrid(og, off, REGION_VIEW);
+      drawAxes(og, off, REGION_VIEW);
+
+      const minA = Number(aSlider.min) / 100;
+      const maxA = Number(aSlider.max) / 100;
+      const samples = getRegionSampleCount(depth);
+      let anyContainsA = false;
+      let anyTruncated = false;
+
+      for (let i = 0; i < samples; i++) {
+        const a = minA + (maxA - minA) * (i / (samples - 1));
+        const system = generateSystem(a, depth);
+        anyContainsA = anyContainsA || system.containsA;
+        anyTruncated = anyTruncated || system.truncated;
+
+        for (const ray of system.rays) {
+          const color = getDepthColor(ray.depth);
+          drawRay(og, off, ray, color, 14, 0.03, REGION_VIEW);
+        }
+      }
+
+      for (let i = 0; i < samples; i++) {
+        const a = minA + (maxA - minA) * (i / (samples - 1));
+        const system = generateSystem(a, depth);
+        for (const ray of system.rays) {
+          const color = getDepthColor(ray.depth);
+          drawRay(og, off, ray, color, 2.4, 0.18, REGION_VIEW);
+        }
+      }
+
+      drawPoint(og, off, A, '#d946ef', 8, 'A(2,2)', 10, -10, REGION_VIEW);
+
+      const payload = { canvas: off, samples, anyContainsA, anyTruncated };
+      regionCache.set(key, payload);
+      return payload;
+    }
+
+    function renderRegion(depth) {
+      const cached = buildRegionCache(depth);
+      rtx.clearRect(0, 0, regionCanvas.width, regionCanvas.height);
+      rtx.drawImage(cached.canvas, 0, 0);
+      return cached;
+    }
+
+    function updateSelectedInfo(system) {
+      if (selectedRayId === null) {
+        selectedStart.textContent = '클릭해서 선택';
+        selectedDir.textContent = '-';
+        selectedNormal.textContent = '-';
+        selectedDot.textContent = '-';
+        selectedSign.textContent = '-';
+        return;
+      }
+
+      const ray = system.rays.find(r => r.id === selectedRayId);
+      if (!ray) {
+        selectedRayId = null;
+        updateSelectedInfo(system);
+        return;
+      }
+
+      const w = normalVector(ray);
+      const d = dotWithA(ray);
+      selectedStart.textContent = formatVec(ray.start);
+      selectedDir.textContent = formatVec(ray.dir);
+      selectedNormal.textContent = formatVec(w);
+      selectedDot.textContent = fmt(d, 4);
+      selectedSign.textContent = d > 1e-7 ? '양수: A는 반직선 위에 있지 않음' : d < -1e-7 ? '음수' : '0: 직선 위 후보';
+    }
+
+    function updateInfo(system, regionInfo, options = {}) {
+      const a = getA();
+      const depth = getDepth();
+      aLabel.textContent = `a = ${fmt(a, 2)}`;
+      depthLabel.textContent = `depth = ${depth}`;
+
+      infoA.textContent = fmt(a, 2);
+      infoDepth.textContent = String(depth);
+      infoRayCount.textContent = `${system.rays.length}개`;
+      infoInterCount.textContent = `${system.intersections.length}개`;
+      infoContains.textContent = system.containsA ? '현재 a에서 포함됨' : '현재 a에서 포함되지 않음';
+      updateSelectedInfo(system);
+
+      if (options.sweeping) {
+        statusPill.textContent = '현재 depth를 고정한 채 a를 조금씩 바꾸며 반직선을 누적해서 그리고 있다';
+        statusPill.style.background = '#eef2ff';
+        statusPill.style.color = '#1d4ed8';
+      } else if (system.containsA) {
+        statusPill.textContent = '현재 a에서는 A를 지나는 반직선이 나타난다';
+        statusPill.style.background = '#fef2f2';
+        statusPill.style.color = '#b91c1c';
+      } else if (regionInfo.anyContainsA) {
+        statusPill.textContent = '현재 a는 아니지만, 샘플링한 전체 a 중 A를 지나는 경우가 있다';
+        statusPill.style.background = '#fff7ed';
+        statusPill.style.color = '#c2410c';
+      } else {
+        statusPill.textContent = '현재 단계에서 샘플링한 전체 a 구간에서도 A가 비껴간다';
+        statusPill.style.background = '#ecfeff';
+        statusPill.style.color = '#0f766e';
+      }
+
+      if (system.truncated || regionInfo.anyTruncated) {
+        warningBox.style.display = 'block';
+        warningBox.textContent = `계산량이 많아 반직선 수를 ${MAX_RAYS}개에서 제한했다. 아래 전체 영역 그림은 a 전 구간을 여러 값으로 샘플링한 근사 시각화이다.`;
+      } else {
+        warningBox.style.display = 'none';
+        warningBox.textContent = '';
+      }
+    }
+
+    function render() {
+      const depth = getDepth();
+      const system = generateSystem(getA(), depth);
+      currentSystem = system;
+      const regionInfo = renderRegion(depth);
+      renderMain(system);
+      updateInfo(system, regionInfo);
+    }
+
+    function clearSweepOverlay() {
+      sweepOverlay = null;
+    }
+
+    function stopSweep(keepOverlay = false) {
+      sweepRunning = false;
+      if (sweepTimer) clearTimeout(sweepTimer);
+      sweepTimer = null;
+      sweepBtn.textContent = 'a 자동 변화 시작';
+      if (!keepOverlay) clearSweepOverlay();
+    }
+
+    function startSweep() {
+      if (getDepth() === 0) {
+        depthSlider.value = '1';
+      }
+      const fixedDepth = getDepth();
+      sweepOverlay = {
+        depth: fixedDepth,
+        currentValue: Number(aSlider.min),
+        stepValue: Math.max(Number(aSlider.step) || 5, 10),
+        maxValue: Number(aSlider.max),
+        canvas: document.createElement('canvas'),
+        ctx: null
+      };
+      sweepOverlay.canvas.width = mainCanvas.width;
+      sweepOverlay.canvas.height = mainCanvas.height;
+      sweepOverlay.ctx = sweepOverlay.canvas.getContext('2d');
+      drawBaseMain(sweepOverlay.ctx);
+      sweepRunning = true;
+      sweepBtn.textContent = 'a 자동 변화 중지';
+      aSlider.value = String(sweepOverlay.currentValue);
+      sweepStep();
+    }
+
+    function sweepStep() {
+      if (!sweepRunning || !sweepOverlay) return;
+
+      const depth = sweepOverlay.depth;
+      const aValue = sweepOverlay.currentValue;
+      aSlider.value = String(aValue);
+      const system = generateSystem(aValue / 100, depth);
+
+      for (const ray of system.rays) {
+        const color = getDepthColor(ray.depth);
+        const width = ray.depth === 0 ? 3.2 : 1.7;
+        const alpha = ray.depth === 0 ? 0.12 : 0.10;
+        drawRay(sweepOverlay.ctx, mainCanvas, ray, color, width, alpha);
+      }
+
+      const regionInfo = renderRegion(depth);
+      renderMain(system, { accumulationCanvas: sweepOverlay.canvas, sweeping: true });
+      updateInfo(system, regionInfo, { sweeping: true });
+
+      if (aValue >= sweepOverlay.maxValue) {
+        stopSweep(true);
+        return;
+      }
+
+      sweepOverlay.currentValue += sweepOverlay.stepValue;
+      sweepTimer = setTimeout(sweepStep, SWEEP_DELAY_MS);
+    }
+
+    function onManualChange() {
+      stopSweep(false);
+      render();
+    }
+
+    aSlider.addEventListener('input', onManualChange);
+    depthSlider.addEventListener('input', () => {
+      selectedRayId = null;
+      onManualChange();
+    });
+
+    vectorBtn.addEventListener('click', () => {
+      showVectors = !showVectors;
+      vectorBtn.textContent = showVectors ? '법선벡터 표시 끄기' : '법선벡터 표시 켜기';
+      render();
+    });
+
+    mainCanvas.addEventListener('click', (event) => {
+      if (!currentSystem) return;
+      const rect = mainCanvas.getBoundingClientRect();
+      const scaleX = mainCanvas.width / rect.width;
+      const scaleY = mainCanvas.height / rect.height;
+      const mouse = {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
+      };
+
+      let best = null;
+      let bestDist = Infinity;
+      for (const ray of currentSystem.rays) {
+        const dist = distancePointToRayScreen(ray, mouse);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = ray;
+        }
+      }
+
+      if (best && bestDist < 12) {
+        if (selectedRayId === best.id) {
+          selectedRayId = null;
+        } else {
+          selectedRayId = best.id;
+        }
+        render();
+      }
+    });
+
+    stepBtn.addEventListener('click', () => {
+      stopSweep(false);
+      const now = getDepth();
+      depthSlider.value = String(Math.min(MAX_DEPTH, now + 1));
+      render();
+    });
+
+    fullBtn.addEventListener('click', () => {
+      stopSweep(false);
+      depthSlider.value = String(MAX_DEPTH);
+      render();
+    });
+
+    sweepBtn.addEventListener('click', () => {
+      if (sweepRunning) {
+        stopSweep(false);
+        render();
+        return;
+      }
+      startSweep();
+    });
+
+    resetBtn.addEventListener('click', () => {
+      stopSweep(false);
+      aSlider.value = '100';
+      depthSlider.value = '0';
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

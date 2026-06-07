@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>정밀 물리 시뮬레이터: 그릇의 굴림과 유출</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css">
+    <style>
+        :root {
+            --bg: #f8fafc; --panel: #ffffff; --primary: #2563eb;
+            --safe-bg: rgba(16, 185, 129, 0.1); --warn-bg: rgba(245, 158, 11, 0.1); --danger-bg: rgba(239, 68, 68, 0.1);
+        }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #334155; }
+        .main-container { max-width: 1300px; margin: 0 auto; display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+        .card { background: var(--panel); border-radius: 24px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); transition: background 0.5s ease; }
+        .header { grid-column: 1 / -1; text-align: center; margin-bottom: 20px; }
+        canvas { width: 100%; border-radius: 16px; background: #ffffff; border: 1px solid #f1f5f9; }
+        .badge { padding: 6px 16px; border-radius: 100px; color: white; font-weight: 800; font-size: 0.9rem; }
+        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; }
+        .stat-box { background: #f1f5f9; padding: 15px; border-radius: 15px; text-align: center; }
+        .stat-box span { display: block; font-size: 0.8rem; color: #64748b; margin-bottom: 5px; }
+        .stat-box b { font-size: 1.3rem; color: var(--primary); }
+        input[type=range] { width: 100%; margin-top: 15px; cursor: pointer; accent-color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Parabolic Rolling Simulator</h1>
+    <p>기하학적 면적 보존 및 지면 접촉 오프셋 보정 모델</p>
+</div>
+
+<div class="main-container">
+    <div class="card" id="simCard">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin:0">Physical Simulation</h2>
+            <div id="statusBadge" class="badge" style="background: #10b981;">보존 상태</div>
+        </div>
+        <canvas id="simCanvas" width="700" height="500"></canvas>
+        <input type="range" id="angleSlider" min="0" max="90" step="0.05" value="0">
+        <div class="stats-row">
+            <div class="stat-box"><span>기울기 Angle</span><b id="degVal">0.0°</b></div>
+            <div class="stat-box"><span>절대 높이 h(t)</span><b id="hVal">0.667</b></div>
+            <div class="stat-box"><span>접촉 좌표 (x,y)</span><b id="contactVal">0.0, 0.0</b></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-bottom: 20px;">Absolute Height Graph</h2>
+        <div style="height: 450px;"><canvas id="heightChart"></canvas></div>
+    </div>
+</div>
+
+<script>
+const R3 = Math.sqrt(3);
+const h0 = 2/3;
+const S_INIT = 16 / (9 * R3); // 초기 면적
+
+// 임계각 계산
+const t0_deg = 30; // 수면이 (R3, 1.5)에 닿는 각도
+const t1_deg = 60; // 수면이 소멸하는 각도
+
+/** 수면 및 물리 오프셋 계산 함수 **/
+function getPhysics(deg) {
+    const rad = deg * Math.PI / 180;
+    const tan = Math.tan(rad);
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    // 1. 지면 접촉 보정 (Rolling Offset)
+    let offsetY = 0;
+    let contactX_local = 0;
+    if (deg <= 60) {
+        contactX_local = tan;
+        offsetY = 0.5 * tan * sin; // vertex가 지면에서 들리는 높이
+    } else {
+        contactX_local = R3;
+        offsetY = R3 * sin - 1.5 * cos;
+    }
+
+    // 2. h(t) 및 수면 파라미터 k 계산
+    let h = 0, k = 0, state = "보존";
+    if (deg <= t0_deg) {
+        // 면적 보존 상태
+        h = h0 * cos; 
+        k = 2/3 - 0.5 * tan * tan;
+        state = "보존";
+    } else if (deg < t1_deg) {
+        // 유출 상태
+        h = 0.5 * Math.pow(R3 - tan, 2) * cos;
+        k = 1.5 - R3 * tan;
+        state = "유출";
+    } else {
+        h = 0; k = -999;
+        state = "고갈";
+    }
+
+    return { h, k, rad, tan, cos, sin, offsetY, state, contactX_local };
+}
+
+/** 그래프 초기화 **/
+const chartCtx = document.getElementById('heightChart').getContext('2d');
+const t_vals = [], h_vals = [];
+for(let d=0; d<=90; d+=0.2) {
+    t_vals.push(d);
+    h_vals.push(getPhysics(d).h);
+}
+
+const chart = new Chart(chartCtx, {
+    type: 'line',
+    data: {
+        labels: t_vals,
+        datasets: [{
+            data: h_vals, borderColor: '#94a3b8', borderWidth: 2, pointRadius: 0, fill: false
+        }, {
+            data: [{x: 0, y: h0}], pointRadius: 8, pointBackgroundColor: '#2563eb', type: 'scatter'
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { 
+            x: { type: 'linear', min: 0, max: 90 },
+            y: { min: 0, max: 0.8 }
+        },
+        plugins: { legend: false }
+    }
+});
+
+/** 캔버스 렌더링 **/
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+const slider = document.getElementById('angleSlider');
+let particles = [];
+
+function draw() {
+    const deg = parseFloat(slider.value);
+    const p = getPhysics(deg);
+    
+    // UI 업데이트
+    document.getElementById('degVal').innerText = deg.toFixed(1) + "°";
+    document.getElementById('hVal').innerText = p.h.toFixed(4);
+    const badge = document.getElementById('statusBadge');
+    const card = document.getElementById('simCard');
+    
+    if (p.state === "보존") {
+        badge.innerText = "보존 상태"; badge.style.background = "#10b981";
+        card.style.background = "var(--safe-bg)";
+    } else if (p.state === "유출") {
+        badge.innerText = "유출 중"; badge.style.background = "#f59e0b";
+        card.style.background = "var(--warn-bg)";
+    } else {
+        badge.innerText = "완전 고갈"; badge.style.background = "#ef4444";
+        card.style.background = "var(--danger-bg)";
+    }
+
+    chart.data.datasets[1].data = [{x: deg, y: p.h}];
+    chart.data.datasets[1].pointBackgroundColor = badge.style.background;
+    chart.update('none');
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const scale = 140;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height - 100; // 지면 높이
+
+    // 글로벌 변환 함수 (그릇 로컬 -> 지면 기준 글로벌)
+    function toGlobal(lx, ly) {
+        const rx = lx * p.cos + ly * p.sin;
+        const ry = -lx * p.sin + ly * p.cos + p.offsetY; // Offset 적용
+        return { x: centerX + rx * scale, y: centerY - ry * scale };
+    }
+
+    // 1. 지면 그리기
+    ctx.beginPath();
+    ctx.moveTo(50, centerY); ctx.lineTo(canvas.width - 50, centerY);
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 3; ctx.stroke();
+
+    // 2. 물 그리기
+    if (p.h > 0) {
+        const disc = Math.max(0, p.tan * p.tan + 2 * p.k);
+        const xL = p.tan - Math.sqrt(disc);
+        const xR = (deg <= t0_deg) ? (p.tan + Math.sqrt(disc)) : R3;
+
+        ctx.beginPath();
+        let start = toGlobal(xL, 0.5 * xL * xL);
+        ctx.moveTo(start.x, start.y);
+        for (let x = xL; x <= xR; x += 0.02) {
+            let pt = toGlobal(x, 0.5 * x * x);
+            ctx.lineTo(pt.x, pt.y);
+        }
+        let end = toGlobal(xR, 0.5 * xR * xR);
+        ctx.lineTo(end.x, end.y); // 수면 직선은 자동으로 수평이 됨 (수학적 증명)
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.6)';
+        ctx.fill();
+    }
+
+    // 3. 그릇 그리기
+    ctx.beginPath();
+    for (let x = -R3; x <= R3; x += 0.02) {
+        let pt = toGlobal(x, 0.5 * x * x);
+        if (x === -R3) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.stroke();
+
+    // 4. 접촉점 표시
+    let cp = toGlobal(p.contactX_local, 0.5 * p.contactX_local * p.contactX_local);
+    document.getElementById('contactVal').innerText = `${p.contactX_local.toFixed(2)}, 0.00`;
+    ctx.beginPath(); ctx.arc(cp.x, cp.y, 4, 0, 7); ctx.fillStyle = '#ef4444'; ctx.fill();
+
+    // 5. 유출 파티클 (정확히 그릇 오른쪽 끝단에서 생성)
+    if (p.state === "유출" && Math.random() > 0.4) {
+        let edge = toGlobal(R3, 1.5);
+        particles.push({ x: edge.x, y: edge.y, vx: 2 + Math.random()*2, vy: -1, life: 1 });
+    }
+    particles.forEach((pt, i) => {
+        pt.x += pt.vx; pt.vy += 0.25; pt.y += pt.vy; pt.life -= 0.02;
+        ctx.fillStyle = `rgba(37, 99, 235, ${pt.life})`;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, 3, 0, 7); ctx.fill();
+        if (pt.y > canvas.height || pt.life <= 0) particles.splice(i, 1);
+    });
+
+    requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

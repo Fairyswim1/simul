@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>2023 연세대학교 자연계 수시 제시문 1 — 전등·약수 시뮬레이션</title>
+<style>
+  :root{
+    --bg0:#02040b;
+    --bg1:#07101d;
+    --panel:rgba(8, 18, 33, .68);
+    --panel2:rgba(5, 12, 24, .74);
+    --line:rgba(154, 211, 255, .18);
+    --line2:rgba(255,255,255,.1);
+    --text:#edf7ff;
+    --sub:#91abc3;
+    --muted:#5d7287;
+    --cyan:#71f5ff;
+    --blue:#70a7ff;
+    --violet:#b98cff;
+    --green:#88ffb9;
+    --yellow:#ffe58a;
+    --red:#ff7a8d;
+    --orange:#ffb25e;
+    --off:#152231;
+    --on:#baf8ff;
+    --controls-h:220px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg0);color:var(--text);font-family:Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;}
+  body.resizing-controls{cursor:ns-resize;user-select:none;}
+  body.resizing-controls *{user-select:none !important;}
+  body:before{
+    content:"";position:fixed;inset:-12%;pointer-events:none;
+    background:
+      radial-gradient(circle at 20% 10%, rgba(96,185,255,.26), transparent 26%),
+      radial-gradient(circle at 88% 16%, rgba(190,114,255,.20), transparent 28%),
+      radial-gradient(circle at 52% 106%, rgba(0,255,209,.14), transparent 34%),
+      linear-gradient(135deg,#030612 0%,#071421 42%,#02040b 100%);
+    filter:saturate(1.25);
+  }
+  body:after{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.21;
+    background-image:linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size:42px 42px;
+    mask-image:radial-gradient(circle at 50% 45%, black 0%, transparent 76%);
+  }
+  #app{position:relative;z-index:2;width:100%;height:100%;padding:18px;display:grid;grid-template-columns:minmax(0, 1fr) 392px;grid-template-rows:72px minmax(0,1fr) var(--controls-h);gap:14px;}
+  .glass{background:var(--panel);border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(18px);border-radius:24px;}
+  header{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;padding:0 20px;overflow:hidden;}
+  .titleBlock{display:flex;align-items:center;gap:14px;min-width:0;}
+  .emblem{width:48px;height:48px;border-radius:16px;position:relative;background:radial-gradient(circle at 40% 35%,#fff,rgba(113,245,255,.85) 18%,rgba(112,167,255,.35) 45%,rgba(185,140,255,.14) 68%,transparent 72%);box-shadow:0 0 34px rgba(113,245,255,.75), inset 0 0 22px rgba(255,255,255,.24);}
+  .emblem:before,.emblem:after{content:"";position:absolute;inset:11px;border:1px solid rgba(255,255,255,.58);border-radius:999px;transform:rotate(38deg) scaleX(1.6);}
+  .emblem:after{transform:rotate(-38deg) scaleX(1.6);opacity:.55;}
+  h1{font-size:18px;line-height:1.16;margin:0;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .source{font-size:12px;color:var(--sub);margin-top:5px;display:flex;gap:10px;align-items:center;}
+  .source span{padding:3px 8px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(255,255,255,.04);}
+  .topMetrics{display:grid;grid-template-columns:repeat(4, 98px);gap:10px;}
+  .metric{height:52px;border:1px solid var(--line2);border-radius:16px;padding:8px 10px;background:rgba(255,255,255,.045);}
+  .metric .label{font-size:10px;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;}
+  .metric .val{font-size:19px;font-weight:760;letter-spacing:-.03em;margin-top:3px;}
+  #stage{position:relative;grid-column:1/2;grid-row:2/3;overflow:hidden;background:linear-gradient(180deg,rgba(8,16,30,.62),rgba(4,8,16,.92));}
+  #stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  .stageOverlay{position:absolute;left:18px;right:18px;top:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;pointer-events:none;}
+  .stageChip{pointer-events:auto;padding:10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(2,8,18,.58);backdrop-filter:blur(12px);box-shadow:0 12px 36px rgba(0,0,0,.25);}
+  .stageChip .t{font-size:11px;color:var(--sub);letter-spacing:.06em;}
+  .stageChip .b{font-size:24px;font-weight:820;letter-spacing:-.05em;margin-top:2px;}
+  .stageChip .s{font-size:11px;color:var(--muted);margin-top:1px;}
+  #miniLegend{position:absolute;right:18px;bottom:18px;display:flex;gap:8px;align-items:center;pointer-events:none;padding:10px 12px;border-radius:16px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(12px);}
+  .leg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);white-space:nowrap;}
+  .dot{width:9px;height:9px;border-radius:99px;background:var(--c);box-shadow:0 0 12px var(--c);}
+  #side{grid-column:2/3;grid-row:2/4;display:grid;grid-template-rows:220px 1fr 210px;gap:14px;min-height:0;}
+  .panel{padding:16px;overflow:hidden;}
+  .panel h2{font-size:13px;margin:0 0 12px;color:#d9f5ff;letter-spacing:.02em;display:flex;align-items:center;justify-content:space-between;}
+  .smallBadge{font-size:10px;color:var(--sub);font-weight:600;border:1px solid rgba(255,255,255,.12);padding:4px 7px;border-radius:999px;background:rgba(255,255,255,.04);}
+  .answerGrid{display:grid;grid-template-columns:1fr;gap:10px;}
+  .answer{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:10px;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.025));}
+  .answer .q{height:48px;border-radius:14px;display:grid;place-items:center;font-size:16px;font-weight:820;background:radial-gradient(circle at 40% 30%,rgba(113,245,255,.34),rgba(112,167,255,.10));border:1px solid rgba(113,245,255,.24);box-shadow:inset 0 0 20px rgba(113,245,255,.1);}
+  .answer .main{font-size:18px;font-weight:820;letter-spacing:-.04em;}
+  .answer .sub{font-size:11px;color:var(--sub);margin-top:3px;line-height:1.35;}
+  #inspectPanel{min-height:0;display:grid;grid-template-rows:auto 1fr;}
+  #inspectContent{min-height:0;overflow:auto;padding-right:4px;}
+  #inspectContent::-webkit-scrollbar{width:5px} #inspectContent::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:99px}
+  .inspectTop{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;}
+  .inspectCard{border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:10px;background:rgba(255,255,255,.035);}
+  .inspectCard .k{font-size:10px;color:var(--sub);letter-spacing:.05em}.inspectCard .v{font-size:21px;font-weight:850;letter-spacing:-.04em;margin-top:4px}.inspectCard .m{font-size:10px;color:var(--muted);margin-top:2px;}
+  .factorLine{font-family:"SFMono-Regular",Consolas,monospace;font-size:12px;line-height:1.55;color:#dffaff;border:1px solid rgba(113,245,255,.14);border-radius:14px;background:rgba(113,245,255,.035);padding:10px;margin-bottom:10px;}
+  .divisorGrid{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+  .divisor{font-size:10px;border:1px solid rgba(255,255,255,.10);border-radius:999px;padding:4px 7px;background:rgba(255,255,255,.04);color:var(--sub);}
+  .divisor.active{color:#06101b;background:var(--cyan);box-shadow:0 0 14px rgba(113,245,255,.7);border-color:transparent;font-weight:800;}
+  .divisor.small{border-color:rgba(255,122,141,.3);color:#ffc0c9;}
+  .barWrap{height:104px;margin-top:10px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(255,255,255,.025);position:relative;padding:12px 10px 24px;display:flex;align-items:flex-end;gap:3px;overflow:hidden;}
+  .bar{flex:1;min-width:3px;border-radius:5px 5px 0 0;background:linear-gradient(to top,rgba(112,167,255,.3),rgba(113,245,255,.9));box-shadow:0 0 14px rgba(113,245,255,.32);}
+  .barLabel{position:absolute;bottom:6px;font-size:10px;color:var(--muted);}.barLabel.left{left:10px}.barLabel.right{right:10px}
+  .proof{font-size:12px;line-height:1.68;color:var(--sub);}
+  .proof .line{border-bottom:1px solid rgba(255,255,255,.07);padding:7px 0;}
+  .proof b{color:#ecfbff}.proof code{font-family:"SFMono-Regular",Consolas,monospace;color:#dcfaff;background:rgba(113,245,255,.07);border:1px solid rgba(113,245,255,.12);border-radius:7px;padding:2px 5px;}
+  #controls{grid-column:1/2;grid-row:3/4;position:relative;padding:30px 16px 14px;display:grid;grid-template-columns:320px minmax(0,1fr) 260px;gap:16px;align-items:start;overflow:auto;overscroll-behavior:contain;min-height:132px;scrollbar-gutter:stable;background:linear-gradient(180deg,rgba(10,24,43,.78),rgba(5,12,24,.70));}
+  #controls::-webkit-scrollbar{height:6px;width:6px} #controls::-webkit-scrollbar-thumb{background:rgba(113,245,255,.24);border-radius:99px}
+  #controlResizeHandle{position:absolute;top:7px;left:50%;transform:translateX(-50%);width:210px;height:20px;border-radius:999px;cursor:ns-resize;border:1px solid rgba(113,245,255,.28);background:linear-gradient(180deg,rgba(113,245,255,.16),rgba(255,255,255,.045));box-shadow:0 8px 24px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.12);z-index:10;touch-action:none;}
+  #controlResizeHandle:before{content:"";position:absolute;left:48px;right:48px;top:8px;height:4px;border-radius:99px;background:rgba(210,245,255,.72);box-shadow:0 0 16px rgba(113,245,255,.48);}
+  #controlResizeHandle:after{content:"드래그";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:9px;color:rgba(213,250,255,.55);letter-spacing:.08em;}
+  #controlResizeHandle:hover{border-color:rgba(113,245,255,.64);background:linear-gradient(180deg,rgba(113,245,255,.23),rgba(255,255,255,.06));box-shadow:0 0 30px rgba(113,245,255,.18), inset 0 1px 0 rgba(255,255,255,.16);}
+  #controls.resizing{border-color:rgba(113,245,255,.72);box-shadow:0 0 42px rgba(113,245,255,.16), inset 0 1px 0 rgba(255,255,255,.12);}
+  .seg.filterBlock{align-content:flex-start;align-items:flex-start;max-height:calc(var(--controls-h) - 48px);min-height:0;overflow:auto;padding:2px 8px 8px 2px;overscroll-behavior:contain;touch-action:none;cursor:grab;scrollbar-width:thin;scrollbar-color:rgba(113,245,255,.45) rgba(255,255,255,.055);border-radius:16px;}
+  .seg.filterBlock.dragging{cursor:grabbing;user-select:none;}
+  .seg.filterBlock::-webkit-scrollbar{width:6px;height:6px}.seg.filterBlock::-webkit-scrollbar-track{background:rgba(255,255,255,.045);border-radius:99px}.seg.filterBlock::-webkit-scrollbar-thumb{background:rgba(113,245,255,.42);border-radius:99px}
+  .seg{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  button,.inputButton{appearance:none;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(255,255,255,.055);color:var(--text);font-weight:760;font-size:12px;padding:10px 12px;cursor:pointer;transition:.18s ease;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);position:relative;z-index:2;touch-action:manipulation;}
+  button:hover,.inputButton:hover{border-color:rgba(113,245,255,.45);box-shadow:0 0 28px rgba(113,245,255,.12), inset 0 1px 0 rgba(255,255,255,.08);transform:translateY(-1px);}
+  button.active{background:linear-gradient(180deg,rgba(113,245,255,.24),rgba(112,167,255,.12));border-color:rgba(113,245,255,.56);box-shadow:0 0 28px rgba(113,245,255,.22), inset 0 1px 0 rgba(255,255,255,.16);}
+  #playBtn{width:68px;background:linear-gradient(180deg,rgba(136,255,185,.22),rgba(113,245,255,.1));}
+  .sliderPanel{display:flex;flex-direction:column;justify-content:center;min-height:0;overflow:auto;padding-right:2px;}
+  .sliderBlock{display:grid;grid-template-columns:58px 1fr 76px;gap:10px;align-items:center;}
+  .sliderBlock label{font-size:11px;color:var(--sub);letter-spacing:.08em;text-transform:uppercase;}
+  input[type=range]{width:100%;accent-color:var(--cyan);height:30px;cursor:pointer;}
+  .readout{text-align:right;font-size:15px;font-weight:830;font-variant-numeric:tabular-nums;color:#eaffff;}
+  .rightControls{display:flex;flex-direction:column;justify-content:center;min-height:0;overflow:auto;padding-right:2px;}
+  .searchBox{display:grid;grid-template-columns:1fr 82px;gap:8px;}
+  input[type=number]{width:100%;height:39px;border-radius:13px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.26);color:var(--text);padding:0 12px;font-weight:760;outline:none;}
+  #usage{font-size:11px;color:var(--sub);line-height:1.58;border-left:1px solid rgba(113,245,255,.22);padding-left:12px;}
+  #usage b{color:#e5fbff;}
+  .modeLabel{font-size:11px;color:var(--muted);width:100%;margin:2px 0 -2px;}
+  .modeLabel.dragLabel{display:flex;justify-content:space-between;align-items:center;color:#c9f5ff;border:1px solid rgba(113,245,255,.16);background:rgba(113,245,255,.045);border-radius:13px;padding:6px 9px;margin:1px 0 0;letter-spacing:.04em;}
+  .modeLabel.dragLabel::after{content:"영역 드래그로 스크롤";color:var(--muted);font-weight:650;letter-spacing:0;}
+  .scanline{position:fixed;inset:0;pointer-events:none;z-index:5;mix-blend-mode:screen;opacity:.1;background:linear-gradient(to bottom,transparent 0%,rgba(255,255,255,.12) 50%,transparent 100%);height:140px;animation:scan 6.6s linear infinite;}
+  @keyframes scan{0%{transform:translateY(-160px)}100%{transform:translateY(calc(100vh + 160px))}}
+  .hudLine{position:absolute;inset:0;pointer-events:none;border-radius:24px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04), inset 0 0 80px rgba(113,245,255,.03);}
+  .axisText{position:absolute;left:18px;bottom:18px;color:rgba(255,255,255,.22);font-size:10px;letter-spacing:.12em;text-transform:uppercase;pointer-events:none;}
+  @media (max-width: 1180px){
+    #app{grid-template-columns:1fr;grid-template-rows:72px minmax(0,1fr) var(--controls-h) 520px;overflow:auto;height:auto;min-height:100%;}
+    body{overflow:auto} header,#stage,#controls,#side{grid-column:1/2} header{grid-row:1} #stage{grid-row:2;min-height:560px} #controls{grid-row:3;grid-template-columns:1fr;overflow:auto} #side{grid-row:4;grid-template-rows:220px 1fr 210px}.topMetrics{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div id="app">
+  <header class="glass">
+    <div class="titleBlock">
+      <div class="emblem" aria-hidden="true"></div>
+      <div>
+        <h1>2023 연세대학교(자연계) 수시 · 제시문 1</h1>
+        <div class="source"><span>전등 2023개</span><span>약수·배수</span><span>경우의 수 / 확률</span></div>
+      </div>
+    </div>
+    <div class="topMetrics">
+      <div class="metric"><div class="label">mode</div><div class="val" id="modeTop">1–2023</div></div>
+      <div class="metric"><div class="label">k</div><div class="val" id="kTop">1</div></div>
+      <div class="metric"><div class="label">on</div><div class="val" id="onTop">0</div></div>
+      <div class="metric"><div class="label">active</div><div class="val" id="activeTop">2023</div></div>
+    </div>
+  </header>
+
+  <main id="stage" class="glass">
+    <canvas id="field"></canvas>
+    <div class="hudLine"></div>
+    <div class="stageOverlay">
+      <div class="stageChip">
+        <div class="t">시행 위치</div>
+        <div class="b" id="bigK">k = 1</div>
+        <div class="s" id="rangeText">수험번호 1부터 적용</div>
+      </div>
+      <div class="stageChip">
+        <div class="t">현재 켜진 전등</div>
+        <div class="b" id="bigOn">0</div>
+        <div class="s" id="bigOnSub">전체 2023개 기준</div>
+      </div>
+    </div>
+    <div id="miniLegend">
+      <div class="leg"><span class="dot" style="--c:#baf8ff"></span>ON</div>
+      <div class="leg"><span class="dot" style="--c:#ffb25e"></span>이번 시행</div>
+      <div class="leg"><span class="dot" style="--c:#b98cff"></span>필터</div>
+      <div class="leg"><span class="dot" style="--c:#88ffb9"></span>선택</div>
+    </div>
+    <div class="axisText">1 → 2023</div>
+  </main>
+
+  <aside id="side">
+    <section class="glass panel">
+      <h2>계산 결과 <span class="smallBadge">최종값</span></h2>
+      <div class="answerGrid">
+        <div class="answer"><div class="q">1-1</div><div><div class="main">6회</div><div class="sub">2023 = 7·17², 약수 개수 6</div></div></div>
+        <div class="answer"><div class="q">1-2</div><div><div class="main">7/22</div><div class="sub">켜진 전등 44개, 버튼 3회 전등 14개</div></div></div>
+        <div class="answer"><div class="q">1-3</div><div><div class="main">1010/2023</div><div class="sub">4번부터 2021번까지 시행</div></div></div>
+      </div>
+    </section>
+
+    <section id="inspectPanel" class="glass panel">
+      <h2>선택 전등 <span class="smallBadge" id="filterBadge">필터 없음</span></h2>
+      <div id="inspectContent">
+        <div class="inspectTop">
+          <div class="inspectCard"><div class="k">전등 번호</div><div class="v" id="selN">2023</div><div class="m" id="selStatus">최종 OFF</div></div>
+          <div class="inspectCard"><div class="k">현재 토글 수</div><div class="v" id="selCnt">0</div><div class="m" id="selCntSub">현재 시행 기준</div></div>
+        </div>
+        <div class="factorLine" id="factorLine"></div>
+        <div class="factorLine" id="divisorSummary"></div>
+        <div class="barWrap" id="histogram"><span class="barLabel left">τ(n)</span><span class="barLabel right">빈도</span></div>
+      </div>
+    </section>
+
+    <section class="glass panel">
+      <h2>증명 엔진 <span class="smallBadge">동기화됨</span></h2>
+      <div class="proof">
+        <div class="line"><b>전체 시행:</b> 전등 <code>n</code>의 버튼 횟수는 <code>τ(n)</code>.</div>
+        <div class="line"><b>켜짐 조건:</b> <code>τ(n)</code>이 홀수 ⇔ <code>n</code>이 정사각수.</div>
+        <div class="line"><b>버튼 3회:</b> <code>τ(n)=3</code> ⇔ <code>n=p²</code>. <code>p≤44</code>인 소수는 14개.</div>
+        <div class="line"><b>부분 시행:</b> <code># {d|n : 4≤d≤2021}</code>의 홀짝으로 최종 상태 결정.</div>
+      </div>
+    </section>
+  </aside>
+
+  <section id="controls" class="glass">
+    <div id="controlResizeHandle" title="드래그해서 하단 패널 높이 조절"></div>
+    <div class="seg filterBlock" id="filterBlock" data-drag-scroll title="필터 영역은 직접 드래그해서 스크롤할 수 있습니다.">
+      <button id="playBtn">재생</button>
+      <button id="modeFull" class="active">1–2023</button>
+      <button id="modePartial">4–2021</button>
+      <button id="resetBtn">초기화</button>
+      <div class="modeLabel dragLabel">필터</div>
+      <button data-filter="none" class="filter active">없음</button>
+      <button data-filter="onFull" class="filter">최종 ON</button>
+      <button data-filter="square" class="filter">정사각수</button>
+      <button data-filter="primeSquare" class="filter">소수제곱</button>
+      <button data-filter="pressed3" class="filter">버튼 3회</button>
+      <button data-filter="onPartial" class="filter">부분 ON</button>
+    </div>
+    <div>
+      <div class="sliderBlock">
+        <label>k</label><input id="kSlider" type="range" min="1" max="2023" value="1" step="1" /><div class="readout" id="kRead">1</div>
+      </div>
+      <div class="sliderBlock">
+        <label>배속</label><input id="speedSlider" type="range" min="1" max="900" value="90" step="1" /><div class="readout" id="speedRead">90×</div>
+      </div>
+      <div class="seg" style="margin-top:6px">
+        <button id="jump2023">2023번</button>
+        <button id="jumpFinal">최종값</button>
+        <button id="scanBtn">스캔</button>
+        <button id="pulseBtn">강조</button>
+      </div>
+    </div>
+    <div>
+      <div class="searchBox">
+        <input id="lampInput" type="number" min="1" max="2023" value="2023" />
+        <button id="goLamp">선택</button>
+      </div>
+      <div id="usage"><b>사용법</b><br>재생·k 슬라이더로 시행 위치를 조절한다. 전등을 클릭하거나 번호를 입력하면 약수, 현재 토글 횟수, 최종 상태가 갱신된다. 필터는 계산 결과를 유지한 채 해당 전등만 강조한다. 하단 패널 상단 손잡이로 높이를 조절하고, 필터 영역 자체를 드래그해 숨은 필터까지 볼 수 있다.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const N = 2023;
+  const canvas = document.getElementById('field');
+  const ctx = canvas.getContext('2d');
+  const els = id => document.getElementById(id);
+  const state = {
+    mode: 'full',
+    k: 1,
+    playing: false,
+    speed: 90,
+    filter: 'none',
+    selected: 2023,
+    scanT: 0,
+    pulse: 0,
+    t: 0,
+    dpr: 1,
+    w: 1,
+    h: 1,
+    positions: [],
+    counts: new Uint16Array(N+1),
+    on: new Uint8Array(N+1),
+    active: new Uint8Array(N+1),
+    stars: []
+  };
+
+  const controlResize = {dragging:false, startY:0, startH:0, raf:0};
+  function clampControlHeight(h){
+    const max = Math.max(180, Math.min(460, window.innerHeight - 150));
+    return Math.round(Math.max(132, Math.min(max, h)));
+  }
+  function setControlHeight(h, persist=true){
+    const next = clampControlHeight(h);
+    document.documentElement.style.setProperty('--controls-h', `${next}px`);
+    if(persist){
+      try{ localStorage.setItem('yonsei_2023_light_controls_h_v2', String(next)); }catch(_){}
+    }
+    if(!controlResize.raf){
+      controlResize.raf = requestAnimationFrame(() => { controlResize.raf = 0; resize(); });
+    }
+  }
+  function initControlHeight(){
+    let saved = null;
+    try{ saved = Number(localStorage.getItem('yonsei_2023_light_controls_h_v2')); }catch(_){}
+    setControlHeight(Number.isFinite(saved) && saved > 0 ? saved : 220, false);
+  }
+
+  const divisors = Array.from({length:N+1}, () => []);
+  const factorText = Array(N+1).fill('');
+  const tau = new Uint16Array(N+1);
+  const tauHist = new Map();
+  const fullFinalCount = new Uint16Array(N+1);
+  const fullFinalOn = new Uint8Array(N+1);
+  const partialFinalCount = new Uint16Array(N+1);
+  const partialFinalOn = new Uint8Array(N+1);
+  const isSquare = new Uint8Array(N+1);
+  const isPrimeSquare = new Uint8Array(N+1);
+  const pressed3 = new Uint8Array(N+1);
+  const primes = [];
+
+  function sieve(limit){
+    const a = new Uint8Array(limit+1);
+    a.fill(1); a[0]=a[1]=0;
+    for(let i=2;i*i<=limit;i++) if(a[i]) for(let j=i*i;j<=limit;j+=i) a[j]=0;
+    for(let i=2;i<=limit;i++) if(a[i]) primes.push(i);
+    return a;
+  }
+  const primeTable = sieve(N);
+
+  for(let d=1; d<=N; d++){
+    for(let m=d; m<=N; m+=d){ divisors[m].push(d); }
+  }
+  for(let n=1; n<=N; n++){
+    tau[n] = divisors[n].length;
+    tauHist.set(tau[n], (tauHist.get(tau[n])||0)+1);
+    fullFinalCount[n] = tau[n];
+    fullFinalOn[n] = tau[n] % 2;
+    pressed3[n] = tau[n] === 3 ? 1 : 0;
+    const r = Math.floor(Math.sqrt(n));
+    if(r*r === n){
+      isSquare[n] = 1;
+      if(primeTable[r]) isPrimeSquare[n] = 1;
+    }
+    let c = 0;
+    for(const d of divisors[n]) if(d>=4 && d<=2021) c++;
+    partialFinalCount[n] = c;
+    partialFinalOn[n] = c % 2;
+    factorText[n] = factorize(n);
+  }
+
+  function factorize(n){
+    let x = n; const arr = [];
+    for(const p of primes){
+      if(p*p > x) break;
+      if(x % p === 0){
+        let e = 0; while(x % p === 0){ x/=p; e++; }
+        arr.push(e===1 ? `${p}` : `${p}<sup>${e}</sup>`);
+      }
+    }
+    if(x > 1) arr.push(`${x}`);
+    return arr.length ? arr.join(' · ') : `${n}`;
+  }
+
+  function computeAt(){
+    const start = state.mode === 'full' ? 1 : 4;
+    const endMax = state.mode === 'full' ? 2023 : 2021;
+    const k = Math.max(start, Math.min(endMax, Math.round(state.k)));
+    state.counts.fill(0); state.on.fill(0); state.active.fill(0);
+    let onCount = 0, activeCount = 0;
+    for(let n=1; n<=N; n++){
+      let c = 0;
+      for(const d of divisors[n]) if(d >= start && d <= k) c++;
+      state.counts[n] = c;
+      const on = c & 1;
+      state.on[n] = on;
+      if(on) onCount++;
+      if(k>=start && k<=endMax && n % k === 0){ state.active[n] = 1; activeCount++; }
+    }
+    return {k, onCount, activeCount};
+  }
+
+  function finalOnCount(mode){
+    const arr = mode === 'full' ? fullFinalOn : partialFinalOn;
+    let c=0; for(let i=1;i<=N;i++) c+=arr[i]; return c;
+  }
+
+  function resize(){
+    const rect = canvas.parentElement.getBoundingClientRect();
+    state.dpr = Math.max(1, Math.min(2.4, window.devicePixelRatio || 1));
+    state.w = Math.max(360, rect.width);
+    state.h = Math.max(320, rect.height);
+    canvas.width = Math.round(state.w * state.dpr);
+    canvas.height = Math.round(state.h * state.dpr);
+    canvas.style.width = `${state.w}px`; canvas.style.height = `${state.h}px`;
+    ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
+    layoutPositions();
+    makeStars();
+  }
+
+  function layoutPositions(){
+    const w=state.w, h=state.h;
+    const cols = w < 760 ? 47 : 67;
+    const rows = Math.ceil(N / cols);
+    const marginX = w < 760 ? 26 : 52;
+    const marginTop = 88;
+    const marginBottom = 74;
+    const usableW = w - marginX*2;
+    const usableH = Math.max(220, h - marginTop - marginBottom);
+    const dx = usableW / (cols - 1);
+    const dy = usableH / Math.max(1, rows - 1);
+    state.positions = Array(N+1);
+    for(let n=1; n<=N; n++){
+      const idx = n - 1;
+      const r = Math.floor(idx / cols);
+      const c = idx % cols;
+      const serp = (r % 2 === 0) ? c : (cols - 1 - c);
+      const rowPhase = r * .58;
+      const xBase = marginX + serp * dx;
+      const yBase = marginTop + r * dy;
+      const lane = Math.sin((serp/cols)*Math.PI*2 + rowPhase) * Math.min(10, dx*.72);
+      const bow = Math.sin((r/(rows-1))*Math.PI) * 16;
+      const x = xBase + lane;
+      const y = yBase + bow;
+      state.positions[n] = {x,y,r,c:serp,row:r,col:serp};
+    }
+  }
+
+  function makeStars(){
+    const count = Math.floor(Math.min(320, Math.max(110, state.w*state.h/6200)));
+    state.stars = Array.from({length:count}, (_,i)=>({
+      x: Math.random()*state.w, y: Math.random()*state.h,
+      z: Math.random(), v: .08 + Math.random()*0.38,
+      a: .08 + Math.random()*0.18,
+      s: .4 + Math.random()*1.4
+    }));
+  }
+
+  function filterMatch(n){
+    switch(state.filter){
+      case 'onFull': return fullFinalOn[n];
+      case 'square': return isSquare[n];
+      case 'primeSquare': return isPrimeSquare[n];
+      case 'onPartial': return partialFinalOn[n];
+      case 'pressed3': return pressed3[n];
+      default: return 1;
+    }
+  }
+
+  function colorFor(n, isOn, isActive, match, selected){
+    if(selected) return [136,255,185];
+    if(isActive) return [255,178,94];
+    if(state.filter !== 'none' && match) return [185,140,255];
+    if(isOn) return [186,248,255];
+    return [42,62,82];
+  }
+
+  function drawBackground(t){
+    const w=state.w,h=state.h;
+    ctx.clearRect(0,0,w,h);
+    const g = ctx.createRadialGradient(w*.52,h*.45,20,w*.52,h*.45,Math.max(w,h)*.78);
+    g.addColorStop(0,'rgba(22,48,78,.72)');
+    g.addColorStop(.34,'rgba(6,18,34,.82)');
+    g.addColorStop(1,'rgba(1,4,10,.98)');
+    ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    for(const s of state.stars){
+      s.y += s.v * (0.4 + state.speed/900);
+      s.x += Math.sin(t*.0003 + s.z*10)*0.05;
+      if(s.y > h+4){s.y=-4;s.x=Math.random()*w;}
+      ctx.globalAlpha = s.a;
+      ctx.fillStyle = `rgba(${120+s.z*80},${180+s.z*40},255,1)`;
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.s,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.globalAlpha = .09;
+    ctx.strokeStyle = '#78eaff'; ctx.lineWidth = 1;
+    const gap = 58;
+    for(let x = -gap; x < w+gap; x+=gap){
+      ctx.beginPath(); ctx.moveTo(x + Math.sin(t*.0002)*20, 0); ctx.lineTo(x - 120, h); ctx.stroke();
+    }
+    for(let y = 0; y < h; y+=gap){
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y + Math.cos(t*.0002)*18); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawRibbons(t){
+    const w=state.w,h=state.h;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for(let i=0;i<4;i++){
+      const phase = t*.00034 + i*1.65;
+      const y = h*(.22 + i*.19);
+      const grad = ctx.createLinearGradient(0,y,w,y+60);
+      grad.addColorStop(0,'rgba(113,245,255,0)');
+      grad.addColorStop(.25,'rgba(113,245,255,.06)');
+      grad.addColorStop(.55,'rgba(185,140,255,.045)');
+      grad.addColorStop(1,'rgba(113,245,255,0)');
+      ctx.strokeStyle = grad; ctx.lineWidth = 2 + i*.5;
+      ctx.beginPath();
+      for(let x=0;x<=w;x+=16){
+        const yy = y + Math.sin(x*.011 + phase)*32 + Math.cos(x*.006 - phase*1.4)*20;
+        if(x===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawConnections(info, t){
+    const k = info.k;
+    if(k <= 0) return;
+    const activePositions = [];
+    if(k <= 120){
+      for(let n=k; n<=N; n+=k) activePositions.push(state.positions[n]);
+    } else {
+      for(let n=k; n<=N; n+=k) activePositions.push(state.positions[n]);
+    }
+    if(activePositions.length < 2 || activePositions.length > 180) return;
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    const alpha = Math.min(.25, .05 + 14/activePositions.length);
+    ctx.strokeStyle = `rgba(255,178,94,${alpha})`; ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    activePositions.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawLights(info, t){
+    const w=state.w;
+    const baseR = w < 760 ? 2.4 : 2.65;
+    const glowR = baseR * 5.2;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for(let pass=0; pass<2; pass++){
+      for(let n=1; n<=N; n++){
+        const p = state.positions[n];
+        const isOn = state.on[n];
+        const active = state.active[n];
+        const match = filterMatch(n);
+        const selected = n === state.selected;
+        let alpha = isOn ? .62 : .08;
+        if(state.filter !== 'none') alpha = match ? (isOn ? .85 : .58) : (isOn ? .14 : .035);
+        if(active) alpha = 1;
+        if(selected) alpha = 1;
+        const [r,g,b] = colorFor(n,isOn,active,match,selected);
+        let pulse = 0;
+        if(active) pulse += .55 + .45*Math.sin(t*.012 + n*.07);
+        if(selected) pulse += .6 + .25*Math.sin(t*.006);
+        if(state.pulse>0 && match) pulse += state.pulse*.65;
+        const rad = baseR * (isOn ? 1.2 : .8) + pulse*2.2;
+        if(pass===0){
+          const gr = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,glowR + pulse*12);
+          gr.addColorStop(0,`rgba(${r},${g},${b},${alpha*.58})`);
+          gr.addColorStop(.28,`rgba(${r},${g},${b},${alpha*.16})`);
+          gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
+          ctx.fillStyle = gr;
+          ctx.beginPath(); ctx.arc(p.x,p.y,glowR + pulse*10,0,Math.PI*2); ctx.fill();
+        }else{
+          ctx.fillStyle = `rgba(${r},${g},${b},${Math.min(1, alpha+.12)})`;
+          ctx.beginPath(); ctx.arc(p.x,p.y,rad,0,Math.PI*2); ctx.fill();
+          if(active || selected || (state.filter !== 'none' && match)){
+            ctx.strokeStyle = `rgba(255,255,255,${active || selected ? .76 : .22})`;
+            ctx.lineWidth = active || selected ? 1.2 : .7;
+            ctx.beginPath(); ctx.arc(p.x,p.y,rad+3+Math.sin(t*.008+n*.02)*1.5,0,Math.PI*2); ctx.stroke();
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawSelectedArcs(t){
+    const n = state.selected;
+    const p = state.positions[n];
+    if(!p) return;
+    const ds = divisors[n].filter(d => d >= (state.mode==='full'?1:4) && d <= (state.mode==='full'?2023:2021));
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for(let i=0; i<ds.length; i++){
+      const d = ds[i];
+      const q = state.positions[d];
+      if(!q) continue;
+      const matchActive = d <= state.k && d >= (state.mode==='full'?1:4);
+      ctx.strokeStyle = matchActive ? 'rgba(136,255,185,.22)' : 'rgba(136,255,185,.055)';
+      ctx.lineWidth = matchActive ? 1.1 : .7;
+      const mx = (p.x+q.x)/2;
+      const my = Math.min(p.y,q.y) - 30 - Math.sin((i+1)*1.7)*18;
+      ctx.beginPath(); ctx.moveTo(q.x,q.y); ctx.quadraticCurveTo(mx,my,p.x,p.y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function render(now){
+    state.t = now;
+    if(state.playing){
+      const min = state.mode === 'full' ? 1 : 4;
+      const max = state.mode === 'full' ? 2023 : 2021;
+      state.k += (state.speed / 60);
+      if(state.k > max){ state.k = max; state.playing=false; els('playBtn').textContent='재생'; }
+      if(state.k < min) state.k = min;
+      els('kSlider').value = Math.round(state.k);
+    }
+    state.scanT *= .94;
+    state.pulse *= .925;
+    const info = computeAt();
+    updateHUD(info);
+    drawBackground(now);
+    drawRibbons(now);
+    drawConnections(info, now);
+    drawSelectedArcs(now);
+    drawLights(info, now);
+    requestAnimationFrame(render);
+  }
+
+  function updateHUD(info){
+    const k = info.k;
+    const modeText = state.mode === 'full' ? '1–2023' : '4–2021';
+    els('modeTop').textContent = modeText;
+    els('kTop').textContent = k;
+    els('onTop').textContent = info.onCount;
+    els('activeTop').textContent = info.activeCount;
+    els('bigK').textContent = `k = ${k}`;
+    els('rangeText').textContent = state.mode === 'full' ? `수험번호 1부터 ${k}까지 적용` : `수험번호 4부터 ${k}까지 적용`;
+    els('bigOn').textContent = info.onCount.toLocaleString('ko-KR');
+    els('bigOnSub').textContent = `전체 2023개 기준 · 이번 시행 ${info.activeCount}개`;
+    els('kRead').textContent = k;
+    els('speedRead').textContent = `${state.speed}×`;
+    updateInspect();
+  }
+
+  function updateInspect(){
+    const n = state.selected;
+    const currentCount = state.counts[n] || 0;
+    const currentOn = currentCount & 1;
+    const finalArr = state.mode === 'full' ? fullFinalOn : partialFinalOn;
+    const finalCount = state.mode === 'full' ? fullFinalCount[n] : partialFinalCount[n];
+    els('selN').textContent = n;
+    els('selStatus').textContent = `현재 ${currentOn?'ON':'OFF'} · 최종 ${finalArr[n]?'ON':'OFF'}`;
+    els('selCnt').textContent = currentCount;
+    els('selCntSub').textContent = `최종 ${finalCount}회 · τ(n)=${tau[n]}`;
+    const ds = divisors[n];
+    const modeStart = state.mode === 'full' ? 1 : 4;
+    const modeEnd = state.mode === 'full' ? 2023 : 2021;
+    const applied = ds.filter(d => d>=modeStart && d<=Math.round(state.k));
+    els('factorLine').innerHTML = `<b>${n}</b> = ${factorText[n]}<br>약수 개수 τ(${n}) = <b>${tau[n]}</b>`;
+    const chunks = ds.map(d => {
+      const active = d>=modeStart && d<=Math.round(state.k) && d<=modeEnd;
+      const small = state.mode==='partial' && (d<4 || d>2021);
+      return `<span class="divisor ${active?'active':''} ${small?'small':''}">${d}</span>`;
+    }).join('');
+    els('divisorSummary').innerHTML = `현재 범위 안의 약수: <b>${applied.length}</b>개<div class="divisorGrid">${chunks}</div>`;
+  }
+
+  function drawHistogram(){
+    const wrap = els('histogram');
+    const existing = wrap.querySelectorAll('.bar'); existing.forEach(e=>e.remove());
+    const keys = Array.from(tauHist.keys()).sort((a,b)=>a-b);
+    const max = Math.max(...Array.from(tauHist.values()));
+    for(const key of keys){
+      const b = document.createElement('div'); b.className='bar';
+      const val = tauHist.get(key);
+      b.style.height = `${Math.max(3, val/max*72)}px`;
+      b.title = `τ(n)=${key}: ${val}개`;
+      if(key===3) b.style.background = 'linear-gradient(to top,rgba(185,140,255,.45),rgba(255,229,138,.95))';
+      wrap.insertBefore(b, wrap.firstChild.nextSibling);
+    }
+  }
+
+  function selectLamp(n){
+    n = Math.max(1, Math.min(N, Math.round(Number(n)||1)));
+    state.selected = n;
+    els('lampInput').value = n;
+    state.pulse = 1;
+    updateInspect();
+  }
+
+  function setMode(mode){
+    state.mode = mode;
+    const min = mode==='full'?1:4;
+    const max = mode==='full'?2023:2021;
+    state.k = Math.max(min, Math.min(max, state.k));
+    const slider = els('kSlider'); slider.min = min; slider.max = max; slider.value = Math.round(state.k);
+    els('modeFull').classList.toggle('active', mode==='full');
+    els('modePartial').classList.toggle('active', mode==='partial');
+  }
+
+  function setFilter(filter){
+    state.filter = filter;
+    document.querySelectorAll('.filter').forEach(btn => btn.classList.toggle('active', btn.dataset.filter===filter));
+    const label = {none:'필터 없음', onFull:'최종 ON', square:'정사각수', primeSquare:'소수제곱', onPartial:'부분 ON', pressed3:'버튼 3회'}[filter] || '필터 없음';
+    els('filterBadge').textContent = label;
+    state.pulse = 1;
+  }
+
+  function enableDragScroll(el){
+    let startX = 0, startY = 0, scrollX = 0, scrollY = 0, moved = false, lastDrag = 0, draggingPointer = null;
+    const isInteractive = target => !!target.closest('button, input, select, textarea, label, a, .inputButton');
+    el.addEventListener('pointerdown', e => {
+      // 버튼/입력 요소 위에서는 드래그 스크롤을 시작하지 않는다.
+      // 부모가 pointer capture를 잡으면 일부 환경에서 하위 버튼의 click이 사라진다.
+      if(isInteractive(e.target)) return;
+      startX = e.clientX; startY = e.clientY;
+      scrollX = el.scrollLeft; scrollY = el.scrollTop;
+      moved = false; draggingPointer = e.pointerId;
+      el.classList.add('dragging');
+      el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', e => {
+      if(draggingPointer !== e.pointerId || !el.classList.contains('dragging')) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if(Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+      if(moved){
+        el.scrollLeft = scrollX - dx;
+        el.scrollTop = scrollY - dy;
+        e.preventDefault();
+      }
+    });
+    const endDrag = e => {
+      if(draggingPointer !== e.pointerId || !el.classList.contains('dragging')) return;
+      if(moved) lastDrag = performance.now();
+      el.classList.remove('dragging');
+      draggingPointer = null;
+      try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+    };
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+    el.addEventListener('click', e => {
+      if(isInteractive(e.target)) return;
+      if(performance.now() - lastDrag < 240){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+  }
+
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    let best = 1, bd = Infinity;
+    for(let n=1;n<=N;n++){
+      const p = state.positions[n]; const dx=p.x-x, dy=p.y-y; const d=dx*dx+dy*dy;
+      if(d<bd){bd=d;best=n;}
+    }
+    selectLamp(best);
+  });
+
+  els('playBtn').addEventListener('click', () => { state.playing=!state.playing; els('playBtn').textContent = state.playing?'정지':'재생'; });
+  els('modeFull').addEventListener('click', () => setMode('full'));
+  els('modePartial').addEventListener('click', () => setMode('partial'));
+  els('resetBtn').addEventListener('click', () => { state.k = state.mode==='full'?1:4; state.playing=false; els('playBtn').textContent='재생'; els('kSlider').value = state.k; });
+  els('kSlider').addEventListener('input', e => { state.k = Number(e.target.value); state.playing=false; els('playBtn').textContent='재생'; });
+  els('speedSlider').addEventListener('input', e => { state.speed = Number(e.target.value); });
+  els('goLamp').addEventListener('click', () => selectLamp(els('lampInput').value));
+  els('lampInput').addEventListener('keydown', e => { if(e.key==='Enter') selectLamp(e.target.value); });
+  els('jump2023').addEventListener('click', () => selectLamp(2023));
+  els('jumpFinal').addEventListener('click', () => { state.k = state.mode==='full'?2023:2021; els('kSlider').value=state.k; state.playing=false; els('playBtn').textContent='재생'; state.pulse=1; });
+  els('scanBtn').addEventListener('click', () => { state.k = state.mode==='full'?1:4; els('kSlider').value=state.k; state.speed=900; els('speedSlider').value=900; state.playing=true; els('playBtn').textContent='정지'; state.pulse=1; });
+  els('pulseBtn').addEventListener('click', () => { state.pulse = 1; });
+  document.querySelectorAll('.filter').forEach(btn => btn.addEventListener('click', () => setFilter(btn.dataset.filter)));
+  document.querySelectorAll('[data-drag-scroll]').forEach(enableDragScroll);
+
+  const controlHandle = els('controlResizeHandle');
+  const controlsPanel = els('controls');
+  controlHandle.addEventListener('pointerdown', e => {
+    controlResize.dragging = true;
+    controlResize.startY = e.clientY;
+    controlResize.startH = els('controls').getBoundingClientRect().height;
+    document.body.classList.add('resizing-controls');
+    controlsPanel.classList.add('resizing');
+    controlHandle.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  controlHandle.addEventListener('pointermove', e => {
+    if(!controlResize.dragging) return;
+    const dy = e.clientY - controlResize.startY;
+    setControlHeight(controlResize.startH - dy);
+    e.preventDefault();
+  });
+  function stopControlDrag(e){
+    if(!controlResize.dragging) return;
+    controlResize.dragging = false;
+    document.body.classList.remove('resizing-controls');
+    controlsPanel.classList.remove('resizing');
+    if(e && controlHandle.hasPointerCapture(e.pointerId)) controlHandle.releasePointerCapture(e.pointerId);
+  }
+  controlHandle.addEventListener('pointerup', stopControlDrag);
+  controlHandle.addEventListener('pointercancel', stopControlDrag);
+  controlHandle.addEventListener('dblclick', () => {
+    const current = controlsPanel.getBoundingClientRect().height;
+    setControlHeight(current < 300 ? 360 : 220);
+  });
+  window.addEventListener('resize', () => {
+    const h = els('controls').getBoundingClientRect().height;
+    setControlHeight(h, false);
+    resize();
+  });
+
+  initControlHeight(); resize(); drawHistogram(); selectLamp(2023); setMode('full'); setFilter('none'); requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>

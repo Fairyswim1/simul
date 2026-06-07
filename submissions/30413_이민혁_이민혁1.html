@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>연세대 기출 수열 종합 시뮬레이터</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #1a365d;
+            margin-bottom: 30px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            transition: 0.2s;
+        }
+        #btn-play { background-color: #3182ce; }
+        #btn-play:hover { background-color: #2b6cb0; }
+        #btn-stop { background-color: #e53e3e; }
+        #btn-stop:hover { background-color: #c53030; }
+        #btn-reset { background-color: #718096; }
+        
+        .math-box {
+            background: #ebf8ff;
+            border-left: 4px solid #3182ce;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 0 8px 8px 0;
+            line-height: 1.6;
+        }
+        .math-box h3 { margin-top: 0; color: #2b6cb0; }
+        
+        canvas {
+            width: 100%;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        #mainCanvas { height: 400px; }
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .chart-canvas { height: 200px; }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+        }
+        th { background-color: #f7fafc; }
+        
+        .highlight { font-weight: bold; color: #e53e3e; }
+    </style>
+</head>
+<body>
+
+    <h1>연세대 수열 기출 시각화 시뮬레이터 (y = x²)</h1>
+
+    <div class="container">
+        <div class="panel">
+            <div class="control-group">
+                <button id="btn-play">▶ 재생</button>
+                <button id="btn-stop">⏸ 정지</button>
+                <button id="btn-reset">🔄 초기화</button>
+                <label>초기값 k (x₁): <span id="k-val">8.0</span></label>
+                <input type="range" id="k-slider" min="2" max="12" step="1" value="8">
+            </div>
+
+            <div class="math-box">
+                <h3>1. 점화식 유도 과정 (접선)</h3>
+                곡선 y = x² 위의 점 (xₙ, xₙ²)에서의 접선의 방정식:<br>
+                y - xₙ² = 2xₙ(x - xₙ)<br>
+                y = 0 대입 시 x절편 xₙ₊₁ 구하기:<br>
+                -xₙ² = 2xₙ(x - xₙ) &nbsp; &rArr; &nbsp; -xₙ/2 = x - xₙ<br>
+                <strong>∴ xₙ₊₁ = xₙ / 2</strong> (공비가 1/2인 등비수열)
+            </div>
+
+            <div class="math-box">
+                <h3>2. 문제 (2)의 극한 시각화 (법선)</h3>
+                법선의 기울기는 -1/(2xₙ). 법선의 x절편을 bₙ이라 하면,<br>
+                y - xₙ² = -1/(2xₙ)(x - xₙ) 에서 y=0일 때 bₙ = xₙ + 2xₙ³<br>
+                구하고자 하는 극한의 일반항: <strong>xₙ⁴ / (bₙ - xₙ)</strong><br>
+                = xₙ⁴ / (2xₙ³) = <strong>xₙ / 2</strong><br>
+                <br>
+                결국 무한급수 Σ(xₙ/2) = (k/2) / (1 - 1/2) = <span class="highlight">k</span> 가 됩니다.
+            </div>
+
+            <div style="max-height: 200px; overflow-y: auto;">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>n</th>
+                            <th>xₙ (항)</th>
+                            <th>bₙ (법선 절편)</th>
+                            <th>Sₙ (부분합)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3 style="margin-top: 0; text-align: center;">기하학적 변화 과정</h3>
+            <canvas id="mainCanvas" width="600" height="400"></canvas>
+            
+            <div class="chart-row">
+                <div>
+                    <h4 style="text-align: center; margin: 5px 0;">xₙ 변화 (등비수열 감소)</h4>
+                    <canvas id="xnCanvas" class="chart-canvas" width="280" height="200"></canvas>
+                </div>
+                <div>
+                    <h4 style="text-align: center; margin: 5px 0;">극한 부분합 Sₙ 추이 (k로 수렴)</h4>
+                    <canvas id="snCanvas" class="chart-canvas" width="280" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 요소 가져오기
+        const kSlider = document.getElementById('k-slider');
+        const kValText = document.getElementById('k-val');
+        const btnPlay = document.getElementById('btn-play');
+        const btnStop = document.getElementById('btn-stop');
+        const btnReset = document.getElementById('btn-reset');
+        const tbody = document.querySelector('#data-table tbody');
+
+        // 캔버스 설정
+        const mainCtx = document.getElementById('mainCanvas').getContext('2d');
+        const xnCtx = document.getElementById('xnCanvas').getContext('2d');
+        const snCtx = document.getElementById('snCanvas').getContext('2d');
+
+        // 전역 상태 변수
+        let k = 8;
+        let n = 1;
+        let currentX = k;
+        let sequence = []; // x_n
+        let bnSequence = []; // b_n
+        let partialSums = []; // S_n
+        let currentSum = 0;
+        
+        let isPlaying = false;
+        let animationTimer = null;
+
+        // 메인 캔버스 그리기 함수
+        function drawMain(x_n) {
+            const w = mainCtx.canvas.width;
+            const h = mainCtx.canvas.height;
+            mainCtx.clearRect(0, 0, w, h);
+
+            const margin = 40;
+            const originX = margin;
+            const originY = h - margin;
+            
+            // 스케일 설정 (x는 0~k+2, y는 0~k^2+5)
+            const maxX = k + 2;
+            const maxY = k * k + 5;
+            const scaleX = (w - margin * 2) / maxX;
+            const scaleY = (h - margin * 2) / maxY;
+
+            // 좌표 변환 함수
+            const tx = (x) => originX + x * scaleX;
+            const ty = (y) => originY - y * scaleY;
+
+            // 1. 축 그리기
+            mainCtx.beginPath();
+            mainCtx.strokeStyle = '#a0aec0';
+            mainCtx.moveTo(originX, margin); mainCtx.lineTo(originX, originY);
+            mainCtx.lineTo(w - margin, originY);
+            mainCtx.stroke();
+
+            // 2. y = x^2 곡선 그리기
+            mainCtx.beginPath();
+            mainCtx.strokeStyle = '#2b6cb0';
+            mainCtx.lineWidth = 2;
+            for(let x=0; x<=maxX; x+=0.1) {
+                if(x===0) mainCtx.moveTo(tx(x), ty(x*x));
+                else mainCtx.lineTo(tx(x), ty(x*x));
+            }
+            mainCtx.stroke();
+
+            if(!x_n) return;
+
+            const y_n = x_n * x_n;
+            const next_x = x_n / 2;
+            const b_n = x_n + 2 * Math.pow(x_n, 3);
+
+            // 3. 접선 그리기 (파란색)
+            mainCtx.beginPath();
+            mainCtx.strokeStyle = '#3182ce';
+            mainCtx.setLineDash([5, 5]);
+            mainCtx.moveTo(tx(x_n), ty(y_n));
+            mainCtx.lineTo(tx(next_x), ty(0));
+            mainCtx.stroke();
+            mainCtx.setLineDash([]);
+
+            // 4. 법선 그리기 (빨간색, 문제 2번 설명용)
+            mainCtx.beginPath();
+            mainCtx.strokeStyle = '#e53e3e';
+            mainCtx.setLineDash([3, 3]);
+            mainCtx.moveTo(tx(x_n), ty(y_n));
+            // 법선이 x축과 만나는 점이 캔버스를 벗어나지 않는 선에서만 표시
+            let drawBn = b_n > maxX ? maxX : b_n; 
+            let drawY = y_n + (-1/(2*x_n)) * (drawBn - x_n);
+            mainCtx.lineTo(tx(drawBn), ty(drawY));
+            mainCtx.stroke();
+            mainCtx.setLineDash([]);
+
+            // 5. 점들 표시
+            const drawPoint = (x, y, color, label) => {
+                mainCtx.beginPath();
+                mainCtx.arc(tx(x), ty(y), 4, 0, Math.PI*2);
+                mainCtx.fillStyle = color;
+                mainCtx.fill();
+                mainCtx.fillStyle = '#000';
+                mainCtx.fillText(label, tx(x) + 5, ty(y) - 5);
+            };
+
+            drawPoint(x_n, y_n, '#2b6cb0', `(x${n}, x${n}²)`);
+            drawPoint(next_x, 0, '#38a169', `x${n+1}`);
+            if(b_n <= maxX) drawPoint(b_n, 0, '#e53e3e', `b${n}`);
+        }
+
+        // 보조 그래프 그리기 (막대/꺾은선)
+        function drawCharts() {
+            // Xn 막대 그래프
+            const xW = xnCtx.canvas.width;
+            const xH = xnCtx.canvas.height;
+            xnCtx.clearRect(0, 0, xW, xH);
+            
+            const barWidth = xW / Math.max(8, sequence.length) - 5;
+            sequence.forEach((val, i) => {
+                const h = (val / k) * (xH - 30);
+                xnCtx.fillStyle = '#4299e1';
+                xnCtx.fillRect(10 + i * (barWidth + 5), xH - h - 20, barWidth, h);
+                xnCtx.fillStyle = '#000';
+                xnCtx.font = '10px Arial';
+                xnCtx.fillText(val.toFixed(1), 10 + i * (barWidth + 5), xH - h - 25);
+            });
+
+            // Sn 꺾은선 그래프
+            const sW = snCtx.canvas.width;
+            const sH = snCtx.canvas.height;
+            snCtx.clearRect(0, 0, sW, sH);
+            
+            snCtx.beginPath();
+            snCtx.strokeStyle = '#e53e3e';
+            snCtx.lineWidth = 2;
+            const stepX = sW / Math.max(8, partialSums.length);
+            
+            // 목표치(k) 점선
+            snCtx.beginPath();
+            snCtx.strokeStyle = '#a0aec0';
+            snCtx.setLineDash([5,5]);
+            snCtx.moveTo(0, 20); snCtx.lineTo(sW, 20);
+            snCtx.stroke();
+            snCtx.setLineDash([]);
+            snCtx.fillText(`수렴값 (k=${k})`, 5, 15);
+
+            snCtx.beginPath();
+            snCtx.strokeStyle = '#e53e3e';
+            partialSums.forEach((sum, i) => {
+                const px = 10 + i * stepX;
+                const py = sH - 20 - (sum / k) * (sH - 40);
+                if(i===0) snCtx.moveTo(px, py);
+                else snCtx.lineTo(px, py);
+                snCtx.fillRect(px-2, py-2, 4, 4);
+            });
+            snCtx.stroke();
+        }
+
+        // 데이터 테이블 업데이트
+        function updateTable(x_n, b_n, sum) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${n}</td>
+                <td>${x_n.toFixed(4)}</td>
+                <td>${b_n.toFixed(4)}</td>
+                <td>${sum.toFixed(4)}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        // 1스텝 전진 함수
+        function nextStep() {
+            if (currentX < 0.01) {
+                stopSim(); // 거의 0에 도달하면 정지
+                return;
+            }
+
+            const term = currentX / 2; // 급수 시그마 내부의 항 계산 (x_n^4 / (b_n - x_n) = x_n/2)
+            currentSum += term;
+            const b_n = currentX + 2 * Math.pow(currentX, 3);
+            
+            sequence.push(currentX);
+            bnSequence.push(b_n);
+            partialSums.push(currentSum);
+
+            drawMain(currentX);
+            drawCharts();
+            updateTable(currentX, b_n, currentSum);
+
+            currentX = currentX / 2; // 다음 항
+            n++;
+        }
+
+        // 재생 사이클
+        function loop() {
+            if (isPlaying) {
+                nextStep();
+                animationTimer = setTimeout(loop, 1200); // 1.2초마다 갱신
+            }
+        }
+
+        // 컨트롤 함수
+        function startSim() {
+            if (!isPlaying) {
+                isPlaying = true;
+                loop();
+            }
+        }
+
+        function stopSim() {
+            isPlaying = false;
+            clearTimeout(animationTimer);
+        }
+
+        function resetSim() {
+            stopSim();
+            k = parseFloat(kSlider.value);
+            n = 1;
+            currentX = k;
+            currentSum = 0;
+            sequence = [];
+            bnSequence = [];
+            partialSums = [];
+            tbody.innerHTML = '';
+            drawMain(null);
+            drawCharts();
+        }
+
+        // 이벤트 리스너 등록
+        btnPlay.addEventListener('click', startSim);
+        btnStop.addEventListener('click', stopSim);
+        btnReset.addEventListener('click', resetSim);
+        
+        kSlider.addEventListener('input', (e) => {
+            kValText.innerText = parseFloat(e.target.value).toFixed(1);
+            resetSim();
+        });
+
+        // 초기화 실행
+        resetSim();
+
+    </script>
+</body>
+</html>

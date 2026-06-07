@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025 수능 대비 기하 30번 마스터 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Fira+Code:wght@400;500&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        .math-font { font-family: 'Times New Roman', Times, serif; font-style: italic; }
+        .code-font { font-family: 'Fira Code', monospace; }
+        canvas { touch-action: none; }
+        
+        /* 커스텀 슬라이더 스타일 */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%;
+            background: #3b82f6; cursor: pointer; margin-top: -6px; box-shadow: 0 2px 6px rgba(59,130,246,0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 6px; cursor: pointer; background: #334155; border-radius: 3px;
+        }
+        input[type=range]:focus { outline: none; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen w-screen flex items-center justify-center p-3 md:p-6 overflow-hidden">
+
+    <!-- 메인 반응형 래퍼 컨테이너 (화면 정중앙 정렬, 최대 높이 제한을 통한 스크롤 억제) -->
+    <div class="w-full max-w-6xl h-full max-h-[92vh] flex flex-col lg:flex-row gap-4 items-stretch justify-center">
+
+        <!-- 왼쪽: 시뮬레이션 및 동적 렌더링 영역 (높이 고정 및 비율 최적화) -->
+        <div class="flex-1 bg-slate-900 rounded-2xl shadow-2xl flex flex-col p-4 relative border border-slate-800 min-h-0">
+            <div class="flex justify-between items-center mb-1">
+                <h2 class="text-base font-bold text-slate-200 flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-blue-500 animate-pulse"></span>
+                    실시간 동적 기하 해석 윈도우
+                </h2>
+                <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">정밀 좌표계 1:1</span>
+            </div>
+            
+            <!-- 메인 캔버스 영역 (화면 높이에 맞춰 유연하게 줄어들도록 개선) -->
+            <div class="flex-1 flex items-center justify-center relative min-h-0 w-full p-2">
+                <div class="h-full max-h-[380px] aspect-square relative">
+                    <canvas id="simCanvas" class="bg-slate-950 border border-slate-800 rounded-xl shadow-inner w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- 하단: 내적 실시간 그래프 패널 -->
+            <div class="h-24 bg-slate-950/90 border border-slate-800 rounded-xl p-2.5 flex flex-col shrink-0">
+                <div class="text-[10px] text-slate-400 font-semibold mb-1 flex justify-between">
+                    <span>내적 변화 추이 그래프 (0° → 360°)</span>
+                    <span class="text-blue-400">현재 각도 실시간 트래킹</span>
+                </div>
+                <div class="flex-1 relative w-full min-h-0">
+                    <canvas id="graphCanvas" class="w-full h-full bg-slate-950"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 오른쪽: 정밀 대수학적 제어 및 상태 분석 패널 -->
+        <div class="w-full lg:w-[410px] bg-slate-900 rounded-2xl shadow-2xl flex flex-col p-5 border border-slate-800 shrink-0 min-h-0 justify-between">
+            
+            <!-- 상단 타이틀 영역 -->
+            <div class="border-b border-slate-800 pb-3 mb-3 shrink-0">
+                <span class="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Incheon Academy of Science & Arts</span>
+                <h1 class="text-lg font-bold text-white mt-0.5">
+                    기하 30번 : 벡터 자취 시뮬레이터
+                </h1>
+            </div>
+
+            <!-- 1. 제어 인터페이스 및 프리셋 (패딩 조정으로 컴팩트화) -->
+            <div class="bg-slate-950/80 rounded-xl p-3 mb-3 border border-slate-800 shrink-0">
+                <h3 class="font-semibold text-slate-200 mb-2 text-xs flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    점 P 매개변수 제어 (<span class="math-font text-[10px]">θ = 0.0° ~ 360.0°</span>)
+                </h3>
+                <div class="flex items-center gap-2 mb-3">
+                    <button id="playBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-250 w-20 shrink-0">
+                        ▶ 재생
+                    </button>
+                    <input type="range" id="angleSlider" min="0" max="360" value="0" step="0.5" class="flex-1">
+                    <span id="angleValue" class="text-slate-300 font-bold w-10 text-right code-font text-xs">0.0°</span>
+                </div>
+
+                <!-- 고득점 특이점 원터치 프리셋 버튼 -->
+                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/85">
+                    <button id="btnSetMin" class="bg-sky-950/40 hover:bg-sky-900/60 text-sky-400 border border-sky-800/50 py-1.5 rounded-lg text-[10px] font-medium transition-all">
+                        ❄️ 최솟값 홀드 (225°)
+                    </button>
+                    <button id="btnSetMax" class="bg-amber-950/40 hover:bg-amber-900/60 text-amber-400 border border-amber-800/50 py-1.5 rounded-lg text-[10px] font-medium transition-all">
+                        🔥 최댓값 홀드 (45°)
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. 다단계 기하 조건 레이어 토글 -->
+            <div class="bg-slate-955 rounded-xl p-3 mb-3 border border-slate-800 text-xs shrink-0">
+                <h3 class="font-semibold text-slate-300 mb-2 text-[10px] uppercase tracking-wider">기하학적 해석 가이드라인</h3>
+                <div class="flex flex-col gap-1.5 text-slate-300">
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                        <input type="checkbox" id="chkLocusS" checked class="w-3.5 h-3.5 text-blue-500 bg-slate-950 border-slate-700 rounded focus:ring-0">
+                        <span>[1단계] <span class="math-font text-[10px]">|XB+XC| = 2|XM|</span> 중점 원리</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                        <input type="checkbox" id="chkLocusQ" checked class="w-3.5 h-3.5 text-purple-500 bg-slate-950 border-slate-700 rounded focus:ring-0">
+                        <span>[2단계] 점 Q의 닮음 자취원 추적 (K 기준)</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                        <input type="checkbox" id="chkDot" checked class="w-3.5 h-3.5 text-emerald-500 bg-slate-950 border-slate-700 rounded focus:ring-0">
+                        <span>[3단계] 내적 <span class="math-font text-[10px]">AC · AQ</span> 정사영 가이드라인</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 3. 실시간 수치 및 대수 분석 데이터 (공간에 맞게 패딩과 마진 최적화) -->
+            <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 flex-1 min-h-0 flex flex-col justify-between overflow-y-auto">
+                <div>
+                    <h3 class="font-semibold text-slate-400 mb-2 text-[10px] uppercase tracking-wider">실시간 수치 대수 분석</h3>
+                    <div class="space-y-1.5 text-[11px] code-font text-slate-400">
+                        <div class="flex justify-between">
+                            <span>점 P 위치 :</span> 
+                            <span id="valP" class="text-blue-400 font-semibold">(4.0000, 0.0000)</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>점 Q 위치 :</span> 
+                            <span id="valQ" class="text-purple-400 font-semibold">(3.0000, 2.0000)</span>
+                        </div>
+                        <div class="border-t border-slate-800/80 my-1"></div>
+                        <div class="flex justify-between">
+                            <span>정사영 비율 (<span class="math-font text-slate-500">t</span>) :</span> 
+                            <span id="valScalar" class="text-slate-300">0.0000</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>정사영 좌표 (<span class="math-font text-slate-500">H</span>) :</span> 
+                            <span id="valProj" class="text-slate-300 font-semibold">(0.0000, 4.0000)</span>
+                        </div>
+                        <div class="border-t border-slate-800/80 my-1"></div>
+                        <div class="flex justify-between items-center text-xs font-semibold text-slate-300">
+                            <span>실시간 내적값 :</span>
+                            <span id="valDot" class="text-white text-sm">20.0000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 기하학적 임계 경계 알림 및 이론 수식 분석창 -->
+                <div id="statusBox" class="mt-2 rounded-xl p-2 text-center border transition-all duration-300 text-slate-450 bg-slate-900 border-slate-800 text-[10px]">
+                    매개변수 슬라이더 조작을 기다리는 중입니다...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const gctx = graphCanvas.getContext('2d');
+        
+        const dpr = window.devicePixelRatio || 1;
+
+        // 동적으로 부모 컨테이너 크기에 정합하여 캔버스를 정밀 셋업하는 함수
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const width = rect.width || 360; 
+            const height = rect.height || 360;
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.resetTransform();
+            ctx.scale(dpr, dpr);
+
+            const gRect = graphCanvas.getBoundingClientRect();
+            const gWidth = gRect.width || 350;
+            const gHeight = gRect.height || 64;
+
+            graphCanvas.width = gWidth * dpr;
+            graphCanvas.height = gHeight * dpr;
+            gctx.resetTransform();
+            gctx.scale(dpr, dpr);
+        }
+
+        // UI 요소 바인딩
+        const playBtn = document.getElementById('playBtn');
+        const angleSlider = document.getElementById('angleSlider');
+        const angleValue = document.getElementById('angleValue');
+        
+        const chkLocusS = document.getElementById('chkLocusS');
+        const chkLocusQ = document.getElementById('chkLocusQ');
+        const chkDot = document.getElementById('chkDot');
+        
+        const valP = document.getElementById('valP');
+        const valQ = document.getElementById('valQ');
+        const valScalar = document.getElementById('valScalar');
+        const valProj = document.getElementById('valProj');
+        const valDot = document.getElementById('valDot');
+        const statusBox = document.getElementById('statusBox');
+
+        const btnSetMin = document.getElementById('btnSetMin');
+        const btnSetMax = document.getElementById('btnSetMax');
+
+        // 매핑 좌표계 및 척도 설정 (창 크기에 맞춰 완벽하게 들어오도록 살짝 조정)
+        const scale = 45; 
+        const ox = 70;   
+        const oy = 260; 
+        
+        function sx(mathX) { return ox + mathX * scale; }
+        function sy(mathY) { return oy - mathY * scale; }
+
+        let angle = 0;
+        let isPlaying = false;
+        let animationId;
+
+        // 기하학적 정점 정의
+        const A = {x: 0, y: 4};
+        const B = {x: 0, y: 0};
+        const C = {x: 4, y: 0};
+        const D = {x: 4, y: 4};
+        const M = {x: 2, y: 0}; 
+        const K = {x: 8/3, y: 8/3}; 
+        const Qc = {x: 2.5, y: 2};
+        const radiusS = 2;
+        const radiusQ = 0.5;
+
+        const maxTheoretical = 18 + 2 * Math.sqrt(2);
+        const minTheoretical = 18 - 2 * Math.sqrt(2);
+
+        // 화살표 렌더링 함수
+        function drawArrow(fromX, fromY, toX, toY, color, width=1.5, arrowSize=6) {
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const len = Math.hypot(dx, dy);
+            if (len < 0.01) return;
+            
+            const startX = sx(fromX);
+            const startY = sy(fromY);
+            const endX = sx(toX);
+            const endY = sy(toY);
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+            
+            const angleRad = Math.atan2(dy, dx);
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - arrowSize * Math.cos(angleRad - Math.PI/6), endY + arrowSize * Math.sin(angleRad - Math.PI/6));
+            ctx.lineTo(endX - arrowSize * Math.cos(angleRad + Math.PI/6), endY + arrowSize * Math.sin(angleRad + Math.PI/6));
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        function drawPoint(p, label, color, size=3.5, offset_x=6, offset_y=-6) {
+            const px = sx(p.x);
+            const py = sy(p.y);
+            ctx.beginPath();
+            ctx.arc(px, py, size, 0, Math.PI*2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            if (label) {
+                ctx.font = "bold 9px 'Fira Code', monospace";
+                ctx.fillStyle = "#cbd5e1";
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = "#0f172a";
+                ctx.strokeText(label, px + offset_x, py + offset_y);
+                ctx.fillText(label, px + offset_x, py + offset_y);
+            }
+        }
+
+        // 실시간 그래프 드로잉 함수
+        function drawGraph(currentAngle, dotValues) {
+            const gwidth = graphCanvas.width / dpr;
+            const gheight = graphCanvas.height / dpr;
+            gctx.clearRect(0, 0, gwidth, gheight);
+            
+            // X축 가이드라인
+            gctx.strokeStyle = "#334155";
+            gctx.lineWidth = 1;
+            gctx.beginPath();
+            gctx.moveTo(25, gheight/2);
+            gctx.lineTo(gwidth - 15, gheight/2);
+            gctx.stroke();
+
+            const yMax = 10;
+            const yMin = gheight - 10;
+            
+            gctx.strokeStyle = "rgba(245, 158, 11, 0.15)";
+            gctx.setLineDash([4, 4]);
+            gctx.beginPath(); gctx.moveTo(25, yMax); gctx.lineTo(gwidth - 15, yMax); gctx.stroke();
+            gctx.strokeStyle = "rgba(14, 165, 233, 0.15)";
+            gctx.beginPath(); gctx.moveTo(25, yMin); gctx.lineTo(gwidth - 15, yMin); gctx.stroke();
+            gctx.setLineDash([]);
+
+            gctx.beginPath();
+            gctx.lineWidth = 1.5;
+            gctx.strokeStyle = "#475569";
+            
+            const startX = 30;
+            const endX = gwidth - 20;
+            const plotWidth = endX - startX;
+            
+            for (let a = 0; a <= 360; a++) {
+                const rad = a * Math.PI / 180;
+                const Px = M.x + radiusS * Math.cos(rad);
+                const Py = M.y + radiusS * Math.sin(rad);
+                const Qx = Px/4 + 2;
+                const Qy = Py/4 + 2;
+                const AQx = Qx - A.x;
+                const AQy = Qy - A.y;
+                const dot = 4 * AQx - 4 * AQy;
+                
+                const px = startX + (a / 360) * plotWidth;
+                const ratio = (dot - minTheoretical) / (maxTheoretical - minTheoretical);
+                const py = yMin - ratio * (yMin - yMax);
+                
+                if (a === 0) gctx.moveTo(px, py);
+                else gctx.lineTo(px, py);
+            }
+            gctx.stroke();
+
+            // 실시간 트래커 포인트 오버레이
+            const currentRatio = (dotValues.dot - minTheoretical) / (maxTheoretical - minTheoretical);
+            const curX = startX + (currentAngle / 360) * plotWidth;
+            const curY = yMin - currentRatio * (yMin - yMax);
+
+            gctx.beginPath();
+            gctx.arc(curX, curY, 4, 0, Math.PI*2);
+            gctx.fillStyle = dotValues.color;
+            gctx.fill();
+            gctx.strokeStyle = "#fff";
+            gctx.lineWidth = 1;
+            gctx.stroke();
+
+            gctx.font = "8px 'Fira Code'";
+            gctx.fillStyle = "#94a3b8";
+            gctx.fillText("0°", startX - 8, gheight/2 + 10);
+            gctx.fillText("360°", endX - 10, gheight/2 + 10);
+        }
+
+        function render() {
+            const cwidth = canvas.width / dpr;
+            const cheight = canvas.height / dpr;
+            
+            ctx.clearRect(0, 0, cwidth, cheight);
+            
+            // 데카르트 격자
+            ctx.strokeStyle = "#111827";
+            ctx.lineWidth = 1;
+            for(let i=-2; i<=8; i++) {
+                ctx.beginPath(); ctx.moveTo(sx(i), 0); ctx.lineTo(sx(i), cheight); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, sy(i)); ctx.lineTo(cwidth, sy(i)); ctx.stroke();
+            }
+            
+            // 좌표 주축
+            drawArrow(-1, 0, 7, 0, "#475569", 1.2, 6); 
+            drawArrow(0, -1, 0, 6, "#475569", 1.2, 6);
+
+            // ABCD 정사각형 드로잉
+            ctx.strokeStyle = "#334155";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(sx(0), sy(4), scale*4, scale*4);
+            ctx.fillStyle = "rgba(71, 85, 105, 0.03)";
+            ctx.fillRect(sx(0), sy(4), scale*4, scale*4);
+            
+            drawPoint(A, "A(0,4)", "#f8fafc", 4);
+            drawPoint(B, "B(0,0)", "#f8fafc", 4, -36, 10);
+            drawPoint(C, "C(4,0)", "#f8fafc", 4);
+            drawPoint(D, "D(4,4)", "#f8fafc", 4);
+
+            const rad = angle * Math.PI / 180;
+            
+            const P = {
+                x: M.x + radiusS * Math.cos(rad),
+                y: M.y + radiusS * Math.sin(rad)
+            };
+            
+            const Q = {
+                x: P.x/4 + 2,
+                y: P.y/4 + 2
+            };
+
+            const vecAC = {x: C.x - A.x, y: C.y - A.y}; // (4, -4)
+            const vecAQ = {x: Q.x - A.x, y: Q.y - A.y};
+            const dotProduct = vecAC.x * vecAQ.x + vecAC.y * vecAQ.y;
+
+            const isMax = Math.abs(angle - 45.0) < 1.0;
+            const isMin = Math.abs(angle - 225.0) < 1.0;
+
+            // --- 1단계 레이어: 자취 S 그리기 ---
+            ctx.beginPath();
+            ctx.arc(sx(M.x), sy(M.y), radiusS * scale, 0, Math.PI*2);
+            ctx.strokeStyle = "rgba(59, 130, 246, 0.3)"; 
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+            
+            drawPoint(M, "M(2,0)", "#64748b", 3);
+
+            if (chkLocusS.checked) {
+                const sumX = B.x + C.x - P.x;
+                const sumY = B.y + C.y - P.y;
+                
+                ctx.beginPath();
+                ctx.setLineDash([3, 3]);
+                ctx.moveTo(sx(B.x), sy(B.y)); ctx.lineTo(sx(sumX), sy(sumY));
+                ctx.moveTo(sx(C.x), sy(C.y)); ctx.lineTo(sx(sumX), sy(sumY));
+                ctx.strokeStyle = "#1e293b";
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                drawArrow(P.x, P.y, B.x, B.y, "rgba(99, 102, 241, 0.4)", 1.2, 5); 
+                drawArrow(P.x, P.y, C.x, C.y, "rgba(99, 102, 241, 0.4)", 1.2, 5); 
+                drawArrow(P.x, P.y, sumX, sumY, "rgba(129, 140, 248, 0.65)", 1.8, 5); 
+                drawArrow(P.x, P.y, M.x, M.y, "#f59e0b", 2, 5); 
+            }
+
+            // --- 2단계 레이어: 자취 Q 그리기 ---
+            if (chkLocusQ.checked) {
+                ctx.beginPath();
+                ctx.arc(sx(Qc.x), sy(Qc.y), radiusQ * scale, 0, Math.PI*2);
+                ctx.strokeStyle = "rgba(168, 85, 247, 0.6)"; 
+                ctx.setLineDash([4, 2]);
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                drawPoint(K, "K(8/3,8/3)", "#a855f7", 3);
+                drawPoint(Qc, "Q_Center(2.5,2)", "rgba(168, 85, 247, 0.4)", 2.5);
+                
+                ctx.beginPath();
+                ctx.moveTo(sx(K.x), sy(K.y));
+                ctx.lineTo(sx(P.x), sy(P.y));
+                ctx.strokeStyle = "rgba(168, 85, 247, 0.2)";
+                ctx.stroke();
+            }
+
+            // 고정 벡터 AC
+            drawArrow(A.x, A.y, C.x, C.y, "rgba(16, 185, 129, 0.65)", 3.5, 7); 
+
+            let aqColor = "#ef4444"; 
+            if(isMax) aqColor = "#fbbf24"; 
+            if(isMin) aqColor = "#38bdf8"; 
+
+            // 동적 벡터 AQ
+            drawArrow(A.x, A.y, Q.x, Q.y, aqColor, 2, 6);
+            drawPoint(P, `P(${P.x.toFixed(2)},${P.y.toFixed(2)})`, "#3b82f6", 4.5);
+            drawPoint(Q, `Q(${Q.x.toFixed(2)},${Q.y.toFixed(2)})`, aqColor, 4.5);
+
+            // --- 3단계 레이어: 정사영 ---
+            const vecAC_mag = Math.hypot(vecAC.x, vecAC.y); 
+            const scalarT = dotProduct / 32; 
+            
+            const H = {
+                x: A.x + vecAC.x * scalarT,
+                y: A.y + vecAC.y * scalarT
+            };
+
+            if (chkDot.checked) {
+                ctx.beginPath();
+                ctx.moveTo(sx(Q.x), sy(Q.y));
+                ctx.lineTo(sx(H.x), sy(H.y));
+                ctx.strokeStyle = aqColor;
+                ctx.lineWidth = 1.2;
+                ctx.setLineDash([3, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                drawPoint(H, `H(${H.x.toFixed(2)},${H.y.toFixed(2)})`, aqColor, 3.5, -36, 12);
+            }
+
+            // 실시간 데이터 바인딩
+            valP.innerText = `(${P.x.toFixed(4)}, ${P.y.toFixed(4)})`;
+            valQ.innerText = `(${Q.x.toFixed(4)}, ${Q.y.toFixed(4)})`;
+            valScalar.innerText = scalarT.toFixed(4);
+            valProj.innerText = `(${H.x.toFixed(4)}, ${H.y.toFixed(4)})`;
+            valDot.innerText = dotProduct.toFixed(4);
+
+            if (isMax) {
+                statusBox.className = "mt-2 rounded-xl p-2 text-center border transition-all duration-350 bg-amber-950/40 border-amber-500/50 text-amber-300 text-[10px]";
+                statusBox.innerHTML = `
+                    <div class="font-bold mb-0.5">🔥 내적 최댓값 (M) 상태 (θ = 45.0°)</div>
+                    <div class="math-font mb-0.5">M = 18 + 2√2 ≈ 20.8284</div>
+                    <div class="text-slate-400">AQ의 정사영이 최대로 확장되는 순간입니다.</div>
+                `;
+            } else if (isMin) {
+                statusBox.className = "mt-2 rounded-xl p-2 text-center border transition-all duration-350 bg-sky-950/40 border-sky-500/50 text-sky-300 text-[10px]";
+                statusBox.innerHTML = `
+                    <div class="font-bold mb-0.5">❄️ 내적 최솟값 (m) 상태 (θ = 225.0°)</div>
+                    <div class="math-font mb-0.5">m = 18 - 2√2 ≈ 15.1716</div>
+                    <div class="text-slate-400">AQ의 정사영이 최소로 축소되는 순간입니다.</div>
+                `;
+            } else {
+                statusBox.className = "mt-2 rounded-xl p-2 text-center border transition-all duration-350 bg-slate-900 border-slate-800 text-slate-400 text-[10px]";
+                statusBox.innerHTML = `
+                    <div class="font-semibold text-slate-300 mb-0.5">실시간 매개변수 추적 중...</div>
+                    <span>45°와 225°에서 무리수 극값을 교차 검증하세요.</span>
+                `;
+            }
+
+            drawGraph(angle, {
+                dot: dotProduct,
+                color: aqColor
+            });
+        }
+
+        function animate() {
+            if (!isPlaying) return;
+            angle = (angle + 0.4) % 360;
+            angleSlider.value = angle;
+            angleValue.innerText = angle.toFixed(1) + "°";
+            render();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playBtn.innerText = "⏸ 일시정지";
+                playBtn.className = "bg-slate-650 hover:bg-slate-600 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all w-20";
+                animate();
+            } else {
+                playBtn.innerText = "▶ 재생";
+                playBtn.className = "bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all w-20";
+                cancelAnimationFrame(animationId);
+            }
+        });
+
+        angleSlider.addEventListener('input', (e) => {
+            angle = parseFloat(e.target.value);
+            angleValue.innerText = angle.toFixed(1) + "°";
+            render();
+        });
+
+        btnSetMin.addEventListener('click', () => {
+            if(isPlaying) playBtn.click();
+            angle = 225.0; 
+            angleSlider.value = angle;
+            angleValue.innerText = "225.0°";
+            render();
+        });
+
+        btnSetMax.addEventListener('click', () => {
+            if(isPlaying) playBtn.click();
+            angle = 45.0; 
+            angleSlider.value = angle;
+            angleValue.innerText = "45.0°";
+            render();
+        });
+
+        [chkLocusS, chkLocusQ, chkDot].forEach(chk => {
+            chk.addEventListener('change', render);
+        });
+
+        window.onload = function() {
+            resizeCanvas();
+            render();
+            
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                render();
+            });
+        };
+    </script>
+</body>
+</html>

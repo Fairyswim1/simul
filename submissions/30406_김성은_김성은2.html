@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수학 시뮬레이터 - 공차가 바뀌는 수열 X_n 고도화</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 0;
+            background-color: #f3f5f9; color: #333;
+            display: flex; height: 100vh; overflow: hidden;
+        }
+        #sidebar {
+            width: 420px; background-color: #ffffff;
+            box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; z-index: 10;
+        }
+        #viewer {
+            flex: 1; position: relative;
+            display: flex; justify-content: center; align-items: center;
+            background-color: #f8f9fa; padding: 20px;
+        }
+        canvas {
+            background-color: #ffffff;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06); border-radius: 8px;
+        }
+        .header { padding: 20px; background-color: #3f51b5; color: white; }
+        .header h1 { margin: 0; font-size: 1.2rem; }
+        .header p { margin: 5px 0 0 0; font-size: 0.85rem; opacity: 0.8; }
+        
+        .control-section { padding: 15px 20px; border-bottom: 1px solid #eef2f5; }
+        .slider-group { display: flex; flex-direction: column; gap: 10px; }
+        .slider-container { display: flex; flex-direction: column; gap: 4px; }
+        .slider-label { display: flex; justify-content: space-between; font-weight: 600; font-size: 0.88rem; }
+        .slider-label span.val { color: #3f51b5; font-weight: bold; background: #e8eaf6; padding: 1px 6px; border-radius: 4px; }
+        input[type=range] { width: 100%; height: 5px; accent-color: #3f51b5; cursor: pointer; }
+        
+        .btn-preset {
+            width: 100%; padding: 10px; margin-top: 5px; background-color: #009688; 
+            color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-preset:hover { background-color: #00796b; }
+        
+        .btn-hint {
+            width: 100%; padding: 8px; margin-top: 8px; background-color: #78909c; 
+            color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
+        }
+        .btn-hint:hover { background-color: #607d8b; }
+        
+        .hint-box {
+            display: none; background-color: #f1f8e9; border: 1px dashed #7cb342; 
+            border-radius: 4px; padding: 10px; margin-top: 8px; font-size: 0.82rem; line-height: 1.5; color: #33691e;
+        }
+        
+        .status-section { padding: 15px 20px; flex: 1; overflow-y: auto; background-color: #fafbfc; }
+        .status-card { background: #fff; border: 1px solid #e0e6ed; border-radius: 6px; padding: 12px; margin-bottom: 10px; }
+        .status-card h3 { margin: 0 0 8px 0; font-size: 0.9rem; color: #555; border-bottom: 2px solid #3f51b5; display: inline-block; padding-bottom: 2px; }
+        
+        .cond-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; color: white; }
+        .badge.fail { background-color: #e53935; }
+        .badge.success { background-color: #4caf50; }
+        
+        .result-box {
+            background-color: #fff3e0; border: 1px solid #ffb74d; border-radius: 6px; padding: 15px; text-align: center;
+        }
+        .result-box h2 { margin: 0; color: #e65100; font-size: 1.8rem; font-weight: bold; letter-spacing: 0px; }
+        sub { font-size: 0.7em; position: relative; bottom: -0.1em; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="header">
+            <h1>수열 X<sub>n</sub> 조건 탐색기 v2.1</h1>
+            <p>다중 매개변수 변화 및 실시간 좌표 스케일링 대응</p>
+        </div>
+        
+        <div class="control-section">
+            <div class="slider-group">
+                <div class="slider-container">
+                    <div class="slider-label"><span>공차 d<sub>1</sub> (n &le; K)</span><span class="val" id="v-d1">-5</span></div>
+                    <input type="range" id="s-d1" min="-15" max="5" step="1" value="-2">
+                </div>
+                <div class="slider-container">
+                    <div class="slider-label"><span>변곡점 K</span><span class="val" id="v-k">12</span></div>
+                    <input type="range" id="s-k" min="5" max="25" step="1" value="12">
+                </div>
+                <div class="slider-container">
+                    <div class="slider-label"><span>공차 d<sub>2</sub> (K &le; n &le; K+15)</span><span class="val" id="v-d2">5</span></div>
+                    <input type="range" id="s-d2" min="-5" max="30" step="1" value="5">
+                </div>
+                <div class="slider-container">
+                    <div class="slider-label"><span>공차 d<sub>3</sub> (n &ge; K+15)</span><span class="val" id="v-d3">-2</span></div>
+                    <input type="range" id="s-d3" min="-15" max="5" step="1" value="-2">
+                </div>
+            </div>
+            <button class="btn-preset" id="btn-answer">정답 조건 자동 정렬 (치트키)</button>
+            <button class="btn-hint" id="btn-toggle-hint">📖 대수적 풀이 힌트 보기</button>
+            <div class="hint-box" id="hint-panel">
+                <strong>[문제 해결 핵심 실마리]</strong><br>
+                1. 조건 (다) S<sub>7</sub>=S<sub>8</sub>에서 <strong>x<sub>8</sub> = 0</strong>이 도출되므로 d<sub>1</sub>=-5가 고정됩니다.<br>
+                2. 조건 (라)를 공통인수로 묶어 인수분해하면 <strong>x<sub>18</sub> &times; x<sub>19</sub> = -25</strong>가 성립해야 합니다. 이 정수쌍을 이루는 공차 d<sub>2</sub>를 추적해 보세요.<br>
+                3. 조건 (나) x<sub>46</sub> &times; x<sub>47</sub> &lt; 0에 의해 46항과 47항 사이에서 두 번째 부호 반전이 일어나도록 d<sub>3</sub>를 정밀 조정합니다.
+            </div>
+        </div>
+
+        <div class="status-section">
+            <div class="status-card">
+                <h3>💡 실시간 미션 검증 상태</h3>
+                <div class="cond-item">
+                    <span>조건 (가): x<sub>1</sub> = 35</span>
+                    <span class="badge success">만족</span>
+                </div>
+                <div class="cond-item">
+                    <span>조건 (다): S<sub>7</sub> = S<sub>8</sub> (x<sub>8</sub> = 0)</span>
+                    <span class="badge fail" id="chk-cond1">불일치</span>
+                </div>
+                <div class="cond-item">
+                    <span>조건 (라): x<sub>18</sub> &times; x<sub>19</sub> = -25</span>
+                    <span class="badge fail" id="chk-cond2">불일치</span>
+                </div>
+                <div class="cond-item">
+                    <span>조건 (나): x<sub>46</sub> &times; x<sub>47</sub> &lt; 0</span>
+                    <span class="badge fail" id="chk-cond3">불일치</span>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <h3>📊 주요 관측 항 데이터</h3>
+                <div style="font-size: 0.85rem; line-height: 1.6;">
+                    • x<sub>8</sub> = <span id="d-x8" style="font-weight:bold;">0</span><br>
+                    • x<sub>18</sub> = <span id="d-x18" style="font-weight:bold;">0</span>, x<sub>19</sub> = <span id="d-x19" style="font-weight:bold;">0</span> (곱: <span id="d-prod1819">0</span>)<br>
+                    • x<sub>46</sub> = <span id="d-x46" style="font-weight:bold;">0</span>, x<sub>47</sub> = <span id="d-x47" style="font-weight:bold;">0</span>
+                </div>
+            </div>
+
+            <div class="result-box">
+                <h2 id="d-s46">S<sub>46</sub> = 0</h2>
+            </div>
+        </div>
+    </div>
+
+    <div id="viewer">
+        <canvas id="seqCanvas" width="760" height="560"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('seqCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const sD1 = document.getElementById('s-d1');
+        const sK = document.getElementById('s-k');
+        const sD2 = document.getElementById('s-d2');
+        const sD3 = document.getElementById('s-d3');
+
+        const vD1 = document.getElementById('v-d1');
+        const vK = document.getElementById('v-k');
+        const vD2 = document.getElementById('v-d2');
+        const vD3 = document.getElementById('v-d3');
+
+        const chkC1 = document.getElementById('chk-cond1');
+        const chkC2 = document.getElementById('chk-cond2');
+        const chkC3 = document.getElementById('chk-cond3');
+
+        const dX8 = document.getElementById('d-x8');
+        const dX18 = document.getElementById('d-x18');
+        const dX19 = document.getElementById('d-x19');
+        const dProd = document.getElementById('d-prod1819');
+        const dX46 = document.getElementById('d-x46');
+        const dX47 = document.getElementById('d-x47');
+        const dS46 = document.getElementById('d-s46');
+
+        const padLeft = 65;
+        const padRight = 45;
+        const padTop = 45;
+        const padBottom = 55;
+        
+        let minY = -60;
+        let maxY = 140;
+
+        function toCanvasX(n) {
+            return padLeft + (n / 55) * (canvas.width - padLeft - padRight);
+        }
+        function toCanvasY(val) {
+            return (canvas.height - padBottom) - ((val - minY) / (maxY - minY)) * (canvas.height - padTop - padBottom);
+        }
+
+        function calculateAndDraw() {
+            const d1 = parseInt(sD1.value);
+            const K = parseInt(sK.value);
+            const d2 = parseInt(sD2.value);
+            const d3 = parseInt(sD3.value);
+
+            vD1.innerText = d1;
+            vK.innerText = K;
+            vD2.innerText = d2;
+            vD3.innerText = d3;
+
+            let x = new Array(56);
+            x[1] = 35; 
+
+            for (let n = 2; n <= K; n++) {
+                x[n] = x[n-1] + d1;
+            }
+            for (let n = K + 1; n <= K + 15; n++) {
+                x[n] = x[n-1] + d2;
+            }
+            for (let n = K + 16; n <= 55; n++) {
+                x[n] = x[n-1] + d3;
+            }
+
+            let validTerms = x.slice(1);
+            let minVal = Math.min(...validTerms);
+            let maxVal = Math.max(...validTerms);
+            
+            minY = Math.min(0, minVal - 15);
+            maxY = Math.max(20, maxVal + 15);
+            if (maxY === minY) { maxY += 20; minY -= 20; }
+
+            let sum46 = 0;
+            for (let n = 1; n <= 46; n++) sum46 += x[n];
+
+            dX8.innerText = x[8];
+            dX18.innerText = x[18];
+            dX19.innerText = x[19];
+            const p1819 = x[18] * x[19];
+            dProd.innerText = p1819;
+            dX46.innerText = x[46];
+            dX47.innerText = x[47];
+            
+            // 깨짐 방지: innerHTML을 사용하여 깨끗한 가독성의 표준 아래첨자로 렌더링
+            dS46.innerHTML = `S<sub>46</sub> = ${sum46}`;
+
+            if (x[8] === 0) { chkC1.innerText = "만족"; chkC1.className = "badge success"; }
+            else { chkC1.innerText = "불일치"; chkC1.className = "badge fail"; }
+
+            if (p1819 === -25) { chkC2.innerText = "만족"; chkC2.className = "badge success"; }
+            else { chkC2.innerText = "불일치"; chkC2.className = "badge fail"; }
+
+            if (x[46] * x[47] < 0) { chkC3.innerText = "만족"; chkC3.className = "badge success"; }
+            else { chkC3.innerText = "불일치"; chkC3.className = "badge fail"; }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let yRange = maxY - minY;
+            let yStep = 20;
+            if (yRange > 300) yStep = 50;
+            else if (yRange > 150) yStep = 25;
+            else if (yRange < 60) yStep = 10;
+
+            let startGridY = Math.floor(minY / yStep) * yStep;
+            let endGridY = Math.ceil(maxY / yStep) * yStep;
+
+            ctx.strokeStyle = '#f0f3f6'; ctx.lineWidth = 1;
+            for (let n = 5; n <= 55; n += 5) {
+                ctx.beginPath(); ctx.moveTo(toCanvasX(n), 0); ctx.lineTo(toCanvasX(n), canvas.height - padBottom); ctx.stroke();
+            }
+            for (let val = startGridY; val <= endGridY; val += yStep) {
+                ctx.beginPath(); ctx.moveTo(padLeft, toCanvasY(val)); ctx.lineTo(canvas.width - padRight, toCanvasY(val)); ctx.stroke();
+            }
+
+            ctx.strokeStyle = '#b0bec5'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(padLeft, toCanvasY(0)); ctx.lineTo(canvas.width - padRight, toCanvasY(0)); ctx.stroke();
+
+            ctx.fillStyle = '#78909c'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
+            for (let n = 5; n <= 55; n += 5) {
+                ctx.fillText(n, toCanvasX(n), canvas.height - padBottom + 18);
+            }
+            ctx.fillText("항 번호 (n)", canvas.width - padRight + 10, canvas.height - padBottom + 35);
+
+            ctx.textAlign = 'right';
+            for (let val = startGridY; val <= endGridY; val += yStep) {
+                if(val >= minY && val <= maxY) {
+                    ctx.fillText(val, padLeft - 10, toCanvasY(val) + 4);
+                }
+            }
+
+            function drawSegment(start, end, color) {
+                ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(toCanvasX(start), toCanvasY(x[start]));
+                for (let i = start + 1; i <= end; i++) {
+                    ctx.lineTo(toCanvasX(i), toCanvasY(x[i]));
+                }
+                ctx.stroke();
+
+                for (let i = start; i <= end; i++) {
+                    ctx.fillStyle = color;
+                    ctx.beginPath(); ctx.arc(toCanvasX(i), toCanvasY(x[i]), 3.5, 0, 2 * Math.PI); ctx.fill();
+                }
+            }
+
+            drawSegment(1, K, '#3f51b5');       
+            drawSegment(K, K + 15, '#4caf50');  
+            drawSegment(K + 15, 52, '#9c27b0'); 
+
+            // Canvas 텍스트 깨짐 방지: 유니코드 특수 문자 대신 일반 텍스트 포맷 사용
+            const criticals = [
+                {n: 8, label: 'x8', color: '#ff5722'},
+                {n: 18, label: 'x18', color: '#ff9800'},
+                {n: 19, label: 'x19', color: '#ff9800'},
+                {n: 46, label: 'x46', color: '#e91e63'},
+                {n: 47, label: 'x47', color: '#e91e63'}
+            ];
+
+            criticals.forEach(c => {
+                const cx = toCanvasX(c.n);
+                const cy = toCanvasY(x[c.n]);
+                
+                ctx.strokeStyle = c.color; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(cx, cy, 7, 0, 2 * Math.PI); ctx.stroke();
+                
+                ctx.fillStyle = '#263238'; ctx.font = 'bold 11px Arial'; ctx.textAlign = 'center';
+                ctx.fillText(c.label, cx, cy - 12);
+            });
+            
+            ctx.strokeStyle = '#90a4ae'; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(toCanvasX(K), toCanvasY(minY)); ctx.lineTo(toCanvasX(K), toCanvasY(maxY)); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(toCanvasX(K+15), toCanvasY(minY)); ctx.lineTo(toCanvasX(K+15), toCanvasY(maxY)); ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = '#607d8b'; ctx.font = '11px Arial'; ctx.textAlign = 'left';
+            ctx.fillText(`K=${K}`, toCanvasX(K) + 5, toCanvasY(maxY - (maxY-minY)*0.08));
+            ctx.fillText(`K+15=${K+15}`, toCanvasX(K+15) + 5, toCanvasY(maxY - (maxY-minY)*0.08));
+        }
+
+        [sD1, sK, sD2, sD3].forEach(slider => {
+            slider.addEventListener('input', calculateAndDraw);
+        });
+
+        document.getElementById('btn-answer').addEventListener('click', () => {
+            sD1.value = -5;
+            sK.value = 15;
+            sD2.value = 10;
+            sD3.value = -7;
+            calculateAndDraw();
+        });
+
+        const btnHint = document.getElementById('btn-toggle-hint');
+        const hintPanel = document.getElementById('hint-panel');
+        btnHint.addEventListener('click', () => {
+            if(hintPanel.style.display === 'none' || hintPanel.style.display === '') {
+                hintPanel.style.display = 'block';
+                btnHint.innerText = '❌ 대수적 풀이 힌트 접기';
+            } else {
+                hintPanel.style.display = 'none';
+                btnHint.innerText = '📖 대수적 풀이 힌트 보기';
+            }
+        });
+
+        calculateAndDraw();
+    </script>
+</body>
+</html>

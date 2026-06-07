@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>3D 구의 그림자 - 동적 회전체 시뮬레이터</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background: #2c3e50; }
+        #ui { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.95); padding: 20px; border-radius: 8px; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
+        .highlight { color: #e74c3c; font-weight: bold;}
+        hr { border: 0; border-top: 1px solid #ddd; margin: 15px 0; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="ui">
+        <h3>💡 구의 그림자와 동적 회전체</h3>
+        <label>a (반지름): <span id="val-a">1.0</span></label>
+        <input type="range" id="slider-a" min="0.5" max="2" step="0.1" value="1"><br><br>
+        <label>t (중심 y): <span id="val-t">1.0</span></label>
+        <input type="range" id="slider-t" min="0" max="5" step="0.1" value="1">
+        <hr>
+        <label>
+            <input type="checkbox" id="chk-solid"> <span class="highlight">x축 회전체 시각화 (실시간 변형)</span>
+        </label>
+    </div>
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xdce4ea);
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 12, 15);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshStandardMaterial({color: 0xffffff}));
+        plane.rotation.x = -Math.PI / 2; plane.receiveShadow = true; scene.add(plane);
+        scene.add(new THREE.AxesHelper(15)); scene.add(new THREE.GridHelper(40, 40));
+        
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), new THREE.MeshStandardMaterial({color: 0x3498db}));
+        sphere.castShadow = true; scene.add(sphere);
+        
+        const light = new THREE.PointLight(0xffffff, 1.2);
+        light.castShadow = true; light.shadow.mapSize.width = 2048; light.shadow.mapSize.height = 2048; scene.add(light);
+        scene.add(new THREE.AmbientLight(0x606060));
+
+        // 수학 궤적선 (빨간색)
+        const ellipseLineGeo = new THREE.BufferGeometry();
+        const ellipseLine = new THREE.LineLoop(ellipseLineGeo, new THREE.LineBasicMaterial({color: 0xff0000, linewidth: 2}));
+        scene.add(ellipseLine);
+
+        // 회전체 (노란색 반투명)
+        const solidMaterial = new THREE.MeshStandardMaterial({color: 0xf1c40f, transparent: true, opacity: 0.6, side: THREE.DoubleSide, roughness: 0.2});
+        let solidMesh = null;
+
+        // a, t 값에 따른 일반화된 타원 방정식 생성 (검증 및 회전체용)
+        function updateScene() {
+            const a = parseFloat(document.getElementById('slider-a').value);
+            const t = parseFloat(document.getElementById('slider-t').value);
+            document.getElementById('val-a').innerText = a.toFixed(1);
+            document.getElementById('val-t').innerText = t.toFixed(1);
+
+            // Three.js 좌표계로 변환하여 적용
+            light.position.set(0, 2*a+1, 0);
+            sphere.scale.set(a, a, a);
+            sphere.position.set(0, a, -t);
+
+            // 일반화된 타원 매개변수 계산 (x^2/(a^2(2a+1)) + (y-t(a+1))^2/(a^2(t^2+2a+1)) = 1)
+            const rX = a * Math.sqrt(2*a + 1);
+            const rY = a * Math.sqrt(t*t + 2*a + 1);
+            const cY = t * (a + 1);
+
+            // 1. 빨간색 궤적선 실시간 업데이트
+            const pts = [];
+            for(let i=0; i<=64; i++) {
+                const theta = (i/64)*Math.PI*2;
+                pts.push(new THREE.Vector3(rX*Math.cos(theta), 0.03, -(rY*Math.sin(theta) + cY)));
+            }
+            ellipseLine.geometry.dispose();
+            ellipseLine.geometry.setFromPoints(pts);
+
+            // 2. 동적 회전체 생성 및 업데이트
+            const isSolidMode = document.getElementById('chk-solid').checked;
+            if(solidMesh) { scene.remove(solidMesh); solidMesh.geometry.dispose(); solidMesh = null; }
+            
+            if(isSolidMode) {
+                const lathePts = [];
+                const steps = 64;
+                // 타원의 상단 곡선
+                for(let i=0; i<=steps; i++) {
+                    const x = -rX + (2*rX*i)/steps;
+                    const inner = Math.max(0, 1 - (x*x)/(rX*rX));
+                    const y = cY + rY*Math.sqrt(inner);
+                    lathePts.push(new THREE.Vector2(Math.abs(y), x));
+                }
+                // 타원의 하단 곡선
+                for(let i=steps; i>=0; i--) {
+                    const x = -rX + (2*rX*i)/steps;
+                    const inner = Math.max(0, 1 - (x*x)/(rX*rX));
+                    const y = cY - rY*Math.sqrt(inner);
+                    lathePts.push(new THREE.Vector2(Math.abs(y), x));
+                }
+                const geo = new THREE.LatheGeometry(lathePts, 64);
+                solidMesh = new THREE.Mesh(geo, solidMaterial);
+                solidMesh.rotation.z = -Math.PI / 2; // X축 회전으로 정렬
+                scene.add(solidMesh);
+            }
+        }
+
+        document.getElementById('slider-a').addEventListener('input', updateScene);
+        document.getElementById('slider-t').addEventListener('input', updateScene);
+        document.getElementById('chk-solid').addEventListener('change', updateScene);
+        updateScene();
+
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+        animate();
+    </script>
+</body>
+</html>

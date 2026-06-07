@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>문제 4-12 극한 및 구분구적법 시뮬레이터</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.8rem;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .math-section {
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 1.1rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .control-panel {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #e0e7ff;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border: 1px solid #c7d2fe;
+            gap: 20px;
+        }
+
+        .slider-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            accent-color: var(--primary);
+            height: 6px;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .result-panel {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 30px;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+        
+        .stat-value.target {
+            color: #10b981; /* 수렴 완료 시 초록색 느낌 */
+        }
+
+        .chart-container {
+            position: relative;
+            height: 450px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>문제 4-12 극한 및 구분구적법 시뮬레이터</h1>
+    <div class="subtitle">이산적 급수와 연속적 정적분의 관계를 통한 극한값 유도 시각화</div>
+
+    <div class="math-section">
+        <div>
+            목표 식: 
+            $$ \lim_{n\to\infty} \frac{\ln(2^2 3^3 4^4 \cdots n^n)}{n^2 \ln n} = \frac{1}{2} $$
+        </div>
+        <div style="margin-top: 15px; color: #475569; font-size: 0.95em;">
+            핵심 원리 (급수의 정적분 근사):<br>
+            $$ \sum_{k=1}^{n} k \ln k \approx \int_{1}^{n} x \ln x \, dx \approx \frac{1}{2}n^2 \ln n $$
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div style="font-weight: 600; color: #3730a3; white-space: nowrap;">n 값 조절 (적분 범위):</div>
+        <div class="slider-container">
+            <input type="range" id="nSlider" min="2" max="1000" value="10" step="1">
+            <input type="number" id="nInput" min="2" max="1000" value="10">
+        </div>
+    </div>
+
+    <div class="result-panel">
+        <div class="stat-box">
+            <div class="stat-label">현재 n 값</div>
+            <div class="stat-value" id="valN" style="color:#475569;">10</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">계산된 극한식의 값</div>
+            <div class="stat-value" id="valResult">0.000000</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">이론적 목표값</div>
+            <div class="stat-value target">0.500000</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="mathChart"></canvas>
+    </div>
+</div>
+
+<script>
+    const nSlider = document.getElementById('nSlider');
+    const nInput = document.getElementById('nInput');
+    const valN = document.getElementById('valN');
+    const valResult = document.getElementById('valResult');
+    const ctx = document.getElementById('mathChart').getContext('2d');
+
+    let mathChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    type: 'line',
+                    label: '곡선: y = x ln(x) (정적분 대상)',
+                    data: [],
+                    borderColor: '#ef4444',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.4
+                },
+                {
+                    type: 'bar',
+                    label: '막대: k ln(k) (분자의 급수)',
+                    data: [],
+                    backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                    borderColor: '#6366f1',
+                    borderWidth: 1,
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 400
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'k 또는 x' },
+                    ticks: {
+                        maxTicksLimit: 15 // n이 1000이어도 축 라벨이 뭉개지지 않도록 조절
+                    }
+                },
+                y: {
+                    title: { display: true, text: '값 (k ln k)' }
+                }
+            },
+            plugins: {
+                tooltip: { enabled: false }
+            }
+        }
+    });
+
+    function calculateAndUpdate(n) {
+        valN.innerText = n;
+        
+        let labels = [];
+        let lineData = [];
+        let barData = [];
+        let sum = 0;
+
+        for (let k = 1; k <= n; k++) {
+            labels.push(k);
+            let val = k > 1 ? k * Math.log(k) : 0;
+            
+            lineData.push(val);
+            barData.push(val);
+            sum += val;
+        }
+
+        // 분모 계산 및 최종 비율 도출
+        let denominator = (n * n) * Math.log(n);
+        let ratio = sum / denominator;
+
+        // 결과 텍스트 업데이트
+        valResult.innerText = ratio.toFixed(6);
+
+        // n값이 커져서 목표값에 근접할수록 색상 변경 (시각적 피드백)
+        if(Math.abs(ratio - 0.5) < 0.05) {
+            valResult.style.color = '#10b981'; // 초록색
+        } else {
+            valResult.style.color = '#4f46e5'; // 기본 파란색
+        }
+
+        // 차트 데이터 업데이트
+        mathChart.data.labels = labels;
+        mathChart.data.datasets[0].data = lineData;
+        mathChart.data.datasets[1].data = barData;
+        mathChart.update();
+    }
+
+    // 슬라이더 및 입력창 연동 이벤트
+    nSlider.addEventListener('input', function() {
+        let val = parseInt(this.value);
+        nInput.value = val;
+        calculateAndUpdate(val);
+    });
+
+    nInput.addEventListener('input', function() {
+        let val = parseInt(this.value);
+        if(val > 1000) val = 1000;
+        if(val < 2) val = 2;
+        nSlider.value = val;
+        calculateAndUpdate(val);
+    });
+
+    // 초기 실행
+    calculateAndUpdate(10);
+</script>
+
+</body>
+</html>

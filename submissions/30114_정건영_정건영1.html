@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>카발리에리 원리 증명: 타원 밑면 원뿔의 부피 공식 유도 (가이드 완전 복구)</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: 'Malgun Gothic', sans-serif; background-color: #f4f5f7; color: #333; user-select: none; }
+        #app-container { display: flex; width: 100vw; height: 100vh; flex-direction: column; }
+        #views-container { display: flex; flex-grow: 1; height: calc(100% - 150px); }
+        .view-pane { width: 50%; height: 100%; position: relative; background: #ffffff; box-sizing: border-box; cursor: grab; }
+        .view-pane:active { cursor: grabbing; }
+        #view-orig { border-right: 2px solid #e0e0e0; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        .pane-title { position: absolute; top: 15px; left: 15px; background: rgba(255,255,255,0.95); padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: bold; border: 1px solid #ccc; z-index: 5; box-shadow: 0 2px 5px rgba(0,0,0,0.05); pointer-events: none; }
+        
+        /* 카발리에리 증명 보드 */
+        .cavalieri-proof-board { position: absolute; bottom: 15px; left: 15px; right: 15px; background: rgba(25, 28, 36, 0.92); color: #fff; padding: 14px 18px; border-radius: 6px; font-size: 12px; font-family: 'Consolas', monospace; z-index: 5; box-shadow: 0 4px 12px rgba(0,0,0,0.35); line-height: 1.6; pointer-events: none; border-left: 4px solid #00bcd4; }
+        .cavalieri-proof-board dot { color: #ffeb3b; font-weight: bold; }
+        .cavalieri-proof-board pink { color: #e91e63; font-weight: bold; }
+        .cavalieri-proof-board cyan { color: #00bcd4; font-weight: bold; }
+        
+        #control-panel { background: #ffffff; padding: 15px 30px; border-top: 2px solid #e0e0e0; height: 150px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; z-index: 10; }
+        .row { display: flex; align-items: center; gap: 15px; }
+        .row label { width: 110px; font-size: 13px; font-weight: bold; color: #444; }
+        .row input[type="text"] { flex-grow: 1; background: #fafafa; border: 1px solid #ccc; color: #333; padding: 6px 12px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 14px; }
+        .row input[type="range"] { flex-grow: 1; height: 6px; }
+        #btn-render { background: #3f51b5; color: white; border: none; padding: 7px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 13px; transition: background 0.2s; height: 34px; }
+        #btn-render:hover { background: #303f9f; }
+        .val { width: 50px; text-align: right; font-size: 14px; color: #3f51b5; font-weight: bold; }
+        .hint { font-size: 11px; color: #888; margin-top: -5px; margin-left: 125px; }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <div id="views-container">
+            <div id="view-orig" class="view-pane">
+                <div class="pane-title">🟢 Left: 오리지널 원뿔 프레임(파랑) & 잘린 타원 원뿔(초록)</div>
+                <canvas id="canvas-left"></canvas>
+            </div>
+            <div id="view-slice" class="view-pane">
+                <div class="pane-title">🔶 Right: 카발리에리 대조군 (밑면적 A, 높이 H가 같은 정원뿔)</div>
+                <canvas id="canvas-right"></canvas>
+                
+                <div class="cavalieri-proof-board" id="proof-board">
+                    [Cavalieri's Principle Proof] 높이 z에서의 단면적 동치성 증명:<br>
+                    • 현재 단면 스캔 위치: <dot>z = </dot><dot id="mat-z">0.50</dot> / 꼭짓점 최고 높이: <dot>H = 1.00</dot><br>
+                    • <cyan>비스듬한 원뿔(Left)의 타원 단면적</cyan>: π * a(z) * b(z) = <cyan id="mat-oblique-area">0.250π</cyan><br>
+                    • <pink>똑바른 정원뿔(Right)의 원형 단면적</pink>: π * r(z)² = <pink id="mat-ortho-area">0.250π</pink><br>
+                    • <dot>결론</dot>: 모든 높이 z에서 <cyan>단면적(Left)</cyan> ≡ <pink>단면적(Right)</pink> 이므로, 카발리에리 원리에 의해 비스듬한 타원 원뿔의 부피 역시 <pink>V = 1/3 * A * H</pink> 가 성립합니다.
+                </div>
+            </div>
+        </div>
+
+        <div id="control-panel">
+            <div class="row">
+                <label>원뿔 방정식:</label>
+                <input type="text" id="cone-eq" value="x^2 + y^2 = (1-z)^2" disabled style="background:#eee; color:#777;">
+                <label style="width:100px; margin-left: 10px;">평면 방정식 입력:</label>
+                <input type="text" id="plane-eq" value="z = 0.5*x + 0.5">
+                <button id="btn-render">수식 적용</button>
+            </div>
+            <div class="hint">* 마우스 드래그로 화면을 돌려보면 원래 원뿔(파란색 선) 내부에서 어떻게 타원형으로 잘려 나갔는지 입체적으로 볼 수 있어.</div>
+            <div class="row">
+                <label>단면 스캔 높이 (t):</label>
+                <input type="range" id="scan-h" min="0.0" max="1.0" step="0.01" value="0.5">
+                <span id="h-val" class="val">0.50</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvasLeft = document.getElementById('canvas-left');
+        const canvasRight = document.getElementById('canvas-right');
+        const ctxLeft = canvasLeft.getContext('2d');
+        const ctxRight = canvasRight.getContext('2d');
+
+        const coneH = 1.0; 
+        let planeM = 0.5; 
+        let planeN = 0.5; 
+        let scanT = 0.5;  
+
+        let rotLeft = { x: -0.4, y: 0.5 };
+        let rotRight = { x: -0.4, y: 0.5 }; 
+
+        let isDragging = false;
+        let activePanel = null;
+        let previousMousePosition = { x: 0, y: 0 };
+
+        function resize() {
+            canvasLeft.width = canvasLeft.parentElement.clientWidth;
+            canvasLeft.height = canvasLeft.parentElement.clientHeight;
+            canvasRight.width = canvasRight.parentElement.clientWidth;
+            canvasRight.height = canvasRight.parentElement.clientHeight;
+        }
+
+        function parsePlaneEquation() {
+            const planeStr = document.getElementById('plane-eq').value.replace(/\s+/g, '').toLowerCase();
+            try {
+                let mMatch = planeStr.match(/=\s*([+-]?\d*\.?\d*)\*?x/);
+                if (mMatch) {
+                    if (mMatch[1] === '' || mMatch[1] === '+') planeM = 1.0;
+                    else if (mMatch[1] === '-') planeM = -1.0;
+                    else planeM = parseFloat(mMatch[1]);
+                } else {
+                    planeM = 0.0;
+                }
+                let nStr = planeStr.split('x')[1];
+                if (nStr) {
+                    let nMatch = nStr.match(/([+-]?\d*\.?\d+)/);
+                    planeN = nMatch ? parseFloat(nMatch[1]) : 0.0;
+                } else {
+                    let fallbackMatch = planeStr.match(/=\s*([+-]?\d*\.?\d+)/);
+                    planeN = fallbackMatch ? parseFloat(fallbackMatch[1]) : 0.0;
+                }
+            } catch(e) {
+                planeM = 0.5; planeN = 0.5;
+            }
+        }
+
+        function project(x, y, z, width, height, scale, rot) {
+            let cosX = Math.cos(rot.x), sinX = Math.sin(rot.x);
+            let cosY = Math.cos(rot.y), sinY = Math.sin(rot.y);
+            let x1 = x * cosY - z * sinY;
+            let z1 = x * sinY + z * cosY;
+            let y2 = y * cosX - z1 * sinX;
+            return { x: width / 2 + x1 * scale, y: height / 2 - y2 * scale };
+        }
+
+        function updateCavalieriProof(t) {
+            let displayArea = (t * t).toFixed(3) + "π";
+            document.getElementById('mat-z').innerText = (1.0 - t).toFixed(2);
+            document.getElementById('mat-oblique-area').innerText = displayArea;
+            document.getElementById('mat-ortho-area').innerText = displayArea;
+        }
+
+        function draw() {
+            resize();
+
+            const wL = canvasLeft.width, hL = canvasLeft.height;
+            const wR = canvasRight.width, hR = canvasRight.height;
+
+            ctxLeft.clearRect(0, 0, wL, hL);
+            ctxRight.clearRect(0, 0, wR, hR);
+
+            const scale = Math.min(wL, hL) * 0.45;
+            const apex = { x: 0, y: 0, z: 1.0 };
+            const segs = 72;
+
+            updateCavalieriProof(scanT);
+
+            const offsetZ = -0.4;
+
+            // 1. 오리지널 원뿔 바닥원 세팅 (z=0, r=1)
+            const origBasePoints = [];
+            for (let i = 0; i <= segs; i++) {
+                let theta = (i / segs) * Math.PI * 2;
+                origBasePoints.push({ x: Math.cos(theta), y: Math.sin(theta), z: 0 });
+            }
+
+            // 2. 비스듬한 평면 절단 자취 계산
+            const obliqueBasePoints = [];
+            for (let i = 0; i <= segs; i++) {
+                let theta = (i / segs) * Math.PI * 2;
+                let cosT = Math.cos(theta);
+                
+                let denominator = 1.0 + planeM * cosT;
+                let t_val = (denominator !== 0) ? (1.0 - planeN) / denominator : 0;
+                
+                let wx = t_val * cosT;
+                let wy = t_val * Math.sin(theta);
+                let wz = 1.0 - t_val;
+                obliqueBasePoints.push({ x: wx, y: wy, z: wz });
+            }
+
+            // ----------------------------------------------------------------
+            // [1] 좌측 뷰: 오리지널 원뿔 뼈대 격자 + 비스듬한 원뿔 중첩
+            // ----------------------------------------------------------------
+            // 배경 그리드 격자
+            ctxLeft.strokeStyle = '#f0f0f2';
+            ctxLeft.lineWidth = 1;
+            for(let i = -1.5; i <= 1.5; i += 0.5) {
+                ctxLeft.beginPath();
+                for(let j = -1.5; j <= 1.5; j += 0.1) {
+                    let p = project(j, i, 0 + offsetZ, wL, hL, scale, rotLeft);
+                    if (j === -1.5) ctxLeft.moveTo(p.x, p.y); else ctxLeft.lineTo(p.x, p.y);
+                }
+                ctxLeft.stroke();
+            }
+
+            // [핵심 수정] 오리지널 원뿔 가이드라인 (진한 파란색 외곽 프레임으로 가시성 대폭 상향)
+            let pApexLeft = project(apex.x, apex.y, apex.z + offsetZ, wL, hL, scale, rotLeft);
+            
+            ctxLeft.fillStyle = 'rgba(33, 150, 243, 0.03)';
+            ctxLeft.strokeStyle = 'rgba(33, 150, 243, 0.4)';
+            ctxLeft.lineWidth = 1.5;
+            
+            // 바닥 원 테두리 그리기
+            ctxLeft.beginPath();
+            origBasePoints.forEach((pt, idx) => {
+                let p = project(pt.x, pt.y, pt.z + offsetZ, wL, hL, scale, rotLeft);
+                if (idx === 0) ctxLeft.moveTo(p.x, p.y); else ctxLeft.lineTo(p.x, p.y);
+            });
+            ctxLeft.closePath();
+            ctxLeft.fill();
+            ctxLeft.stroke();
+
+            // 꼭짓점과 바닥을 잇는 기둥선 가이드 (8방향 배치)
+            for (let i = 0; i < segs; i += Math.floor(segs / 8)) {
+                let pBase = project(origBasePoints[i].x, origBasePoints[i].y, origBasePoints[i].z + offsetZ, wL, hL, scale, rotLeft);
+                ctxLeft.beginPath();
+                ctxLeft.moveTo(pApexLeft.x, pApexLeft.y);
+                ctxLeft.lineTo(pBase.x, pBase.y);
+                ctxLeft.stroke();
+            }
+
+            // 잘려나간 비스듬한 원뿔 본체 (연초록색 입체 셰이딩)
+            ctxLeft.fillStyle = 'rgba(76, 175, 80, 0.25)';
+            ctxLeft.strokeStyle = 'rgba(56, 142, 60, 0.6)';
+            ctxLeft.lineWidth = 1.5;
+            for (let i = 0; i < segs; i++) {
+                let p1 = project(obliqueBasePoints[i].x, obliqueBasePoints[i].y, obliqueBasePoints[i].z + offsetZ, wL, hL, scale, rotLeft);
+                let p2 = project(obliqueBasePoints[i+1].x, obliqueBasePoints[i+1].y, obliqueBasePoints[i+1].z + offsetZ, wL, hL, scale, rotLeft);
+                ctxLeft.beginPath();
+                ctxLeft.moveTo(pApexLeft.x, pApexLeft.y);
+                ctxLeft.lineTo(p1.x, p1.y);
+                ctxLeft.lineTo(p2.x, p2.y);
+                ctxLeft.closePath();
+                ctxLeft.fill();
+                ctxLeft.stroke();
+            }
+
+            // 비스듬한 타원 밑면 바닥 (주황색)
+            ctxLeft.fillStyle = 'rgba(255, 152, 0, 0.25)';
+            ctxLeft.beginPath();
+            obliqueBasePoints.forEach((pt, idx) => {
+                let p = project(pt.x, pt.y, pt.z + offsetZ, wL, hL, scale, rotLeft);
+                if (idx === 0) ctxLeft.moveTo(p.x, p.y); else ctxLeft.lineTo(p.x, p.y);
+            });
+            ctxLeft.closePath();
+            ctxLeft.fill();
+
+            // 실시간 내부 핑크색 단면 레이어선
+            ctxLeft.strokeStyle = '#e91e63';
+            ctxLeft.lineWidth = 4;
+            ctxLeft.beginPath();
+            for (let i = 0; i <= segs; i++) {
+                let sx = apex.x + scanT * (obliqueBasePoints[i].x - apex.x);
+                let sy = apex.y + scanT * (obliqueBasePoints[i].y - apex.y);
+                let sz = apex.z + scanT * (obliqueBasePoints[i].z - apex.z);
+                let p = project(sx, sy, sz + offsetZ, wL, hL, scale, rotLeft);
+                if (i === 0) ctxLeft.moveTo(p.x, p.y); else ctxLeft.lineTo(p.x, p.y);
+            }
+            ctxLeft.stroke();
+
+
+            // ----------------------------------------------------------------
+            // [2] 우측 뷰: 카발리에리 대조군 정원뿔
+            // ----------------------------------------------------------------
+            ctxRight.strokeStyle = '#f0f0f2';
+            ctxRight.lineWidth = 1;
+            for(let i = -1.5; i <= 1.5; i += 0.5) {
+                ctxRight.beginPath();
+                for(let j = -1.5; j <= 1.5; j += 0.1) {
+                    let p = project(j, i, 0 + offsetZ, wR, hR, scale, rotRight);
+                    if (j === -1.5) ctxRight.moveTo(p.x, p.y); else ctxRight.lineTo(p.x, p.y);
+                }
+                ctxRight.stroke();
+            }
+
+            // 똑바른 정원뿔 메쉬 (청록색)
+            ctxRight.fillStyle = 'rgba(0, 188, 212, 0.15)';
+            ctxRight.strokeStyle = 'rgba(0, 151, 167, 0.6)';
+            ctxRight.lineWidth = 1.5;
+            let pApexRight = project(apex.x, apex.y, apex.z + offsetZ, wR, hR, scale, rotRight);
+            for (let i = 0; i < segs; i++) {
+                let p1 = project(origBasePoints[i].x, origBasePoints[i].y, 0 + offsetZ, wR, hR, scale, rotRight);
+                let p2 = project(origBasePoints[i+1].x, origBasePoints[i+1].y, 0 + offsetZ, wR, hR, scale, rotRight);
+                ctxRight.beginPath();
+                ctxRight.moveTo(pApexRight.x, pApexRight.y);
+                ctxRight.lineTo(p1.x, p1.y);
+                ctxRight.lineTo(p2.x, p2.y);
+                ctxRight.closePath();
+                ctxRight.fill();
+                ctxRight.stroke();
+            }
+
+            // 정원뿔 바닥 원형 밑면
+            ctxRight.fillStyle = 'rgba(0, 150, 136, 0.2)';
+            ctxRight.beginPath();
+            origBasePoints.forEach((pt, idx) => {
+                let p = project(pt.x, pt.y, 0 + offsetZ, wR, hR, scale, rotRight);
+                if (idx === 0) ctxRight.moveTo(p.x, p.y); else ctxRight.lineTo(p.x, p.y);
+            });
+            ctxRight.closePath();
+            ctxRight.fill();
+
+            // 정원뿔 실시간 원형 단면선 (핑크색 내부 채우기 연동)
+            ctxRight.strokeStyle = '#e91e63';
+            ctxRight.lineWidth = 4;
+            ctxRight.fillStyle = 'rgba(233, 30, 99, 0.18)';
+            ctxRight.beginPath();
+            for (let i = 0; i <= segs; i++) {
+                let cx = scanT * origBasePoints[i].x;
+                let cy = scanT * origBasePoints[i].y;
+                let p = project(cx, cy, (apex.z - scanT) + offsetZ, wR, hR, scale, rotRight);
+                if (i === 0) ctxRight.moveTo(p.x, p.y); else ctxRight.lineTo(p.x, p.y);
+            }
+            ctxRight.closePath();
+            ctxRight.fill();
+            ctxRight.stroke();
+        }
+
+        function handleMouseDown(e, panelName) {
+            isDragging = true;
+            activePanel = panelName;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            let deltaMove = { x: e.clientX - previousMousePosition.x, y: e.clientY - previousMousePosition.y };
+            
+            rotLeft.y += deltaMove.x * 0.007; rotLeft.x += deltaMove.y * 0.007;
+            rotRight.y += deltaMove.x * 0.007; rotRight.x += deltaMove.y * 0.007;
+            
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+            draw();
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; activePanel = null; });
+        canvasLeft.addEventListener('mousedown', (e) => handleMouseDown(e, 'left'));
+        canvasRight.addEventListener('mousedown', (e) => handleMouseDown(e, 'right'));
+
+        document.getElementById('btn-render').addEventListener('click', () => {
+            parsePlaneEquation();
+            draw();
+        });
+        document.getElementById('scan-h').addEventListener('input', (e) => {
+            scanT = parseFloat(e.target.value);
+            document.getElementById('h-val').innerText = scanT.toFixed(2);
+            draw();
+        });
+        document.getElementById('plane-eq').addEventListener('keypress', (e) => { if(e.key === 'Enter') { parsePlaneEquation(); draw(); } });
+
+        window.addEventListener('resize', draw);
+        window.onload = () => {
+            parsePlaneEquation();
+            draw();
+        };
+    </script>
+</body>
+</html>

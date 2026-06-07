@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타원의 수직 접선 시뮬레이터 - 최종본</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+        body { background-color: #f8fafc; font-family: sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        canvas { background: #ffffff; border-radius: 12px; cursor: crosshair; }
+        input[type="range"] { accent-color: #2563eb; width: 100%; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-5xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row">
+        
+        <div class="flex-grow p-6 bg-slate-50 flex flex-col items-center justify-center">
+            <h2 class="text-slate-800 font-bold mb-4 text-lg italic underline decoration-blue-500 underline-offset-4">Ellipse Vertical Tangents Simulation</h2>
+            <canvas id="simCanvas" width="550" height="550" class="shadow-md border border-slate-200"></canvas>
+            <p class="mt-4 text-sm text-slate-500 font-medium italic">점 P를 회전시켜 두 접선이 타원에 닿는 지점(접점)을 확인하세요.</p>
+        </div>
+
+        <div class="w-full md:w-96 p-8 border-l border-slate-100 space-y-8">
+            <section class="space-y-6">
+                <h3 class="text-xl font-extrabold text-slate-900 border-b pb-2 tracking-tight text-center">Control Panel</h3>
+                
+                <div>
+                    <div class="flex justify-between mb-2 text-sm font-bold text-slate-700">
+                        <span>장반경 (a)</span>
+                        <span id="aDisp" class="text-blue-600">130</span>
+                    </div>
+                    <input type="range" id="aSlider" min="70" max="180" value="130" class="h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div>
+                    <div class="flex justify-between mb-2 text-sm font-bold text-slate-700">
+                        <span>단반경 (b)</span>
+                        <span id="bDisp" class="text-blue-600">80</span>
+                    </div>
+                    <input type="range" id="bSlider" min="40" max="150" value="80" class="h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div>
+                    <div class="flex justify-between mb-2 text-sm font-bold text-slate-700">
+                        <span>점 P 위치 (Degree)</span>
+                        <span id="angleDisp" class="text-red-500">45°</span>
+                    </div>
+                    <input type="range" id="angleSlider" min="0" max="360" value="45" class="h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </section>
+
+            <section class="bg-slate-900 rounded-xl p-6 text-sm shadow-xl space-y-4 border border-slate-700">
+                <h4 class="text-white font-bold border-b border-slate-700 pb-2 mb-2 italic tracking-tight text-xs uppercase text-slate-400 font-mono">Analysis Dashboard</h4>
+                
+                <div class="flex justify-between items-center text-slate-400">
+                    <span>Point P (x, y)</span>
+                    <span id="pCoords" class="mono text-green-400 font-bold"></span>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-slate-800 font-mono">
+                    <div class="flex justify-between items-center text-slate-400">
+                        <span>x² + y²</span>
+                        <span id="lhs" class="text-yellow-400 font-bold"></span>
+                    </div>
+                    <div class="flex justify-between items-center text-slate-400">
+                        <span>a² + b²</span>
+                        <span id="rhs" class="text-yellow-400 font-bold"></span>
+                    </div>
+                </div>
+
+                <div class="bg-green-900/20 border border-green-500/30 rounded p-2 text-center mt-2">
+                    <span class="text-green-400 text-[10px] font-bold uppercase tracking-tighter italic">Theorem Verified: Constant Radius</span>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const aSlider = document.getElementById('aSlider');
+        const bSlider = document.getElementById('bSlider');
+        const angleSlider = document.getElementById('angleSlider');
+
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+
+        function render() {
+            const a = parseFloat(aSlider.value);
+            const b = parseFloat(bSlider.value);
+            const deg = parseFloat(angleSlider.value);
+            const rad = deg * Math.PI / 180;
+            const r = Math.sqrt(a*a + b*b);
+
+            document.getElementById('aDisp').innerText = a;
+            document.getElementById('bDisp').innerText = b;
+            document.getElementById('angleDisp').innerText = deg + "°";
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 그리드
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1;
+            for(let i=0; i<=canvas.width; i+=50) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
+            }
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height); ctx.stroke();
+
+            // 2. 타원
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, a, b, 0, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // 3. 자취 원 (점선)
+            ctx.strokeStyle = '#ef4444';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 4. 점 P 좌표
+            const px = r * Math.cos(rad);
+            const py = r * Math.sin(rad);
+
+            // 5. 접선 기울기 m 계산: (x1^2 - a^2)m^2 - 2x1y1m + (y1^2 - b^2) = 0
+            const A_c = px*px - a*a;
+            const B_c = -2 * px * py;
+            const C_c = py*py - b*b;
+            const det = B_c*B_c - 4 * A_c * C_c;
+
+            if (det >= 0) {
+                const m1 = (-B_c + Math.sqrt(det)) / (2 * A_c);
+                const m2 = (-B_c - Math.sqrt(det)) / (2 * A_c);
+
+                [m1, m2].forEach((m, idx) => {
+                    // 접점 공식: x = a^2*m / y_coord (여기서 y_coord는 타원위의 좌표)
+                    // P에서 그은 접선의 기울기가 m일 때 타원의 접점 (tx, ty) 구하기
+                    let tx = (a*a * m) / (m*px - py);
+                    let ty = (b*b) / (py - m*px);
+
+                    // 1) 접선 그리기 (P에서 접점까지 연결 및 연장)
+                    ctx.strokeStyle = '#10b981';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    // 선이 너무 짧아보이지 않게 P와 접점을 지나는 충분히 긴 선분으로 그림
+                    const dx = px - tx;
+                    const dy = py - ty;
+                    ctx.moveTo(cx + px + dx * 0.5, cy - (py + dy * 0.5));
+                    ctx.lineTo(cx + tx - dx * 0.5, cy - (ty - dy * 0.5));
+                    ctx.stroke();
+
+                    // 2) 접점 표시
+                    ctx.fillStyle = '#059669';
+                    ctx.beginPath();
+                    ctx.arc(cx + tx, cy - ty, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    // 첫 번째 기울기 기준으로 직각 표시
+                    if(idx === 0) {
+                        ctx.save();
+                        ctx.translate(cx + px, cy - py);
+                        ctx.rotate(-Math.atan(m));
+                        ctx.strokeStyle = '#475569';
+                        ctx.lineWidth = 1.5;
+                        const sz = 15;
+                        const dir = (px * py > 0) ? -1 : 1; 
+                        ctx.strokeRect(0, 0, sz * dir, sz);
+                        ctx.restore();
+                    }
+                });
+            }
+
+            // 6. 점 P 그리기
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(cx + px, cy - py, 8, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 16px monospace';
+            ctx.fillText("P", cx + px + 12, cy - py - 12);
+
+            // 데이터 업데이트
+            document.getElementById('pCoords').innerText = `(${px.toFixed(1)}, ${py.toFixed(1)})`;
+            document.getElementById('lhs').innerText = (px*px + py*py).toFixed(2);
+            document.getElementById('rhs').innerText = (a*a + b*b).toFixed(2);
+        }
+
+        [aSlider, bSlider, angleSlider].forEach(s => s.addEventListener('input', render));
+        window.onload = render;
+    </script>
+</body>
+</html>

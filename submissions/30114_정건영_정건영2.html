@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>이중 회전 운동 시뮬레이터 (성능 최적화 및 수치 계산본)</title>
+    <style>
+        body { margin: 0; padding: 0; display: flex; width: 100vw; height: 100vh; font-family: 'Malgun Gothic', sans-serif; background-color: #f4f5f7; color: #333; user-select: none; }
+        #app-container { display: flex; width: 100%; height: 100%; }
+        
+        /* 좌측 시각화 영역 */
+        #visual-zone { flex: 1; height: 100%; position: relative; background: #ffffff; border-right: 2px solid #e0e0e0; display: flex; justify-content: center; align-items: center; }
+        canvas { display: block; background: #ffffff; }
+
+        /* 우측 제어 패널 */
+        #control-panel { width: 380px; height: 100%; background: #fafafa; box-sizing: border-box; padding: 25px; display: flex; flex-direction: column; gap: 15px; box-shadow: inset 3px 0 10px rgba(0,0,0,0.02); overflow-y: auto; }
+        
+        h2 { margin: 0 0 5px 0; font-size: 18px; color: #1a237e; border-bottom: 2px solid #1a237e; padding-bottom: 8px; }
+        .section-title { font-size: 14px; font-weight: bold; color: #555; margin-bottom: 5px; }
+        
+        /* 컨트롤 요소 */
+        .control-group { display: flex; flex-direction: column; gap: 8px; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #e0e0e0; }
+        .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        
+        input[type="range"] { flex: 1; height: 6px; cursor: pointer; }
+        .btn { flex: 1; background: #1a237e; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; transition: background 0.2s; text-align: center; }
+        .btn:hover { background: #283593; }
+        .btn-secondary { background: #e0e0e0; color: #333; }
+        .btn-secondary:hover { background: #d5d5d5; }
+        
+        /* 데이터 디스플레이 */
+        .data-box { background: #191c24; color: #fff; padding: 12px 15px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.7; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .data-box-math { background: #0d47a1; color: #fff; padding: 12px 15px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 13px; line-height: 1.7; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-top: 5px; }
+        .data-row { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 4px 0; }
+        .data-row:last-child { border-bottom: none; }
+        .label { color: #ccc; }
+        .val { font-weight: bold; color: #00e676; }
+        .val-math { font-weight: bold; color: #ffeb3b; }
+        
+        /* 첨점 알림 */
+        #cusp-alert { display: none; margin-top: 5px; background: #ff1744; color: white; text-align: center; padding: 8px; border-radius: 4px; font-weight: bold; animation: pulse 0.3s infinite alternate; font-size: 13px; }
+        @keyframes pulse { from { opacity: 0.7; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <div id="visual-zone">
+            <canvas id="simCanvas"></canvas>
+        </div>
+
+        <div id="control-panel">
+            <h2>⚙️ 운동 및 기하 제어 패널</h2>
+            
+            <div class="control-group">
+                <div class="section-title">⏱️ 시간 매개변수 (t)</div>
+                <div class="row">
+                    <input type="range" id="timeSlider" min="0" max="6.283185" step="0.001" value="0">
+                    <span id="timeVal" style="font-family:Consolas; font-weight:bold; width:55px; text-align:right;">0.000</span>
+                </div>
+                <div class="row" style="margin-top: 5px;">
+                    <button id="playBtn" class="btn">▶ 재생</button>
+                    <button id="resetBtn" class="btn btn-secondary">🔄 초기화</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="section-title">📊 실시간 역학 데이터</div>
+                <div class="data-box">
+                    <div class="data-row">
+                        <span class="label">경과 시간 (t):</span>
+                        <span class="val" id="data-t" style="color:#ffeb3b;">0.000 rad</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="label">점 B 좌표 (x, y):</span>
+                        <span class="val" id="data-b">(4.00, 0.00)</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="label">점 B 실시간 속력 (v):</span>
+                        <span class="val" id="data-v" style="color:#ff9100;">0.000</span>
+                    </div>
+                </div>
+                <div id="cusp-alert">⚠️ 첨점(Cusp) 도달: B의 속력 ≒ 0!</div>
+            </div>
+
+            <div class="control-group">
+                <div class="section-title">📐 곡선 기하학적 측정 (해석 기하)</div>
+                <div class="data-box-math">
+                    <div class="data-row">
+                        <span class="label" style="color:#e3f2fd;">현재 궤적 길이 (s):</span>
+                        <span class="val-math" id="math-length">0.000</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="label" style="color:#e3f2fd;">궤적이 둘러싼 넓이 (A):</span>
+                        <span class="val-math" id="math-area">0.000</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="font-size:11px; color:#777; line-height:1.5; padding: 0 5px;">
+                * <b>곡선의 길이 수식</b>: $s = \int_{0}^{t} \sqrt{(dx/dt)^2 + (dy/dt)^2} \, dt$<br>
+                * <b>둘러싸인 영역의 넓이 수식</b>: $A = \frac{1}{2} \int_{0}^{t} (x \frac{dy}{dt} - y \frac{dx}{dt}) \, dt$<br>
+                * 전체 주기($t = 2\pi$) 완성 시 문제의 정답(길이와 넓이 전체 총합)이 도출됩니다.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // UI 요소들
+        const timeSlider = document.getElementById('timeSlider');
+        const timeVal = document.getElementById('timeVal');
+        const playBtn = document.getElementById('playBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        const dataT = document.getElementById('data-t');
+        const dataB = document.getElementById('data-b');
+        const dataV = document.getElementById('data-v');
+        const cuspAlert = document.getElementById('cusp-alert');
+
+        const mathLength = document.getElementById('math-length');
+        const mathArea = document.getElementById('math-area');
+
+        // 시스템 기하 상수
+        const R = 3.0; 
+        const r = 1.0; 
+        const wA = 1.0; 
+        const wB = 3.0; 
+        const totalW = wA + wB; // = 4.0
+        
+        let t = 0.0;
+        let isPlaying = false;
+        const maxT = Math.PI * 2;
+        let scale = 65; 
+        let lastTime = 0; // 타임스탬프 저장용
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        // 역학 상태 계산 유틸리티 함수
+        function getPositions(time) {
+            const ax = R * Math.cos(wA * time);
+            const ay = R * Math.sin(wA * time);
+            const bx = ax + r * Math.cos(totalW * time);
+            const by = ay + r * Math.sin(totalW * time);
+            
+            // 미분 성분 계산
+            const dxdt = -R * wA * Math.sin(wA * time) - r * totalW * Math.sin(totalW * time);
+            const dydt = R * wA * Math.cos(wA * time) + r * totalW * Math.cos(totalW * time);
+            const speed = Math.sqrt(dxdt * dxdt + dydt * dydt);
+            
+            return { ax, ay, bx, by, dxdt, dydt, speed };
+        }
+
+        // 곡선의 길이와 둘러싸인 면적을 수치해석적(수치적분)으로 계산하는 함수
+        function calculateIntegrals(currentTime) {
+            let lengthAcc = 0;
+            let areaAcc = 0;
+            const step = 0.001; // 정밀한 적분 간격
+            
+            for (let i = 0; i <= currentTime; i += step) {
+                const p = getPositions(i);
+                
+                // 1. 길이 미소량 dI = v * dt
+                lengthAcc += p.speed * step;
+                
+                // 2. 면적 미소량 dA = 0.5 * (x*dydt - y*dxdt) * dt (그린 정리 기반)
+                const dA = 0.5 * (p.bx * p.dydt - p.by * p.dxdt);
+                areaAcc += dA * step;
+            }
+            
+            return { length: lengthAcc, area: Math.abs(areaAcc) };
+        }
+
+        // 메인 프레임 렌더러
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            
+            // Background Grid
+            ctx.strokeStyle = '#f1f1f4';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy);
+            ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height);
+            ctx.stroke();
+
+            // 고정된 메인 큰 원 (R=3)
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, R * scale, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 점 B가 움직인 누적 자취 렌더링 (부드러운 최적화 연결)
+            ctx.strokeStyle = '#e91e63';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            
+            // 성능 확보를 위해 해상도 간격을 유연하게 세팅
+            const drawStep = t > 2 ? 0.01 : 0.005; 
+            for (let i = 0; i <= t; i += drawStep) {
+                let p = getPositions(i);
+                let screenX = cx + p.bx * scale;
+                let screenY = cy - p.by * scale;
+                if (i === 0) ctx.moveTo(screenX, screenY);
+                else ctx.lineTo(screenX, screenY);
+            }
+            // 최종 현재 프레임 위치까지 선을 마저 이어줌
+            let pEnd = getPositions(t);
+            ctx.lineTo(cx + pEnd.bx * scale, cy - pEnd.by * scale);
+            ctx.stroke();
+
+            // 현재 위치 연산 정보 매핑
+            const current = getPositions(t);
+            const sAx = cx + current.ax * scale;
+            const sAy = cy - current.ay * scale;
+            const sBx = cx + current.bx * scale;
+            const sBy = cy - current.by * scale;
+            
+            // 점 A 중심의 자전 회전원 프레임 (r=1)
+            ctx.strokeStyle = 'rgba(30, 136, 229, 0.35)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(sAx, sAy, r * scale, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 메인 연결 벡터축 링크 라인 (원점 -> A -> B)
+            ctx.strokeStyle = '#90caf9';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(sAx, sAy);
+            ctx.lineTo(sBx, sBy);
+            ctx.stroke();
+
+            // 마커 노드 레이어링
+            ctx.fillStyle = '#475569'; // 원점
+            ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+            
+            ctx.fillStyle = '#00b0ff'; // 점 A
+            ctx.beginPath(); ctx.arc(sAx, sAy, 5, 0, Math.PI * 2); ctx.fill();
+            
+            // 점 B (속력이 0에 가까워지면 노란/빨간 경고색으로 강조)
+            const isCusp = current.speed < 0.15;
+            ctx.fillStyle = isCusp ? '#ff1744' : '#e91e63';
+            ctx.beginPath(); 
+            ctx.arc(sBx, sBy, isCusp ? 7 : 5, 0, Math.PI * 2); 
+            ctx.fill();
+
+            // 우측 패널 대시보드 텍스트 바인딩
+            dataT.innerText = t.toFixed(3) + " rad";
+            dataB.innerText = `(${current.bx.toFixed(2)}, ${current.by.toFixed(2)})`;
+            dataV.innerText = current.speed.toFixed(4);
+
+            // 실시간 미적분 누적연산 업데이트
+            const integrals = calculateIntegrals(t);
+            mathLength.innerText = integrals.length.toFixed(3);
+            mathArea.innerText = integrals.area.toFixed(3);
+
+            // 첨점 경고 노출 여부
+            if (isCusp) {
+                cuspAlert.style.display = 'block';
+            } else {
+                cuspAlert.style.display = 'none';
+            }
+        }
+
+        // 고주파 렌더링 동기화 애니메이션 루프 함수 (Lag 개선 핵심)
+        function animLoop(timestamp) {
+            if (!isPlaying) return;
+
+            if (!lastTime) lastTime = timestamp;
+            const delta = (timestamp - lastTime) / 1000; // 초 단위 프레임 간격 시간 계산
+            lastTime = timestamp;
+
+            // 프레임 드랍이 생기더라도 일정한 속도로 움직이도록 가속도를 제어
+            t += delta * 0.45; 
+
+            if (t >= maxT) {
+                t = maxT;
+                isPlaying = false;
+                playBtn.innerText = "▶ 재생";
+            }
+
+            timeSlider.value = t;
+            timeVal.innerText = t.toFixed(3);
+            draw();
+
+            if (isPlaying) {
+                requestAnimationFrame(animLoop);
+            }
+        }
+
+        // 컨트롤 리스너 바인딩
+        timeSlider.addEventListener('input', (e) => {
+            t = parseFloat(e.target.value);
+            timeVal.innerText = t.toFixed(3);
+            draw();
+        });
+
+        playBtn.addEventListener('click', () => {
+            if (t >= maxT) t = 0; 
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playBtn.innerText = "⏸ 일시정지";
+                lastTime = 0; // 재생 시작 시 타임프레임 타임스탬프 리셋
+                requestAnimationFrame(animLoop);
+            } else {
+                playBtn.innerText = "▶ 재생";
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            isPlaying = false;
+            playBtn.innerText = "▶ 재생";
+            t = 0.0;
+            timeSlider.value = 0;
+            timeVal.innerText = "0.000";
+            draw();
+        });
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            draw();
+        });
+
+        window.onload = () => {
+            resizeCanvas();
+            draw();
+        };
+    </script>
+</body>
+</html>

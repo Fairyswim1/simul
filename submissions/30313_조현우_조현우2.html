@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 이치바시대 기출 - 문제 6번 확률 시뮬레이터 (오류 수정본)</title>
+    <style>
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 30px 15px;
+            background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.06);
+        }
+        h2 {
+            text-align: center;
+            color: #00695c;
+            font-weight: 800;
+            margin-top: 0;
+            margin-bottom: 25px;
+            letter-spacing: -0.5px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1em;
+            font-weight: 700;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-primary:hover { background-color: #2980b9; transform: translateY(-1px); }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-success:hover { background-color: #27ae60; transform: translateY(-1px); }
+        .btn-danger { background-color: #e74c3c; color: white; }
+        .btn-danger:hover { background-color: #c0392b; transform: translateY(-1px); }
+
+        .canvas-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        canvas {
+            background-color: #1e293b;
+            border: 3px solid #cbd5e1;
+            border-radius: 12px;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.1);
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #fff;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        .stat-card.highlight-card {
+            border: 2px solid #009688;
+            background-color: #e0f2f1;
+        }
+        .stat-card .card-title {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .stat-card .card-value {
+            font-size: 1.25em;
+            font-weight: 800;
+            color: #2c3e50;
+        }
+        .results-table-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+        th, td {
+            padding: 14px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th { background-color: #f8f9fa; color: #34495e; font-weight: 700; }
+        tr:last-child td { border-bottom: none; }
+
+        .math-text { font-family: 'Cambria Math', 'Times New Roman', serif; font-weight: bold; }
+        .frac {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            margin: 0 0.2em;
+            font-size: 0.9em;
+        }
+        .frac .num {
+            padding: 0 0.2em;
+            border-bottom: 2px solid currentColor;
+            line-height: 1.1;
+        }
+        .frac .den {
+            padding: 0 0.2em;
+            line-height: 1.1;
+        }
+        .badge {
+            background-color: #95a5a6;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .math-expr { font-size: 1.15em; font-weight: bold; color: #2c3e50; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>문제 6번: 고리의 수(N) 확률 및 경계 시각화 시뮬레이터</h2>
+    
+    <div class="controls">
+        <button class="btn-primary" onclick="runSingleSimulation()">1회 무작위 시행</button>
+        <button class="btn-success" onclick="runMultiSimulation(1000)">1,000회 고속 시행</button>
+        <button class="btn-danger" onclick="resetSimulation()">초기화</button>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="stringCanvas" width="750" height="240"></canvas>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <div class="card-title">총 시행 횟수</div>
+            <div id="totalTrials" class="card-value">0 회</div>
+        </div>
+        <div class="stat-card highlight-card">
+            <div class="card-title">최근 직전 결과 (N)</div>
+            <div id="currentN" class="card-value">-</div>
+        </div>
+        <div class="stat-card">
+            <div class="card-title">이론적 기댓값 E(N)</div>
+            <div class="card-value">
+                <span class="frac math-expr"><span class="num">176</span><span class="den">105</span></span>
+                <span style="font-size:0.7em; font-weight:normal; color:#7f8c8d;">(≒1.676)</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="card-title">실험적 기댓값</div>
+            <div id="expExpectation" class="card-value">0.000</div>
+        </div>
+    </div>
+
+    <div class="results-table-box">
+        <table>
+            <thead>
+                <tr>
+                    <th>상태 (고리의 수 N)</th>
+                    <th>해당 시행 횟수</th>
+                    <th>이론적 확률 (분수 표현)</th>
+                    <th>이론값 (%)</th>
+                    <th>실험값 (현재 확률)</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('stringCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let stats = { total: 0, counts: { 1: 0, 2: 0, 3: 0, 4: 0 }, sumN: 0 };
+
+    const theoretical = {
+        1: { fracNum: 16, fracDen: 35,  percent: 45.71 },
+        2: { fracNum: 44, fracDen: 105, percent: 41.90 },
+        3: { fracNum: 4,  fracDen: 35,  percent: 11.43 },
+        4: { fracNum: 1,  fracDen: 105, percent: 0.95 }
+    };
+
+    const loopColors = ['#00e676', '#ff1744', '#d500f9', '#2979ff']; 
+
+    const nodes = [];
+    for(let i=0; i<4; i++) {
+        let y = 50 + i * 50;
+        nodes.push({ x: 180, y: y, stringId: i, label: (i+1) + 'A' }); 
+        nodes.push({ x: 570, y: y, stringId: i, label: (i+1) + 'B' });
+    }
+
+    function initDisplay() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        for(let i=0; i<4; i++) {
+            ctx.beginPath();
+            ctx.strokeStyle = '#64748b'; 
+            ctx.lineWidth = 4;
+            ctx.moveTo(nodes[i*2].x, nodes[i*2].y);
+            ctx.lineTo(nodes[i*2+1].x, nodes[i*2+1].y);
+            ctx.stroke();
+        }
+
+        nodes.forEach((node, index) => {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 7, 0, 2 * Math.PI);
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fill();
+            
+            ctx.font = 'bold 12px Arial';
+            ctx.fillStyle = '#f8f9fa';
+            if(index % 2 === 0) {
+                ctx.fillText(node.label, node.x - 30, node.y + 4);
+            } else {
+                ctx.fillText(node.label, node.x + 15, node.y + 4);
+            }
+        });
+
+        updateTableDisplay();
+    }
+
+    function generateRandomPairs() {
+        let pool = [0, 1, 2, 3, 4, 5, 6, 7];
+        let pairs = [];
+        while(pool.length > 0) {
+            let i1 = Math.floor(Math.random() * pool.length);
+            let n1 = pool.splice(i1, 1)[0];
+            let i2 = Math.floor(Math.random() * pool.length);
+            let n2 = pool.splice(i2, 1)[0];
+            pairs.push([n1, n2]);
+        }
+        return pairs;
+    }
+
+    function findAndDrawLoops(pairs) {
+        let adj = Array.from({ length: 8 }, () => []);
+        for(let i=0; i<4; i++) { adj[i*2].push(i*2+1); adj[i*2+1].push(i*2); }
+        pairs.forEach(pair => { adj[pair[0]].push(pair[1]); adj[pair[1]].push(pair[0]); });
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let visited = new Array(8).fill(false);
+        let loopCount = 0;
+
+        for(let i=0; i<8; i++) {
+            if(!visited[i]) {
+                const currentLoopColor = loopColors[loopCount % 4];
+                drawLoopWithBoundary(i, adj, visited, currentLoopColor);
+                loopCount++;
+            }
+        }
+        return loopCount;
+    }
+
+    function drawLoopWithBoundary(startNodeIdx, adj, visited, color) {
+        let current = startNodeIdx;
+        let prev = -1;
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 5;
+        
+        ctx.shadowColor = color; 
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
+        while(!visited[current]) {
+            visited[current] = true;
+            let next = adj[current][0] === prev ? adj[current][1] : adj[current][0];
+            let p1 = nodes[current];
+            let p2 = nodes[next];
+
+            if(Math.abs(current - next) === 1 && Math.min(current, next) % 2 === 0) {
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                if(p1.x === p2.x) { 
+                    let cpX = p1.x + (p1.x < 300 ? -50 : 50);
+                    let cpY = (p1.y + p2.y) / 2;
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.quadraticCurveTo(cpX, cpY, p2.x, p2.y);
+                } else { 
+                    let cpX = (p1.x + p2.x) / 2;
+                    let cpY = (p1.y + p2.y) / 2 + 25;
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.quadraticCurveTo(cpX, cpY, p2.x, p2.y);
+                }
+                ctx.stroke();
+            }
+
+            prev = current;
+            current = next;
+        }
+        ctx.shadowBlur = 0;
+    }
+
+    function drawFinalUI(N) {
+        nodes.forEach((node, index) => {
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#e2e8f0'; 
+            ctx.fill();
+        });
+
+        ctx.font = 'extrabold 26px Pretendard';
+        ctx.fillStyle = '#009688';
+        ctx.fillText('발견된 고리', 605, 110);
+        ctx.font = 'extrabold 56px Pretendard';
+        ctx.fillText('N = ' + N, 630, 170);
+    }
+
+    function runSingleSimulation() {
+        let pairs = generateRandomPairs();
+        let N = findAndDrawLoops(pairs); 
+
+        stats.total++;
+        stats.counts[N]++;
+        stats.sumN += N;
+
+        drawFinalUI(N); 
+
+        document.getElementById('totalTrials').innerText = stats.total + ' 회';
+        document.getElementById('currentN').innerText = 'N = ' + N;
+        document.getElementById('expExpectation').innerText = (stats.sumN / stats.total).toFixed(4);
+
+        updateTableDisplay();
+    }
+
+    function runMultiSimulation(count) {
+        for(let k=0; k<count; k++) {
+            let pairs = generateRandomPairs();
+            let adj = Array.from({ length: 8 }, () => []);
+            for(let i=0; i<4; i++) { adj[i*2].push(i*2+1); adj[i*2+1].push(i*2); }
+            pairs.forEach(pair => { adj[pair[0]].push(pair[1]); adj[pair[1]].push(pair[0]); });
+            let visited = new Array(8).fill(false);
+            let loopCount = 0;
+            for(let i=0; i<8; i++) {
+                if(!visited[i]) {
+                    loopCount++;
+                    let current = i;
+                    let prev = -1;
+                    while(!visited[current]) { visited[current] = true;
+                        let next = adj[current][0] === prev ? adj[current][1] : adj[current][0];
+                        prev = current; current = next;
+                    }
+                }
+            }
+            stats.total++; stats.counts[loopCount]++; stats.sumN += loopCount;
+        }
+        runSingleSimulation();
+    }
+
+    function resetSimulation() {
+        stats.total = 0; stats.sumN = 0; stats.counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+        document.getElementById('totalTrials').innerText = '0 회';
+        document.getElementById('currentN').innerText = '-';
+        document.getElementById('expExpectation').innerText = '0.000';
+        initDisplay();
+    }
+
+    function updateTableDisplay() {
+        const tbody = document.getElementById('tableBody');
+        let html = '';
+        for(let n=1; n<=4; n++) {
+            let currentCount = stats.counts[n];
+            let currentExpProb = stats.total > 0 ? ((currentCount / stats.total) * 100).toFixed(2) + '%' : '0.00%';
+            let tInfo = theoretical[n];
+            let mathFracStr = `<span class="frac math-text"><span class="num">${tInfo.fracNum}</span><span class="den">${tInfo.fracDen}</span></span>`;
+            html += `
+                <tr>
+                    <td><span class="badge">N = ${n}</span></td>
+                    <td>${currentCount} 번</td>
+                    <td>${mathFracStr}</td>
+                    <td style="color:#7f8c8d;">${tInfo.percent}%</td>
+                    <td style="font-weight:bold; color:#009688;">${currentExpProb}</td>
+                </tr>
+            `;
+        }
+        tbody.innerHTML = html;
+    }
+
+    window.onload = function() {
+        initDisplay();
+    };
+</script>
+
+</body>
+</html>

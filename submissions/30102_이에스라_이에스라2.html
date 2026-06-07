@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>쌍곡선 반사 시뮬레이터</title>
+<style>
+/* ── reset & tokens ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg0: #ffffff; --bg1: #f5f4f0; --bg2: #eeede9;
+  --t0: #1e1e1c;  --t1: #5c5b57;  --t2: #93918c;
+  --bd:  rgba(0,0,0,.09); --bdl: rgba(0,0,0,.05);
+  --blue:   #1458a0; --purple: #5030a8; --green:  #176030;
+  --amber:  #7a5008; --red:    #b02020; --orange: #b84010;
+  --rad: 8px; --radl: 13px;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg0: #1b1b19; --bg1: #232321; --bg2: #2a2a28;
+  --t0: #e2dfd6;  --t1: #aeaba4;  --t2: #888580;
+  --bd:  rgba(255,255,255,.09); --bdl: rgba(255,255,255,.05);
+  --blue:   #6aaae0; --purple: #a890f0; --green:  #60d080;
+  --amber:  #ddb040; --red:    #e07070; --orange: #e09060;
+}}
+
+/* ── page ── */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg2); color: var(--t0);
+  min-height: 100vh; padding: 18px 14px 40px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.page-header { text-align: center; margin-bottom: 14px; }
+.page-header h1 { font-size: 18px; font-weight: 500; letter-spacing: -.01em; }
+.page-header p  { font-size: 12px; color: var(--t2); margin-top: 3px; }
+
+/* ── two-column layout ── */
+.layout {
+  display: grid; grid-template-columns: 1fr 260px;
+  width: 100%; max-width: 1020px;
+  background: var(--bg0); border: .5px solid var(--bd);
+  border-radius: var(--radl); overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+}
+
+/* ── canvas ── */
+.canvas-wrap {
+  background: var(--bg1); border-right: .5px solid var(--bd);
+  position: relative; min-height: 520px;
+  cursor: crosshair; user-select: none;
+}
+canvas#cv { display: block; width: 100%; height: 100%; }
+.drag-hint {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; color: var(--t2); pointer-events: none; white-space: nowrap;
+}
+
+/* ── right panel ── */
+.panel {
+  width: 260px; padding: 15px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto;
+}
+.lbl {
+  font-size: 10px; font-weight: 500; letter-spacing: .07em;
+  color: var(--t2); text-transform: uppercase; margin-bottom: 1px;
+}
+.sec { display: flex; flex-direction: column; gap: 8px; }
+.divider { height: .5px; background: var(--bd); flex-shrink: 0; }
+
+/* slider */
+.srow { display: flex; flex-direction: column; gap: 3px; }
+.shdr { display: flex; justify-content: space-between; align-items: baseline; }
+.sname { font-size: 12px; color: var(--t1); }
+.sval  { font-size: 12px; font-weight: 500; font-family: monospace;
+         color: var(--t0); min-width: 50px; text-align: right; }
+input[type=range] { width: 100%; accent-color: var(--blue); height: 4px; margin: 2px 0; cursor: pointer; }
+
+/* metric cards */
+.mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mc { background: var(--bg1); border-radius: var(--rad); padding: 9px 10px 8px; }
+.mc.full { grid-column: 1 / -1; }
+.mlbl { font-size: 10px; color: var(--t2); margin-bottom: 3px; }
+.mval { font-size: 17px; font-weight: 500; font-family: monospace; color: var(--t0); }
+.mval.sm { font-size: 13px; }
+.mval.purple { color: var(--purple); }
+.mval.orange { color: var(--orange); }
+.mval.red    { color: var(--red); }
+
+/* reflection pair row */
+.ref-pair {
+  grid-column: 1/-1; background: var(--bg2); border-radius: var(--rad);
+  padding: 9px 10px; display: flex; gap: 12px; align-items: center;
+}
+.ref-eq { font-size: 18px; color: var(--t2); flex-shrink: 0; }
+
+/* buttons */
+.btn-col { display: flex; flex-direction: column; gap: 7px; }
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 9px 12px; border-radius: var(--rad);
+  border: .5px solid var(--bd); background: transparent;
+  color: var(--t0); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: background .13s; font-family: inherit;
+}
+.btn:hover  { background: var(--bg1); }
+.btn:active { transform: scale(.98); }
+.btn.laser        { border-color: rgba(180,30,30,.35); color: var(--red); }
+.btn.laser:hover  { background: rgba(180,30,30,.07); }
+.btn.laser.on     { background: rgba(180,30,30,.12); border-color: rgba(180,30,30,.6); }
+.btn.q3btn        { border-color: rgba(160,30,30,.35); color: var(--red);
+                    background: rgba(160,30,30,.05); }
+.btn.q3btn:hover  { background: rgba(160,30,30,.10); }
+.btn.q3btn.on     { background: rgba(160,30,30,.16); border-color: var(--red); }
+
+/* legend */
+.legend { display: flex; flex-direction: column; gap: 5px; }
+.leg-row { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--t1); }
+.leg-line { width: 20px; height: 2.5px; border-radius: 2px; flex-shrink: 0; }
+.leg-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* formula block */
+.formula {
+  font-size: 11px; font-family: monospace; color: var(--t1);
+  background: var(--bg1); border-radius: var(--rad);
+  padding: 9px 10px; line-height: 1.9;
+  border-left: 2.5px solid var(--bdl);
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>쌍곡선 반사 시뮬레이터</h1>
+  <p>x²/2 − y² = 1 &nbsp;·&nbsp; P를 드래그하거나 슬라이더로 이동</p>
+</div>
+
+<div class="layout">
+  <div class="canvas-wrap">
+    <canvas id="cv"></canvas>
+    <div class="drag-hint">● P를 드래그하거나 슬라이더로 이동</div>
+  </div>
+
+  <div class="panel">
+
+    <!-- 슬라이더 -->
+    <div class="sec">
+      <div class="lbl">동점 P 위치 (t)</div>
+      <div class="srow">
+        <div class="shdr">
+          <span class="sname">매개변수 t</span>
+          <span class="sval" id="tDisplay">0.881</span>
+        </div>
+        <input type="range" id="tSlider" min="0.08" max="2.20" step="0.01" value="0.881">
+      </div>
+      <div style="font-size:11px;color:var(--t2);margin-top:1px;">
+        P = (<span id="pxy">—</span>)
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 각도 -->
+    <div class="sec">
+      <div class="lbl">각도 (실시간)</div>
+      <div class="mgrid">
+        <div class="mc full">
+          <div class="mlbl">∠ F'PQ &nbsp;(F'→P 방향 ∧ PQ 방향)</div>
+          <div class="mval purple" id="angFpPQ">—°</div>
+        </div>
+        <div class="mc full">
+          <div class="mlbl">∠ FPA &nbsp;(PF 방향 ∧ PA 방향)</div>
+          <div class="mval orange" id="angFPA">—°</div>
+        </div>
+        <div class="ref-pair">
+          <div>
+            <div style="font-size:10px;color:var(--purple);margin-bottom:1px;">접선 ∧ PF'</div>
+            <div class="mval sm purple" id="angTanFp">—°</div>
+          </div>
+          <div class="ref-eq">=</div>
+          <div>
+            <div style="font-size:10px;color:var(--red);margin-bottom:1px;">접선 ∧ PQ</div>
+            <div class="mval sm red" id="angTanPQ">—°</div>
+          </div>
+        </div>
+        <div class="mc"><div class="mlbl">A 좌표</div><div class="mval sm" id="aCoord">—</div></div>
+        <div class="mc"><div class="mlbl">접선 기울기</div><div class="mval sm" id="tanSlope">—</div></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 버튼 -->
+    <div class="sec">
+      <div class="lbl">효과</div>
+      <div class="btn-col">
+        <button class="btn laser" id="laserBtn">▶ 레이저 애니메이션</button>
+        <button class="btn q3btn" id="q3Btn">▲ 문항 (3) 회전체 영역 보기</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 범례 -->
+    <div class="sec">
+      <div class="lbl">범례</div>
+      <div class="legend">
+        <div class="leg-row"><div class="leg-line" style="background:var(--blue);height:2px;"></div>쌍곡선 (우지)</div>
+        <div class="leg-row"><div class="leg-line" style="background:var(--blue);opacity:.25;"></div>쌍곡선 (좌지)</div>
+        <div class="leg-row"><div class="leg-line" style="border-top:1.5px dashed var(--t2);background:transparent;"></div>점근선</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--blue);"></div>초점 F (우)</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--purple);"></div>초점 F' (좌)</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--amber);"></div>동점 P</div>
+        <div class="leg-row"><div class="leg-dot" style="background:var(--green);"></div>접선 교점 A</div>
+        <div class="leg-row"><div class="leg-line" style="border-top:1.5px dashed var(--amber);background:transparent;"></div>접선 l</div>
+        <div class="leg-row"><div class="leg-line" style="background:var(--red);height:2.5px;"></div>광선 F→P→Q</div>
+        <div class="leg-row"><div class="leg-line" style="background:var(--purple);"></div>선분 PF'</div>
+        <div class="leg-row">
+          <div class="leg-line" style="background:rgba(190,30,30,.5);height:6px;border-radius:2px;"></div>
+          회전체 영역 (문항 3)
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:4px;"></div>
+
+    <div class="formula">
+x²/2 − y² = 1<br>
+a=√2, b=1, c=√3<br>
+F=(√3,0) &nbsp; F'=(−√3,0)<br>
+P=(√2·cosh t, sinh t)<br>
+A = (2/px, 0)<br>
+접선 기울기: px/(2py)
+    </div>
+
+  </div><!-- /panel -->
+</div><!-- /layout -->
+
+<script>
+(function () {
+'use strict';
+
+/* =====================================================
+   CONSTANTS
+===================================================== */
+var SQRT2 = Math.sqrt(2);
+var SQRT3 = Math.sqrt(3);
+var F_pt  = [SQRT3,  0];
+var Fp_pt = [-SQRT3, 0];
+
+/* =====================================================
+   DOM REFERENCES
+===================================================== */
+var cv       = document.getElementById('cv');
+var ctx      = cv.getContext('2d');
+var tSlider  = document.getElementById('tSlider');
+var laserBtn = document.getElementById('laserBtn');
+var q3Btn    = document.getElementById('q3Btn');
+
+/* =====================================================
+   MUTABLE STATE  (declared ONCE, here)
+===================================================== */
+var paramT      = 0.881;   // hyperbola parameter t
+var dragging    = false;
+
+var laserOn     = false;
+var laserPhase  = 0;       // 0..2  (0-1 = F→P segment, 1-2 = P→F' segment)
+var laserAnimId = null;
+
+var q3Mode      = false;
+
+/* viewport */
+var SC = 1, CX = 0, CY = 0;
+
+/* =====================================================
+   COORDINATE HELPERS
+===================================================== */
+function toS(x, y) { return [CX + x * SC, CY - y * SC]; }
+function toW(sx, sy) { return [(sx - CX) / SC, -(sy - CY) / SC]; }
+
+/* =====================================================
+   MATH HELPERS
+===================================================== */
+function angleDeg(ax, ay, bx, by) {
+  var dot = ax * bx + ay * by;
+  var mag = Math.hypot(ax, ay) * Math.hypot(bx, by);
+  if (mag < 1e-12) return 0;
+  return Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180 / Math.PI;
+}
+
+function isDark() {
+  return window.matchMedia('(prefers-color-scheme:dark)').matches;
+}
+
+/* =====================================================
+   GEOMETRY — compute all derived quantities from t
+===================================================== */
+function computeGeom(t) {
+  var px = SQRT2 * Math.cosh(t);
+  var py = Math.sinh(t);
+
+  /* tangent direction at P: slope = px/(2py) → unit dir */
+  var tdx = 2 * py, tdy = px;
+  var tmag = Math.hypot(tdx, tdy);
+  var tux = tdx / tmag, tuy = tdy / tmag;
+
+  /* A: tangent x-intercept = 2/px */
+  var ax = 2 / px;
+
+  /* ray direction beyond P (same as P-F) */
+  var rdx = px - F_pt[0], rdy = py - F_pt[1];
+  var rmag = Math.hypot(rdx, rdy);
+  var rux = rdx / rmag, ruy = rdy / rmag;
+
+  /* Q: 2.5 units past P along ray */
+  var qx = px + rux * 2.5, qy = py + ruy * 2.5;
+
+  /* vectors from P */
+  var PFpx = Fp_pt[0] - px,  PFpy = Fp_pt[1] - py;
+  var PFx  = F_pt[0]  - px,  PFy  = F_pt[1]  - py;
+  var PAx  = ax - px,         PAy  = -py;
+
+  var angFpPQ  = angleDeg(PFpx, PFpy, rux, ruy);
+  var angFPA   = angleDeg(PFx,  PFy,  PAx, PAy);
+
+  var angTanFp = angleDeg(tux, tuy, PFpx, PFpy);
+  if (angTanFp > 90) angTanFp = 180 - angTanFp;
+  var angTanPQ = angleDeg(tux, tuy, rux, ruy);
+  if (angTanPQ > 90) angTanPQ = 180 - angTanPQ;
+
+  return { px:px, py:py, ax:ax, qx:qx, qy:qy,
+           rux:rux, ruy:ruy, tux:tux, tuy:tuy,
+           angFpPQ:angFpPQ, angFPA:angFPA,
+           angTanFp:angTanFp, angTanPQ:angTanPQ };
+}
+
+/* =====================================================
+   Q3 REGION OVERLAY
+===================================================== */
+function drawQ3Region(dark) {
+  var v = SQRT2;    /* vertex x-coordinate */
+  var STEPS = 80;
+
+  /* --- upper filled region (tangent / x-axis / hyperbola) --- */
+  ctx.beginPath();
+  var p0 = toS(1, 0); ctx.moveTo(p0[0], p0[1]);
+
+  /* along tangent y=x-1 from x=1 to x=2 */
+  for (var i = 0; i <= STEPS; i++) {
+    var x = 1 + i / STEPS;
+    var pt = toS(x, x - 1); ctx.lineTo(pt[0], pt[1]);
+  }
+  /* follow hyperbola from x=2 back to vertex x=√2 */
+  for (var i = 0; i <= STEPS; i++) {
+    var x = 2 - (2 - v) * i / STEPS;
+    var hy = Math.sqrt(Math.max(0, x * x / 2 - 1));
+    var pt = toS(x, hy); ctx.lineTo(pt[0], pt[1]);
+  }
+  /* vertex to A along x-axis */
+  var pv = toS(v, 0); ctx.lineTo(pv[0], pv[1]);
+  ctx.closePath();
+  ctx.fillStyle = dark ? 'rgba(200,50,50,.28)' : 'rgba(190,30,30,.22)';
+  ctx.fill();
+  ctx.strokeStyle = dark ? 'rgba(220,80,80,.55)' : 'rgba(180,30,30,.50)';
+  ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
+
+  /* --- lower mirror (rotation guide, dotted) --- */
+  ctx.beginPath();
+  var p1 = toS(1, 0); ctx.moveTo(p1[0], p1[1]);
+  for (var i = 0; i <= STEPS; i++) {
+    var x = 1 + i / STEPS;
+    var pt = toS(x, -(x - 1)); ctx.lineTo(pt[0], pt[1]);
+  }
+  for (var i = 0; i <= STEPS; i++) {
+    var x = 2 - (2 - v) * i / STEPS;
+    var hy = -Math.sqrt(Math.max(0, x * x / 2 - 1));
+    var pt = toS(x, hy); ctx.lineTo(pt[0], pt[1]);
+  }
+  var pv2 = toS(v, 0); ctx.lineTo(pv2[0], pv2[1]);
+  ctx.closePath();
+  ctx.fillStyle = dark ? 'rgba(200,50,50,.11)' : 'rgba(190,30,30,.09)';
+  ctx.fill();
+  ctx.strokeStyle = dark ? 'rgba(220,80,80,.30)' : 'rgba(180,30,30,.25)';
+  ctx.lineWidth = 1; ctx.setLineDash([3, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+  /* --- elliptic cross-section guides (3-D feel) --- */
+  var xStops = [1.15, 1.4, v, 1.7, 1.85, 2.0];
+  for (var k = 0; k < xStops.length; k++) {
+    var xv = xStops[k];
+    var rOuter = Math.max(0, xv - 1);
+    var rInner = xv >= v ? Math.sqrt(Math.max(0, xv * xv / 2 - 1)) : 0;
+    if (rOuter < 0.01) continue;
+    var sx = toS(xv, 0)[0];
+    var rOy = rOuter * SC;
+    var rIy = rInner * SC;
+    var rEx = Math.max(3, SC * 0.07);
+
+    /* outer ellipse (cone surface) */
+    ctx.beginPath();
+    ctx.ellipse(sx, CY, rEx, rOy, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = dark ? 'rgba(220,80,80,.26)' : 'rgba(180,30,30,.20)';
+    ctx.lineWidth = 0.8; ctx.setLineDash([2, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+    /* inner ellipse (hyperbola surface) */
+    if (rInner > 1) {
+      ctx.beginPath();
+      ctx.ellipse(sx, CY, rEx, rIy, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = dark ? 'rgba(80,160,220,.20)' : 'rgba(18,88,160,.16)';
+      ctx.lineWidth = 0.7; ctx.setLineDash([2, 4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  /* --- label --- */
+  var lp = toS(1.5, 0.58);
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillStyle = dark ? 'rgba(220,80,80,.88)' : 'rgba(160,30,30,.82)';
+  ctx.textAlign = 'center';
+  ctx.fillText('회전체 단면', lp[0], lp[1]);
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = dark ? 'rgba(220,80,80,.60)' : 'rgba(160,30,30,.55)';
+  ctx.fillText('(x축 회전)', lp[0], lp[1] + 14);
+}
+
+/* =====================================================
+   LASER OVERLAY  (called inside draw() when laserOn)
+===================================================== */
+function drawLaser(pX, pY, fX, fY, fpX, fpY, dark) {
+  var lc = dark ? 'rgb(255,90,90)' : 'rgb(210,20,20)';
+
+  function glowSeg(x0, y0, x1, y1, alpha, coreW, glowW) {
+    /* glow halo */
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+    ctx.strokeStyle = 'rgba(255,80,80,' + (alpha * 0.30) + ')';
+    ctx.lineWidth = glowW; ctx.lineCap = 'round'; ctx.stroke();
+    /* core */
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+    ctx.strokeStyle = 'rgba(255,80,80,' + alpha + ')';
+    ctx.lineWidth = coreW; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
+  function glowDot(sx, sy, r, alpha) {
+    var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 3);
+    g.addColorStop(0, 'rgba(255,140,140,' + alpha + ')');
+    g.addColorStop(1, 'rgba(255,60,60,0)');
+    ctx.beginPath(); ctx.arc(sx, sy, r * 3, 0, Math.PI * 2);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,200,200,' + alpha + ')'; ctx.fill();
+  }
+
+  var phase = laserPhase;
+
+  if (phase <= 1) {
+    /* F → P (traveling) */
+    var prog = phase;
+    var ex = fX + (pX - fX) * prog;
+    var ey = fY + (pY - fY) * prog;
+    glowSeg(fX, fY, pX, pY, 0.12, 2, 9);      /* dim trail */
+    glowSeg(fX, fY, ex, ey, 0.88, 2.5, 11);   /* bright head */
+    glowDot(ex, ey, 4, 0.95);
+    glowDot(fX, fY, 5, 0.55);                  /* source */
+  } else {
+    /* F→P fully lit, P→F' traveling */
+    glowSeg(fX, fY, pX, pY, 0.50, 2, 9);
+    glowDot(pX, pY, 5, 0.80);
+    glowDot(fX, fY, 4, 0.35);
+
+    var prog2 = phase - 1;
+    var ex2 = pX + (fpX - pX) * prog2;
+    var ey2 = pY + (fpY - pY) * prog2;
+    glowSeg(pX, pY, fpX, fpY, 0.10, 2, 9);
+    glowSeg(pX, pY, ex2, ey2, 0.92, 2.5, 11);
+    glowDot(ex2, ey2, 4, 0.95);
+
+    if (prog2 > 0.94) {
+      var flash = (prog2 - 0.94) / 0.06;
+      glowDot(fpX, fpY, 9 * flash, 0.85 * flash);
+    }
+  }
+}
+
+/* =====================================================
+   MAIN DRAW
+===================================================== */
+function draw() {
+  var W = cv.width  / devicePixelRatio;
+  var H = cv.height / devicePixelRatio;
+  var dark = isDark();
+
+  /* viewport: show x ∈ [~-2.2, ~4.3], y ∈ [~-2.8, ~2.8] */
+  SC = Math.min((W - 56) / 6.8, (H - 56) / 5.6);
+  CX = W * 0.5 - SC * 1.2;
+  CY = H * 0.5;
+
+  ctx.clearRect(0, 0, W, H);
+
+  /* --- colours --- */
+  var t2c  = dark ? '#888580' : '#93918c';
+  var axc  = dark ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.15)';
+  var grc  = dark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.04)';
+  var hypR = dark ? 'rgba(90,160,230,.85)'  : 'rgba(18,88,160,.82)';
+  var hypL = dark ? 'rgba(90,160,230,.22)'  : 'rgba(18,88,160,.20)';
+  var asym = dark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.10)';
+  var tanC = dark ? 'rgba(210,170,60,.80)'  : 'rgba(120,80,8,.72)';
+  var rayC = dark ? 'rgba(215,80,80,.90)'   : 'rgba(170,30,30,.85)';
+  var pf2C = dark ? 'rgba(155,130,240,.85)' : 'rgba(70,45,155,.80)';
+  var colF  = dark ? '#6aaae0' : '#1458a0';
+  var colFp = dark ? '#b0a0f8' : '#5030a8';
+  var colP  = dark ? '#ddb040' : '#7a5008';
+  var colA  = dark ? '#60d080' : '#176030';
+
+  /* --- grid --- */
+  ctx.strokeStyle = grc; ctx.lineWidth = .5;
+  for (var v = -3; v <= 6; v += .5) {
+    var sx0 = toS(v, 0)[0];
+    ctx.beginPath(); ctx.moveTo(sx0, 0); ctx.lineTo(sx0, H); ctx.stroke();
+  }
+  for (var v = -4; v <= 4; v += .5) {
+    var sy0 = toS(0, v)[1];
+    ctx.beginPath(); ctx.moveTo(0, sy0); ctx.lineTo(W, sy0); ctx.stroke();
+  }
+
+  /* --- axes --- */
+  var orig = toS(0, 0); var ox = orig[0], oy = orig[1];
+  ctx.strokeStyle = axc; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(6, oy); ctx.lineTo(W-6, oy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox, H-6); ctx.lineTo(ox, 6); ctx.stroke();
+  ctx.fillStyle = axc;
+  ctx.beginPath(); ctx.moveTo(W-6,oy); ctx.lineTo(W-13,oy-4); ctx.lineTo(W-13,oy+4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(ox,6);   ctx.lineTo(ox-4,13);   ctx.lineTo(ox+4,13);   ctx.closePath(); ctx.fill();
+
+  ctx.font = '10px monospace'; ctx.fillStyle = t2c;
+  for (var v = -2; v <= 5; v++) {
+    if (!v) continue;
+    var tx = toS(v, 0)[0]; if (tx < 14 || tx > W-14) continue;
+    ctx.textAlign = 'center'; ctx.fillText(v, tx, oy + 14);
+    ctx.strokeStyle = axc; ctx.lineWidth = .7;
+    ctx.beginPath(); ctx.moveTo(tx, oy-3); ctx.lineTo(tx, oy+3); ctx.stroke();
+  }
+  for (var v = -3; v <= 3; v++) {
+    if (!v) continue;
+    var ty = toS(0, v)[1]; if (ty < 12 || ty > H-12) continue;
+    ctx.textAlign = 'right'; ctx.fillText(v, ox-7, ty+4);
+    ctx.strokeStyle = axc; ctx.lineWidth = .7;
+    ctx.beginPath(); ctx.moveTo(ox-3, ty); ctx.lineTo(ox+3, ty); ctx.stroke();
+  }
+  ctx.font = '12px sans-serif'; ctx.fillStyle = t2c;
+  ctx.textAlign = 'left';   ctx.fillText('x', W-18, oy-8);
+  ctx.textAlign = 'center'; ctx.fillText('y', ox+12, 14);
+
+  /* --- asymptotes y = ±x/√2 --- */
+  ctx.setLineDash([5, 5]); ctx.strokeStyle = asym; ctx.lineWidth = 1;
+  var signs = [1, -1];
+  for (var si = 0; si < signs.length; si++) {
+    var s = signs[si];
+    var p0a = toS(-3, -3*s/SQRT2), p1a = toS(5, 5*s/SQRT2);
+    ctx.beginPath(); ctx.moveTo(p0a[0], p0a[1]); ctx.lineTo(p1a[0], p1a[1]); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  /* --- left branch (faint) --- */
+  ctx.beginPath(); var first = true;
+  for (var tt = -2.5; tt <= 2.5; tt += 0.02) {
+    var bx = -SQRT2*Math.cosh(tt), by = Math.sinh(tt);
+    var bp = toS(bx, by);
+    if (bp[0] < -10 || bp[0] > W+10) { first = true; continue; }
+    if (first) { ctx.moveTo(bp[0], bp[1]); first = false; } else ctx.lineTo(bp[0], bp[1]);
+  }
+  ctx.strokeStyle = hypL; ctx.lineWidth = 1.5; ctx.stroke();
+
+  /* --- right branch --- */
+  ctx.beginPath(); first = true;
+  for (var tt = -2.5; tt <= 2.5; tt += 0.015) {
+    var bx = SQRT2*Math.cosh(tt), by = Math.sinh(tt);
+    var bp = toS(bx, by);
+    if (bp[0] < -10 || bp[0] > W+10 || bp[1] < -10 || bp[1] > H+10) { first = true; continue; }
+    if (first) { ctx.moveTo(bp[0], bp[1]); first = false; } else ctx.lineTo(bp[0], bp[1]);
+  }
+  ctx.strokeStyle = hypR; ctx.lineWidth = 2.2; ctx.stroke();
+
+  ctx.font = '10px monospace';
+  ctx.fillStyle = dark ? 'rgba(90,160,230,.55)' : 'rgba(18,88,160,.55)';
+  ctx.textAlign = 'left';
+  var lb = toS(2.1, 1.55);
+  ctx.fillText('x²/2−y²=1', lb[0], lb[1]);
+
+  /* --- Q3 region (behind geometry) --- */
+  if (q3Mode) drawQ3Region(dark);
+
+  /* --- geometry --- */
+  var g  = computeGeom(paramT);
+  var px = g.px, py = g.py, ax = g.ax;
+  var qx = g.qx, qy = g.qy;
+  var rux = g.rux, ruy = g.ruy;
+  var tux = g.tux, tuy = g.tuy;
+
+  var pP  = toS(px, py),     pQ  = toS(qx, qy);
+  var pF  = toS(F_pt[0],  F_pt[1]);
+  var pFp = toS(Fp_pt[0], Fp_pt[1]);
+  var pA  = toS(ax, 0);
+
+  var pX = pP[0], pY = pP[1];
+  var fX = pF[0], fY = pF[1];
+  var fpX = pFp[0], fpY = pFp[1];
+  var aX = pA[0], aY = pA[1];
+  var qX = pQ[0], qY = pQ[1];
+
+  /* tangent line */
+  var tLen = 5;
+  var ts = toS(px - tux*tLen, py - tuy*tLen);
+  var te = toS(px + tux*tLen, py + tuy*tLen);
+  ctx.beginPath(); ctx.moveTo(ts[0], ts[1]); ctx.lineTo(te[0], te[1]);
+  ctx.strokeStyle = tanC; ctx.lineWidth = 1.4;
+  ctx.setLineDash([7, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+  /* PF' segment */
+  ctx.beginPath(); ctx.moveTo(pX, pY); ctx.lineTo(fpX, fpY);
+  ctx.strokeStyle = pf2C; ctx.lineWidth = 2; ctx.stroke();
+
+  /* F→P dashed (incoming) */
+  ctx.beginPath(); ctx.moveTo(fX, fY); ctx.lineTo(pX, pY);
+  ctx.strokeStyle = dark ? 'rgba(215,80,80,.45)' : 'rgba(170,30,30,.40)';
+  ctx.lineWidth = 1.8; ctx.setLineDash([5, 3]); ctx.stroke(); ctx.setLineDash([]);
+
+  /* P→Q solid with arrowhead */
+  ctx.beginPath(); ctx.moveTo(pX, pY); ctx.lineTo(qX, qY);
+  ctx.strokeStyle = rayC; ctx.lineWidth = 2.5; ctx.stroke();
+  var aang = Math.atan2(qY - pY, qX - pX);
+  ctx.beginPath();
+  ctx.moveTo(qX, qY);
+  ctx.lineTo(qX - 13*Math.cos(aang-.36), qY - 13*Math.sin(aang-.36));
+  ctx.lineTo(qX - 13*Math.cos(aang+.36), qY - 13*Math.sin(aang+.36));
+  ctx.closePath(); ctx.fillStyle = rayC; ctx.fill();
+
+  /* angle arc ∠F'PQ */
+  (function () {
+    var arcR = SC * 0.15;
+    var a1 = Math.atan2(-(Fp_pt[1]-py), Fp_pt[0]-px);
+    var a2 = Math.atan2(-ruy, rux);
+    var lo = Math.min(a1,a2), hi = Math.max(a1,a2);
+    if (hi - lo > Math.PI) { var tmp=lo; lo=hi; hi=tmp+2*Math.PI; }
+    ctx.beginPath(); ctx.arc(pX, pY, arcR, lo, hi);
+    ctx.strokeStyle = dark ? 'rgba(155,130,240,.70)' : 'rgba(70,45,155,.65)';
+    ctx.lineWidth = 1.8; ctx.stroke();
+    var amid = (lo+hi)/2, lr = arcR+12;
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = dark ? 'rgba(155,130,240,.85)' : 'rgba(70,45,155,.80)';
+    ctx.textAlign = 'center';
+    ctx.fillText("∠F'PQ", pX + lr*Math.cos(amid), pY + lr*Math.sin(amid));
+  }());
+
+  /* angle arc ∠FPA */
+  (function () {
+    var arcR = SC * 0.22;
+    var a1 = Math.atan2(-(F_pt[1]-py), F_pt[0]-px);
+    var a2 = Math.atan2(-(0-py), ax-px);
+    var lo = Math.min(a1,a2), hi = Math.max(a1,a2);
+    if (hi - lo > Math.PI) { var tmp=lo; lo=hi; hi=tmp+2*Math.PI; }
+    ctx.beginPath(); ctx.arc(pX, pY, arcR, lo, hi);
+    ctx.strokeStyle = dark ? 'rgba(210,130,70,.70)' : 'rgba(175,60,15,.65)';
+    ctx.lineWidth = 1.8; ctx.stroke();
+    var amid = (lo+hi)/2, lr = arcR+12;
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = dark ? 'rgba(210,130,70,.85)' : 'rgba(175,60,15,.80)';
+    ctx.textAlign = 'center';
+    ctx.fillText('∠FPA', pX + lr*Math.cos(amid), pY + lr*Math.sin(amid));
+  }());
+
+  /* laser overlay */
+  if (laserOn) drawLaser(pX, pY, fX, fY, fpX, fpY, dark);
+
+  /* --- dots + labels --- */
+  function dot(sx, sy, col, r) {
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.strokeStyle = dark ? 'rgba(0,0,0,.4)' : 'rgba(255,255,255,.6)';
+    ctx.lineWidth = 1.2; ctx.stroke();
+  }
+  function lbl(text, sx, sy, dx, dy, col, sz, bold) {
+    ctx.font = (bold ? '600 ' : '') + (sz||13) + 'px sans-serif';
+    ctx.fillStyle = col;
+    ctx.textAlign = dx > 0 ? 'left' : dx < 0 ? 'right' : 'center';
+    ctx.fillText(text, sx+dx, sy+dy);
+  }
+
+  dot(fX,  fY,  colF,  6); lbl('F',  fX,  fY,  10, -10, colF,  13, true);
+  dot(fpX, fpY, colFp, 6); lbl("F'", fpX, fpY, -12, -10, colFp, 13, true);
+  dot(pX,  pY,  colP,  7); lbl('P',  pX,  pY,  -13, -10, colP,  14, true);
+  dot(aX,  aY,  colA,  5); lbl('A',  aX,  aY,    0,  17,  colA,  13, true);
+  ctx.font = '500 13px sans-serif'; ctx.fillStyle = rayC;
+  ctx.textAlign = 'left'; ctx.fillText('Q', qX+9, qY-6);
+
+  /* --- panel update --- */
+  function fmt(v) { return v.toFixed(4) + '°'; }
+  document.getElementById('tDisplay').textContent  = paramT.toFixed(3);
+  document.getElementById('pxy').textContent        = px.toFixed(4) + ', ' + py.toFixed(4);
+  document.getElementById('aCoord').textContent     = '(' + ax.toFixed(4) + ', 0)';
+  document.getElementById('tanSlope').textContent   = (px / (2*py)).toFixed(4);
+  document.getElementById('angFpPQ').textContent    = fmt(g.angFpPQ);
+  document.getElementById('angFPA').textContent     = fmt(g.angFPA);
+  document.getElementById('angTanFp').textContent   = fmt(g.angTanFp);
+  document.getElementById('angTanPQ').textContent   = fmt(g.angTanPQ);
+}
+
+/* =====================================================
+   LASER ANIMATION LOOP
+===================================================== */
+function animateLaser() {
+  if (!laserOn) return;
+  laserPhase += 0.012;
+  if (laserPhase > 2.18) laserPhase = 0;
+  draw();
+  laserAnimId = requestAnimationFrame(animateLaser);
+}
+
+laserBtn.addEventListener('click', function () {
+  laserOn = !laserOn;
+  laserBtn.classList.toggle('on', laserOn);
+  laserBtn.textContent = laserOn ? '■ 레이저 정지' : '▶ 레이저 애니메이션';
+  if (laserOn) {
+    laserPhase = 0;
+    animateLaser();
+  } else {
+    cancelAnimationFrame(laserAnimId);
+    laserAnimId = null;
+    draw();
+  }
+});
+
+/* =====================================================
+   Q3 MODE
+===================================================== */
+q3Btn.addEventListener('click', function () {
+  q3Mode = !q3Mode;
+  q3Btn.classList.toggle('on', q3Mode);
+  if (q3Mode) {
+    paramT = Math.asinh(1);   /* ≈ 0.8814 → P=(2,1) */
+    tSlider.value = paramT;
+    document.getElementById('tDisplay').textContent = paramT.toFixed(3);
+  }
+  draw();
+});
+
+/* =====================================================
+   RESIZE
+===================================================== */
+function resize() {
+  var rect = cv.parentElement.getBoundingClientRect();
+  var W = Math.max(rect.width, 280);
+  var H = Math.max(W * 0.70, 420);
+  cv.width  = W * devicePixelRatio;
+  cv.height = H * devicePixelRatio;
+  cv.style.height = H + 'px';
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  draw();
+}
+
+/* =====================================================
+   SLIDER
+===================================================== */
+tSlider.addEventListener('input', function () {
+  paramT = parseFloat(tSlider.value);
+  if (q3Mode) { q3Mode = false; q3Btn.classList.remove('on'); }
+  draw();
+});
+
+/* =====================================================
+   DRAG — snap P to nearest point on right branch
+===================================================== */
+function nearestT(wx, wy) {
+  var wy2 = Math.abs(wy);
+  var best = paramT, bestD = 1e9;
+  for (var tt = 0.08; tt <= 2.22; tt += 0.025) {
+    var d = Math.pow(SQRT2*Math.cosh(tt)-wx, 2) + Math.pow(Math.sinh(tt)-wy2, 2);
+    if (d < bestD) { bestD = d; best = tt; }
+  }
+  var lo = Math.max(0.08, best-0.1), hi = Math.min(2.20, best+0.1);
+  for (var i = 0; i < 50; i++) {
+    var m1 = lo+(hi-lo)/3, m2 = hi-(hi-lo)/3;
+    var d1 = Math.pow(SQRT2*Math.cosh(m1)-wx,2)+Math.pow(Math.sinh(m1)-wy2,2);
+    var d2 = Math.pow(SQRT2*Math.cosh(m2)-wx,2)+Math.pow(Math.sinh(m2)-wy2,2);
+    if (d1 < d2) hi = m2; else lo = m1;
+  }
+  return Math.max(0.08, Math.min(2.20, (lo+hi)/2));
+}
+
+function startDrag(sx, sy) {
+  var w = toW(sx, sy);
+  if (w[0] > 0.8) {
+    dragging = true;
+    paramT = nearestT(w[0], w[1]);
+    tSlider.value = paramT;
+    if (q3Mode) { q3Mode = false; q3Btn.classList.remove('on'); }
+    draw();
+  }
+}
+function moveDrag(sx, sy) {
+  if (!dragging) return;
+  var w = toW(sx, sy);
+  paramT = nearestT(w[0], w[1]);
+  tSlider.value = paramT;
+  draw();
+}
+
+cv.addEventListener('mousedown', function (e) {
+  var r = cv.getBoundingClientRect();
+  startDrag(e.clientX - r.left, e.clientY - r.top);
+});
+window.addEventListener('mousemove', function (e) {
+  if (!dragging) return;
+  var r = cv.getBoundingClientRect();
+  moveDrag(e.clientX - r.left, e.clientY - r.top);
+});
+window.addEventListener('mouseup', function () { dragging = false; });
+
+cv.addEventListener('touchstart', function (e) {
+  e.preventDefault();
+  var r = cv.getBoundingClientRect(), tc = e.touches[0];
+  startDrag(tc.clientX - r.left, tc.clientY - r.top);
+}, { passive: false });
+cv.addEventListener('touchmove', function (e) {
+  e.preventDefault();
+  var r = cv.getBoundingClientRect(), tc = e.touches[0];
+  moveDrag(tc.clientX - r.left, tc.clientY - r.top);
+}, { passive: false });
+cv.addEventListener('touchend', function () { dragging = false; });
+
+/* =====================================================
+   INIT
+===================================================== */
+var ro = new ResizeObserver(resize);
+ro.observe(cv.parentElement);
+resize();
+
+window.matchMedia('(prefers-color-scheme:dark)')
+      .addEventListener('change', function () { resize(); });
+
+})(); /* end IIFE */
+</script>
+</body>
+</html>

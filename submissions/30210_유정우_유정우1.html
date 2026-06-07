@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수학 15회 모의고사 4번 시뮬레이터 (최종)</title>
+  
+  <!-- Tailwind CSS 로드 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React 및 ReactDOM 로드 -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- 브라우저에서 JSX를 컴파일하기 위한 Babel 로드 -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <!-- 리액트 앱이 렌더링될 공간 -->
+  <div id="root"></div>
+
+  <!-- 여기서부터 리액트 코드 -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // --- 수학 유틸리티 함수 ---
+    const findQ = (c, r) => {
+      const ec = Math.exp(c);
+      const P = { x: c, y: ec };
+
+      // 단위 벡터 v (접선 T_c 방향), n (법선 N_c 방향)
+      const lenT = Math.sqrt(1 + ec * ec);
+      const v = { x: 1 / lenT, y: ec / lenT };
+      const n = { x: -ec / lenT, y: 1 / lenT };
+
+      // H = P + r * v
+      const H = { x: P.x + r * v.x, y: P.y + r * v.y };
+
+      // S = P + r * n (문제 조건: y > e^x 영역, n 벡터 방향과 일치)
+      const S = { x: P.x + r * n.x, y: P.y + r * n.y };
+
+      // R = H + r * n = S + r * v
+      const R = { x: H.x + r * n.x, y: H.y + r * n.y };
+
+      // Q점의 x좌표 t 찾기 (뉴턴-랩슨 법)
+      // c값이 최대 10까지 커지므로 연산 횟수를 50회로 넉넉하게 설정
+      let t = c + 0.1; 
+      for (let i = 0; i < 50; i++) {
+        const et = Math.exp(t);
+        const f = t - H.x + ec * (et - H.y);
+        const df = 1 + ec * et;
+        const dt = f / df;
+        t -= dt;
+        if (Math.abs(dt) < 1e-8) break;
+      }
+      
+      const Q = { x: t, y: Math.exp(t) };
+      
+      // 선분 HQ의 길이
+      const q = Math.sqrt(Math.pow(Q.x - H.x, 2) + Math.pow(Q.y - H.y, 2));
+
+      return { P, H, S, R, Q, v, n, q };
+    };
+
+    const MathSimulator = () => {
+      const canvasRef = useRef(null);
+      
+      // 상태 변수
+      const [c, setC] = useState(1.0);
+      const [r, setR] = useState(2.0);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [followP, setFollowP] = useState(true);
+      
+      // 화면 뷰포트 (팬, 줌)
+      const [transform, setTransform] = useState({ x: 0, y: 0, scale: 80 });
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+      // 초기화 함수
+      const handleReset = () => {
+        setC(1.0);
+        setR(2.0);
+        setIsPlaying(false);
+        setFollowP(true);
+        setTransform({ x: 0, y: 0, scale: 80 });
+      };
+
+      // 애니메이션 루프 (자동 재생)
+      useEffect(() => {
+        let animationId;
+        if (isPlaying) {
+          const loop = () => {
+            setC((prevC) => {
+              const nextC = prevC + 0.005;
+              if (nextC > 10.0) {
+                setIsPlaying(false);
+                return 10.0;
+              }
+              return nextC;
+            });
+            animationId = requestAnimationFrame(loop);
+          };
+          animationId = requestAnimationFrame(loop);
+        }
+        return () => cancelAnimationFrame(animationId);
+      }, [isPlaying]);
+
+      // 그리기 로직
+      const draw = useCallback(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // 데이터 계산
+        const pts = findQ(c, r);
+        const { P, H, S, R, Q } = pts;
+
+        // 카메라 자동 추적 로직 (화면이 c값 증가를 즉시 따라가도록 변경)
+        let renderTx = transform.x;
+        let renderTy = transform.y;
+        const renderScale = transform.scale;
+
+        if (followP && !isDragging) {
+          renderTx = width * 0.4 - P.x * renderScale;
+          renderTy = height * 0.6 + P.y * renderScale; 
+          
+          if (Math.abs(renderTx - transform.x) > 0.01 || Math.abs(renderTy - transform.y) > 0.01) {
+            setTransform({ x: renderTx, y: renderTy, scale: renderScale });
+          }
+        }
+
+        ctx.clearRect(0, 0, width, height);
+
+        // --- 수학적 좌표계로 변환 ---
+        ctx.save();
+        ctx.translate(renderTx, renderTy);
+        ctx.scale(renderScale, -renderScale);
+
+        // 1. 그리드 및 축 그리기
+        const viewLeft = -renderTx / renderScale;
+        const viewRight = (width - renderTx) / renderScale;
+        const viewTop = renderTy / renderScale;
+        const viewBottom = (renderTy - height) / renderScale;
+
+        ctx.lineWidth = 1 / renderScale;
+        
+        ctx.strokeStyle = '#94a3b8';
+        ctx.beginPath();
+        ctx.moveTo(viewLeft, 0); ctx.lineTo(viewRight, 0);
+        ctx.moveTo(0, viewBottom); ctx.lineTo(0, viewTop);
+        ctx.stroke();
+
+        // 2. 곡선 y = e^x 그리기
+        ctx.strokeStyle = '#2563eb'; 
+        ctx.lineWidth = 3 / renderScale;
+        ctx.beginPath();
+        for (let x = viewLeft; x <= viewRight; x += 0.05) {
+          const y = Math.exp(x);
+          if (x === viewLeft) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // 3. 접선 T_c 와 법선 N_c
+        const ec = Math.exp(c);
+        const m_T = ec;
+        const m_N = -1 / ec;
+
+        ctx.lineWidth = 1.5 / renderScale;
+        
+        ctx.strokeStyle = '#f97316';
+        ctx.beginPath();
+        ctx.moveTo(viewLeft, ec + m_T * (viewLeft - c));
+        ctx.lineTo(viewRight, ec + m_T * (viewRight - c));
+        ctx.stroke();
+
+        ctx.strokeStyle = '#a855f7'; 
+        ctx.beginPath();
+        ctx.moveTo(viewLeft, ec + m_N * (viewLeft - c));
+        ctx.lineTo(viewRight, ec + m_N * (viewRight - c));
+        ctx.stroke();
+
+        // 4. 도형 색칠하기
+        
+        // 정사각형 PHRS
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; 
+        ctx.beginPath();
+        ctx.moveTo(P.x, P.y); ctx.lineTo(H.x, H.y); ctx.lineTo(R.x, R.y); ctx.lineTo(S.x, S.y);
+        ctx.closePath();
+        ctx.fill();
+
+        // 삼각형 PQH
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.25)'; 
+        ctx.beginPath();
+        ctx.moveTo(P.x, P.y); ctx.lineTo(Q.x, Q.y); ctx.lineTo(H.x, H.y);
+        ctx.closePath();
+        ctx.fill();
+
+        // 다각형 PQRS
+        ctx.strokeStyle = '#10b981'; 
+        ctx.lineWidth = 2.5 / renderScale;
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.1)'; 
+        ctx.beginPath();
+        ctx.moveTo(P.x, P.y); ctx.lineTo(Q.x, Q.y); ctx.lineTo(R.x, R.y); ctx.lineTo(S.x, S.y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // 외곽선 (정사각형)
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.5 / renderScale;
+        ctx.beginPath();
+        ctx.moveTo(P.x, P.y); ctx.lineTo(H.x, H.y); ctx.lineTo(R.x, R.y); ctx.lineTo(S.x, S.y);
+        ctx.closePath();
+        ctx.stroke();
+
+        // 5. 점 그리기
+        const drawPoint = (pt, color, label, align='left') => {
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 4 / renderScale, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.save();
+          ctx.translate(pt.x, pt.y);
+          ctx.scale(1 / renderScale, -1 / renderScale);
+          ctx.fillStyle = '#1e293b';
+          ctx.font = '14px sans-serif';
+          ctx.fontWeight = 'bold';
+          
+          let tx = 8, ty = -8;
+          if (align === 'right') tx = -18;
+          else if (align === 'top') { tx = -5; ty = -12; }
+          else if (align === 'bottom') { tx = -5; ty = 18; }
+          
+          ctx.fillText(label, tx, ty);
+          ctx.restore();
+        };
+
+        drawPoint(P, '#ef4444', 'P(c, eᶜ)', 'bottom');
+        drawPoint(H, '#000000', 'H');
+        drawPoint(S, '#000000', 'S', 'right');
+        drawPoint(R, '#000000', 'R');
+        drawPoint(Q, '#22c55e', 'Q(t, eᵗ)', 'top');
+
+        ctx.restore();
+      }, [c, r, transform, followP, isDragging]);
+
+      // 리사이즈 및 렌더링 스케줄링
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          canvas.width = canvas.parentElement.clientWidth;
+          canvas.height = canvas.parentElement.clientHeight;
+        }
+        
+        let animationFrameId = requestAnimationFrame(draw);
+        return () => cancelAnimationFrame(animationFrameId);
+      }, [draw]);
+
+      // 마우스 이벤트 (팬, 줌)
+      const handleWheel = (e) => {
+        e.preventDefault();
+        const zoomFactor = 1.1;
+        const direction = e.deltaY < 0 ? 1 : -1;
+        
+        setTransform((prev) => {
+          const scaleChange = direction > 0 ? zoomFactor : 1 / zoomFactor;
+          const newScale = prev.scale * scaleChange;
+          
+          const rect = canvasRef.current.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left;
+          const mouseY = e.clientY - rect.top;
+          
+          const newX = mouseX - (mouseX - prev.x) * scaleChange;
+          const newY = mouseY - (mouseY - prev.y) * scaleChange;
+          
+          return { x: newX, y: newY, scale: Math.max(5, Math.min(newScale, 500)) };
+        });
+        setFollowP(false); 
+      };
+
+      const handleMouseDown = (e) => {
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
+        setFollowP(false);
+      };
+
+      const handleMouseMove = (e) => {
+        if (isDragging) {
+          setTransform((prev) => ({
+            ...prev,
+            x: e.clientX - dragStart.x,
+            y: e.clientY - dragStart.y,
+          }));
+        }
+      };
+
+      const handleMouseUp = () => {
+        setIsDragging(false);
+      };
+
+      // 실시간 계산 데이터
+      const { q } = findQ(c, r);
+      const areaPQH = 0.5 * r * q;
+      const areaSquare = r * r;
+      const areaPQRS = areaSquare - areaPQH; 
+      
+      const ec = Math.exp(c);
+      const limitValue1 = ec * areaPQH;
+
+      return (
+        <div className="flex flex-col md:flex-row h-screen w-full bg-slate-50 text-slate-800 font-sans">
+          
+          {/* 왼쪽 캔버스 영역 */}
+          <div className="flex-1 relative border-r border-slate-200 shadow-inner overflow-hidden cursor-crosshair">
+            <canvas
+              ref={canvasRef}
+              onWheel={handleWheel}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              className="absolute inset-0 touch-none"
+            />
+            <div className="absolute top-4 left-4 bg-white/90 p-2 rounded shadow text-sm pointer-events-none text-slate-600">
+              마우스 휠: 확대/축소 | 드래그: 이동
+            </div>
+            {!followP && (
+              <button 
+                onClick={() => setFollowP(true)}
+                className="absolute bottom-4 left-4 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded shadow-lg text-sm font-medium transition-colors"
+              >
+                카메라 자동 추적 켜기 (P점 기준)
+              </button>
+            )}
+          </div>
+
+          {/* 오른쪽 컨트롤 및 정보 패널 */}
+          <div className="w-full md:w-96 bg-white p-6 overflow-y-auto flex flex-col gap-6">
+            
+            <div>
+              <h1 className="text-xl font-bold text-slate-800 mb-1">도형 넓이의 극한</h1>
+              <p className="text-xs text-slate-500">함수 y = eˣ 와 접선/법선이 만드는 도형</p>
+            </div>
+
+            {/* 컨트롤 슬라이더 */}
+            <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-sm font-semibold text-slate-700">c 값 (점 P의 x좌표)</label>
+                  <span className="text-sm font-mono bg-white px-2 rounded border">{c.toFixed(3)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="10.0"
+                  step="0.01"
+                  value={c}
+                  onChange={(e) => { setC(parseFloat(e.target.value)); setFollowP(true); }}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-sm font-semibold text-slate-700">r 값 (선분 PH 길이)</label>
+                  <span className="text-sm font-mono bg-white px-2 rounded border">{r.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="5.0"
+                  step="0.1"
+                  value={r}
+                  onChange={(e) => setR(parseFloat(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setIsPlaying(!isPlaying); setFollowP(true); }}
+                  className={`flex-1 py-2.5 rounded-lg font-bold text-white shadow-sm transition-all ${
+                    isPlaying ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {isPlaying ? '정지' : 'c 값 자동 증가'}
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2.5 rounded-lg font-bold bg-slate-200 text-slate-700 hover:bg-slate-300 shadow-sm transition-all"
+                >
+                  초기화
+                </button>
+              </div>
+            </div>
+
+            {/* 실시간 데이터 패널 */}
+            <div className="flex-1 flex flex-col gap-3">
+              <h2 className="text-sm font-bold text-slate-800 border-b pb-1">실시간 넓이 계산 (A)</h2>
+              
+              <div className="bg-red-50 p-3 rounded-lg border border-red-100">
+                <div className="text-xs font-semibold text-red-600 mb-1">삼각형 PQH의 넓이 (∆PQH)</div>
+                <div className="text-lg font-mono font-bold">{areaPQH.toFixed(6)}</div>
+                <div className="text-xs text-red-500 mt-1">c가 커질수록 0에 한없이 수렴합니다.</div>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <div className="text-xs font-semibold text-blue-600 mb-1">정사각형 SPHR의 넓이</div>
+                <div className="text-lg font-mono font-bold">{(r*r).toFixed(6)}</div>
+                <div className="text-xs text-blue-500 mt-1">항상 r² 으로 일정합니다.</div>
+              </div>
+
+              <div className="bg-green-50 p-3 rounded-lg border border-green-100 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-green-200 text-green-800 text-[10px] px-2 py-1 rounded-bl-lg font-bold">문제 (2) 관련</div>
+                <div className="text-xs font-semibold text-green-700 mb-1">도형 PQRS 넓이 A(c, r)</div>
+                <div className="text-xl font-mono font-bold text-green-800">{areaPQRS.toFixed(6)}</div>
+                <div className="text-xs text-green-600 mt-1">
+                  c가 커지면 <span className="font-bold">{(r*r).toFixed(2)} (r²)</span> 에 수렴하는 것을 관찰하세요.
+                </div>
+              </div>
+              
+              <h2 className="text-sm font-bold text-slate-800 border-b pb-1 mt-4">극한 관찰 (문제 1번 힌트)</h2>
+              <div className="bg-slate-100 p-3 rounded-lg border border-slate-200">
+                 <div className="text-xs font-semibold text-slate-600 mb-1">
+                   eᶜ × ∆PQH 의 값
+                 </div>
+                 <div className="text-lg font-mono font-bold text-slate-800">{limitValue1.toFixed(5)}</div>
+                 <div className="text-xs text-slate-500 mt-1">
+                   이 값이 어디로 수렴하는지 관찰해보세요.<br/>
+                   (이론적 수렴값: <b>{(r*r*r/4).toFixed(5)}</b> (r³/4))
+                 </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      );
+    };
+
+    // React 18 렌더링 방식
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<MathSimulator />);
+  </script>
+</body>
+</html>

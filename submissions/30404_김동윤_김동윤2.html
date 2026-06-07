@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>42번 3차곡선 접선 시뮬레이터</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Malgun Gothic", Arial, sans-serif;
+      background: #f4f6f8;
+      color: #222;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      text-align: center;
+      font-size: 26px;
+    }
+
+    .subtitle {
+      text-align: center;
+      margin-bottom: 18px;
+      color: #555;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      padding: 16px;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: white;
+      cursor: crosshair;
+    }
+
+    .controls {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .control-box {
+      background: #f7f9fb;
+      border: 1px solid #dde3ea;
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    label {
+      font-size: 14px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .button-row {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 12px;
+      background: #2563eb;
+      color: white;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #475569;
+    }
+
+    button.danger {
+      background: #b91c1c;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    .check-list {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .check-list label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+    }
+
+    .info-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 12px;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 8px;
+    }
+
+    .info-block {
+      margin-bottom: 14px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    .info-block h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: #1e293b;
+    }
+
+    .info-line {
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .status-good {
+      color: #047857;
+      font-weight: bold;
+    }
+
+    .status-warn {
+      color: #b91c1c;
+      font-weight: bold;
+    }
+
+    .status-mid {
+      color: #b45309;
+      font-weight: bold;
+    }
+
+    .formula {
+      font-family: "Consolas", monospace;
+      font-size: 13px;
+      background: #eef2ff;
+      padding: 8px;
+      border-radius: 8px;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+
+    .small {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>42번 3차곡선 접선 시뮬레이터</h1>
+    <div class="subtitle">
+      곡선 C: y = x³ - x와 점 P에 대하여, P에서 C에 그을 수 있는 접선의 개수와 접점 삼각형의 무게중심 자취를 시각화하는 시뮬레이터
+    </div>
+
+    <div class="layout">
+      <div class="card">
+        <canvas id="graph" width="900" height="650"></canvas>
+
+        <div class="controls">
+          <div class="control-box">
+            <label>
+              P의 x좌표 a:
+              <span id="xValue">1.500</span>
+            </label>
+            <input id="xSlider" type="range" min="-2.8" max="2.8" step="0.001" value="1.5">
+          </div>
+
+          <div class="control-box">
+            <label>
+              P의 y좌표 b:
+              <span id="yValue">0.000</span>
+            </label>
+            <input id="ySlider" type="range" min="-10" max="18" step="0.001" value="0">
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="autoBtn">자동 이동 시작</button>
+          <button id="scanBtn" class="secondary">무게중심 자취 스캔</button>
+          <button id="resetBtn" class="secondary">P 초기화</button>
+          <button id="clearBtn" class="danger">자취 지우기</button>
+        </div>
+
+        <div class="check-list">
+          <label><input id="xAxisModeCheck" type="checkbox" checked> P를 x축 위에서만 이동</label>
+          <label><input id="regionCheck" type="checkbox" checked> 접선 3개 영역 D 표시</label>
+          <label><input id="boundaryCheck" type="checkbox" checked> 경계선 표시</label>
+          <label><input id="tangentCheck" type="checkbox" checked> 접선 표시</label>
+          <label><input id="triangleCheck" type="checkbox" checked> 접점 삼각형 표시</label>
+          <label><input id="centroidTraceCheck" type="checkbox" checked> 무게중심 자취 표시</label>
+          <label><input id="locusCheck" type="checkbox" checked> 이론 자취 y=9x³-2x 표시</label>
+          <label><input id="pointLabelCheck" type="checkbox" checked> 점 이름 표시</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="info-title">현재 상태</div>
+
+        <div class="info-block">
+          <h3>점 P</h3>
+          <div class="info-line">P = <span id="pCoord"></span></div>
+          <div class="info-line">현재 영역: <span id="regionStatus"></span></div>
+          <div class="small">
+            접선 3개 영역 D는 y = -x와 y = x³ - x 사이의 영역으로 볼 수 있다.
+          </div>
+        </div>
+
+        <div class="info-block">
+          <h3>접선 개수</h3>
+          <div class="info-line">판별식 Δ = <span id="discValue"></span></div>
+          <div class="info-line">서로 다른 접선 개수 = <span id="rootCount"></span></div>
+          <div class="formula">
+            접점의 x좌표 t는<br>
+            2t³ - 3at² + a + b = 0<br>
+            의 실근이다.
+          </div>
+        </div>
+
+        <div class="info-block">
+          <h3>접점</h3>
+          <div class="info-line" id="contactList"></div>
+          <div class="small">
+            각 접점은 T = (t, t³ - t)로 표시된다.
+          </div>
+        </div>
+
+        <div class="info-block">
+          <h3>접점 삼각형과 무게중심</h3>
+          <div class="info-line">G = <span id="gCoord"></span></div>
+          <div class="info-line">x축 모드 조건: <span id="xAxisStatus"></span></div>
+          <div class="formula">
+            P = (a, 0), |a| &gt; 1일 때<br>
+            Gx = a/2<br>
+            Gy = 9a³/8 - a<br>
+            따라서 y = 9x³ - 2x
+          </div>
+        </div>
+
+        <div class="info-block">
+          <h3>사용 방법</h3>
+          <div class="small">
+            점 P를 드래그하거나 슬라이더를 움직이면 P에서 곡선 C에 그을 수 있는 접선들이 실시간으로 표시된다.
+            x축 이동 모드를 켜면 2번 문항처럼 P가 x축 위에서만 움직이며, 접선이 3개일 때 세 접점을 연결한 삼각형과 무게중심 G가 표시된다.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("graph");
+    const ctx = canvas.getContext("2d");
+
+    const xSlider = document.getElementById("xSlider");
+    const ySlider = document.getElementById("ySlider");
+    const xValue = document.getElementById("xValue");
+    const yValue = document.getElementById("yValue");
+
+    const autoBtn = document.getElementById("autoBtn");
+    const scanBtn = document.getElementById("scanBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const clearBtn = document.getElementById("clearBtn");
+
+    const xAxisModeCheck = document.getElementById("xAxisModeCheck");
+    const regionCheck = document.getElementById("regionCheck");
+    const boundaryCheck = document.getElementById("boundaryCheck");
+    const tangentCheck = document.getElementById("tangentCheck");
+    const triangleCheck = document.getElementById("triangleCheck");
+    const centroidTraceCheck = document.getElementById("centroidTraceCheck");
+    const locusCheck = document.getElementById("locusCheck");
+    const pointLabelCheck = document.getElementById("pointLabelCheck");
+
+    const pCoord = document.getElementById("pCoord");
+    const regionStatus = document.getElementById("regionStatus");
+    const discValue = document.getElementById("discValue");
+    const rootCount = document.getElementById("rootCount");
+    const contactList = document.getElementById("contactList");
+    const gCoord = document.getElementById("gCoord");
+    const xAxisStatus = document.getElementById("xAxisStatus");
+
+    const view = {
+      xMin: -3.0,
+      xMax: 3.0,
+      yMin: -12.0,
+      yMax: 18.0
+    };
+
+    const state = {
+      a: 1.5,
+      b: 0,
+      dragging: false,
+      auto: false,
+      autoT: 0,
+      lastTime: null,
+      centroidTrace: [],
+      scanPoints: []
+    };
+
+    function toScreenX(x) {
+      return (x - view.xMin) / (view.xMax - view.xMin) * canvas.width;
+    }
+
+    function toScreenY(y) {
+      return canvas.height - (y - view.yMin) / (view.yMax - view.yMin) * canvas.height;
+    }
+
+    function toWorldX(px) {
+      return view.xMin + px / canvas.width * (view.xMax - view.xMin);
+    }
+
+    function toWorldY(py) {
+      return view.yMin + (canvas.height - py) / canvas.height * (view.yMax - view.yMin);
+    }
+
+    function f(x) {
+      return x * x * x - x;
+    }
+
+    function fp(x) {
+      return 3 * x * x - 1;
+    }
+
+    function cbrt(x) {
+      return Math.sign(x) * Math.pow(Math.abs(x), 1 / 3);
+    }
+
+    function uniqueSortedRoots(roots) {
+      roots.sort((x, y) => x - y);
+      const out = [];
+      const eps = 1e-6;
+
+      for (const r of roots) {
+        if (!Number.isFinite(r)) continue;
+        if (out.length === 0 || Math.abs(out[out.length - 1] - r) > eps) {
+          out.push(r);
+        }
+      }
+
+      return out;
+    }
+
+    function solveCubicForTangency(a, b) {
+      // 2t^3 - 3at^2 + a + b = 0
+      // t^3 + A t^2 + B t + C = 0
+      const A = -1.5 * a;
+      const B = 0;
+      const C = 0.5 * (a + b);
+
+      const p = B - A * A / 3;
+      const q = 2 * A * A * A / 27 - A * B / 3 + C;
+      const shift = -A / 3;
+
+      const D = (q / 2) * (q / 2) + (p / 3) * (p / 3) * (p / 3);
+      const eps = 1e-10;
+      let roots = [];
+
+      if (D > eps) {
+        const sqrtD = Math.sqrt(D);
+        const u = cbrt(-q / 2 + sqrtD);
+        const v = cbrt(-q / 2 - sqrtD);
+        roots = [u + v + shift];
+      } else if (Math.abs(D) <= eps) {
+        const u = cbrt(-q / 2);
+        roots = [2 * u + shift, -u + shift];
+      } else {
+        const r = 2 * Math.sqrt(-p / 3);
+        let cosArg = (3 * q / (2 * p)) * Math.sqrt(-3 / p);
+        cosArg = Math.max(-1, Math.min(1, cosArg));
+        const theta = Math.acos(cosArg);
+
+        roots = [
+          r * Math.cos(theta / 3) + shift,
+          r * Math.cos((theta + 2 * Math.PI) / 3) + shift,
+          r * Math.cos((theta + 4 * Math.PI) / 3) + shift
+        ];
+      }
+
+      return {
+        roots: uniqueSortedRoots(roots),
+        discriminant: D
+      };
+    }
+
+    function getData(a, b) {
+      const result = solveCubicForTangency(a, b);
+      const roots = result.roots;
+      const contacts = roots.map(t => ({
+        t,
+        x: t,
+        y: f(t),
+        slope: fp(t)
+      }));
+
+      let centroid = null;
+      if (contacts.length === 3) {
+        centroid = {
+          x: (contacts[0].x + contacts[1].x + contacts[2].x) / 3,
+          y: (contacts[0].y + contacts[1].y + contacts[2].y) / 3
+        };
+      }
+
+      return {
+        roots,
+        contacts,
+        centroid,
+        discriminant: result.discriminant
+      };
+    }
+
+    function isInD(a, b) {
+      // D: 접선이 3개가 되는 영역, 즉 (a+b)(a^3-a-b) > 0
+      return (a + b) * (a * a * a - a - b) > 1e-8;
+    }
+
+    function isOnBoundary(a, b) {
+      return Math.abs((a + b) * (a * a * a - a - b)) <= 1e-6;
+    }
+
+    function fmt(n, digits = 4) {
+      if (!Number.isFinite(n)) return "-";
+      return Number(n).toFixed(digits);
+    }
+
+    function fmtPoint(p) {
+      if (!p) return "-";
+      return `(${fmt(p.x)}, ${fmt(p.y)})`;
+    }
+
+    function setP(a, b, addTrace = true) {
+      if (xAxisModeCheck.checked) {
+        b = 0;
+      }
+
+      state.a = Math.max(view.xMin, Math.min(view.xMax, a));
+      state.b = Math.max(view.yMin, Math.min(view.yMax, b));
+
+      xSlider.value = state.a;
+      ySlider.value = state.b;
+      xValue.textContent = fmt(state.a, 3);
+      yValue.textContent = fmt(state.b, 3);
+      ySlider.disabled = xAxisModeCheck.checked;
+
+      const data = getData(state.a, state.b);
+
+      if (addTrace && data.centroid && xAxisModeCheck.checked && Math.abs(state.a) > 1) {
+        addCentroidTrace(data.centroid);
+      }
+
+      updateInfo(data);
+      draw();
+    }
+
+    function addCentroidTrace(G) {
+      const last = state.centroidTrace[state.centroidTrace.length - 1];
+
+      if (!last || Math.hypot(last.x - G.x, last.y - G.y) > 0.015) {
+        state.centroidTrace.push({ x: G.x, y: G.y });
+      }
+
+      if (state.centroidTrace.length > 4000) {
+        state.centroidTrace.shift();
+      }
+    }
+
+    function updateInfo(data) {
+      const a = state.a;
+      const b = state.b;
+
+      pCoord.textContent = `(${fmt(a)}, ${fmt(b)})`;
+      discValue.textContent = fmt(data.discriminant, 6);
+      rootCount.textContent = `${data.contacts.length}개`;
+
+      if (isInD(a, b)) {
+        regionStatus.textContent = "접선 3개 영역 D 내부";
+        regionStatus.className = "status-good";
+      } else if (isOnBoundary(a, b)) {
+        regionStatus.textContent = "접선 개수가 바뀌는 경계";
+        regionStatus.className = "status-mid";
+      } else {
+        regionStatus.textContent = "접선 1개 영역";
+        regionStatus.className = "status-warn";
+      }
+
+      if (data.contacts.length === 0) {
+        contactList.innerHTML = "-";
+      } else {
+        contactList.innerHTML = data.contacts.map((p, idx) => {
+          return `T${idx + 1} = (${fmt(p.x)}, ${fmt(p.y)})`;
+        }).join("<br>");
+      }
+
+      gCoord.textContent = data.centroid ? fmtPoint(data.centroid) : "접점 3개일 때 표시";
+
+      if (xAxisModeCheck.checked && Math.abs(a) > 1 && Math.abs(b) < 1e-8) {
+        xAxisStatus.textContent = "P=(a,0), |a|>1 조건 만족";
+        xAxisStatus.className = "status-good";
+      } else if (xAxisModeCheck.checked) {
+        xAxisStatus.textContent = "x축 위이지만 |a|>1이 아님";
+        xAxisStatus.className = "status-warn";
+      } else {
+        xAxisStatus.textContent = "x축 이동 모드 꺼짐";
+        xAxisStatus.className = "status-mid";
+      }
+    }
+
+    function drawGrid() {
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.fillStyle = "#777";
+      ctx.font = "11px Arial";
+
+      for (let x = Math.ceil(view.xMin * 2) / 2; x <= view.xMax; x += 0.5) {
+        const sx = toScreenX(x);
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, canvas.height);
+        ctx.stroke();
+
+        if (Math.abs(x) > 1e-9) {
+          ctx.fillText(fmt(x, 1), sx + 3, toScreenY(0) - 4);
+        }
+      }
+
+      for (let y = Math.ceil(view.yMin / 2) * 2; y <= view.yMax; y += 2) {
+        const sy = toScreenY(y);
+        ctx.beginPath();
+        ctx.moveTo(0, sy);
+        ctx.lineTo(canvas.width, sy);
+        ctx.stroke();
+
+        if (Math.abs(y) > 1e-9) {
+          ctx.fillText(fmt(y, 0), toScreenX(0) + 4, sy - 3);
+        }
+      }
+
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1.5;
+
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(view.xMin), toScreenY(0));
+      ctx.lineTo(toScreenX(view.xMax), toScreenY(0));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(0), toScreenY(view.yMin));
+      ctx.lineTo(toScreenX(0), toScreenY(view.yMax));
+      ctx.stroke();
+
+      ctx.fillStyle = "#222";
+      ctx.font = "13px Arial";
+      ctx.fillText("x", canvas.width - 18, toScreenY(0) - 8);
+      ctx.fillText("y", toScreenX(0) + 8, 16);
+
+      ctx.restore();
+    }
+
+    function drawCurve(fn, x1, x2, step, color, width, dash = []) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+
+      let started = false;
+      for (let x = x1; x <= x2; x += step) {
+        const y = fn(x);
+        const sx = toScreenX(x);
+        const sy = toScreenY(y);
+
+        if (!Number.isFinite(y)) {
+          started = false;
+          continue;
+        }
+
+        if (!started) {
+          ctx.moveTo(sx, sy);
+          started = true;
+        } else {
+          ctx.lineTo(sx, sy);
+        }
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawRegionD() {
+      if (!regionCheck.checked) return;
+
+      ctx.save();
+      ctx.fillStyle = "rgba(245, 158, 11, 0.20)";
+
+      const step = 0.01;
+      for (let x = view.xMin; x <= view.xMax; x += step) {
+        const y1 = -x;
+        const y2 = f(x);
+        let low = Math.min(y1, y2);
+        let high = Math.max(y1, y2);
+
+        low = Math.max(low, view.yMin);
+        high = Math.min(high, view.yMax);
+
+        if (high > low) {
+          const sx = toScreenX(x);
+          const sy1 = toScreenY(high);
+          const sy2 = toScreenY(low);
+          const w = Math.max(1, toScreenX(x + step) - sx + 1);
+          ctx.fillRect(sx, sy1, w, sy2 - sy1);
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function drawPoint(p, color, label, radius = 6) {
+      const sx = toScreenX(p.x);
+      const sy = toScreenY(p.y);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      if (pointLabelCheck.checked && label) {
+        ctx.fillStyle = "#111";
+        ctx.font = "bold 13px Arial";
+        ctx.fillText(label, sx + 8, sy - 8);
+      }
+
+      ctx.restore();
+    }
+
+    function drawSegment(p1, p2, color, width, dash = []) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(p1.x), toScreenY(p1.y));
+      ctx.lineTo(toScreenX(p2.x), toScreenY(p2.y));
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawTangentThroughContact(contact) {
+      const t = contact.t;
+      const m = fp(t);
+      const yAt = x => m * (x - t) + f(t);
+      drawCurve(yAt, view.xMin, view.xMax, 0.02, "rgba(249, 115, 22, 0.9)", 2);
+    }
+
+    function drawCentroidTrace() {
+      if (!centroidTraceCheck.checked || state.centroidTrace.length < 2) return;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(147, 51, 234, 0.9)";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(state.centroidTrace[0].x), toScreenY(state.centroidTrace[0].y));
+
+      for (let i = 1; i < state.centroidTrace.length; i++) {
+        ctx.lineTo(toScreenX(state.centroidTrace[i].x), toScreenY(state.centroidTrace[i].y));
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawScanPoints() {
+      if (state.scanPoints.length === 0) return;
+
+      ctx.save();
+      ctx.fillStyle = "rgba(147, 51, 234, 0.25)";
+
+      for (const p of state.scanPoints) {
+        ctx.beginPath();
+        ctx.arc(toScreenX(p.x), toScreenY(p.y), 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function drawLocusCurve() {
+      if (!locusCheck.checked) return;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(124, 58, 237, 0.95)";
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([8, 5]);
+
+      function locus(x) {
+        return 9 * x * x * x - 2 * x;
+      }
+
+      // P=(a,0), |a|>1이면 Gx=a/2이므로 |Gx|>1/2
+      const intervals = [
+        [view.xMin, -0.5],
+        [0.5, view.xMax]
+      ];
+
+      for (const [start, end] of intervals) {
+        ctx.beginPath();
+        let started = false;
+        for (let x = start; x <= end; x += 0.01) {
+          const y = locus(x);
+          if (y < view.yMin || y > view.yMax) {
+            started = false;
+            continue;
+          }
+          const sx = toScreenX(x);
+          const sy = toScreenY(y);
+          if (!started) {
+            ctx.moveTo(sx, sy);
+            started = true;
+          } else {
+            ctx.lineTo(sx, sy);
+          }
+        }
+        ctx.stroke();
+      }
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#7c3aed";
+      ctx.font = "13px Arial";
+      ctx.fillText("G의 자취: y = 9x³ - 2x", toScreenX(0.55), toScreenY(1.5));
+      ctx.restore();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawGrid();
+      drawRegionD();
+
+      if (boundaryCheck.checked) {
+        drawCurve(x => -x, view.xMin, view.xMax, 0.01, "#16a34a", 2, [5, 4]);
+        drawCurve(x => f(x), view.xMin, view.xMax, 0.005, "#1d4ed8", 2.5);
+
+        ctx.save();
+        ctx.fillStyle = "#16a34a";
+        ctx.font = "13px Arial";
+        ctx.fillText("y = -x", toScreenX(-2.8), toScreenY(2.8));
+        ctx.fillStyle = "#1d4ed8";
+        ctx.fillText("C: y = x³ - x", toScreenX(1.35), toScreenY(2.1));
+        ctx.restore();
+      } else {
+        drawCurve(x => f(x), view.xMin, view.xMax, 0.005, "#1d4ed8", 2.5);
+      }
+
+      drawLocusCurve();
+      drawScanPoints();
+      drawCentroidTrace();
+
+      const P = { x: state.a, y: state.b };
+      const data = getData(state.a, state.b);
+
+      if (tangentCheck.checked) {
+        for (const contact of data.contacts) {
+          drawTangentThroughContact(contact);
+        }
+      }
+
+      if (triangleCheck.checked && data.contacts.length === 3) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(toScreenX(data.contacts[0].x), toScreenY(data.contacts[0].y));
+        ctx.lineTo(toScreenX(data.contacts[1].x), toScreenY(data.contacts[1].y));
+        ctx.lineTo(toScreenX(data.contacts[2].x), toScreenY(data.contacts[2].y));
+        ctx.closePath();
+        ctx.fillStyle = "rgba(245, 158, 11, 0.18)";
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.95)";
+        ctx.lineWidth = 2.2;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      data.contacts.forEach((contact, idx) => {
+        drawPoint(contact, "#f97316", `T${idx + 1}`, 6);
+        drawSegment(P, contact, "rgba(249, 115, 22, 0.35)", 1.5, [4, 4]);
+      });
+
+      if (data.centroid) {
+        drawPoint(data.centroid, "#9333ea", "G", 6);
+      }
+
+      drawPoint(P, isInD(state.a, state.b) ? "#16a34a" : "#dc2626", "P", 7);
+
+      ctx.save();
+      ctx.fillStyle = "#475569";
+      ctx.font = "12px Arial";
+      ctx.fillText("주의: 보기 편하도록 x축과 y축의 화면 비율은 서로 다르게 조정되어 있음", 14, canvas.height - 14);
+      ctx.restore();
+    }
+
+    function generateScanPoints() {
+      const points = [];
+
+      for (let a = -2.8; a <= -1.001; a += 0.01) {
+        const data = getData(a, 0);
+        if (data.centroid) points.push(data.centroid);
+      }
+
+      for (let a = 1.001; a <= 2.8; a += 0.01) {
+        const data = getData(a, 0);
+        if (data.centroid) points.push(data.centroid);
+      }
+
+      state.scanPoints = points;
+      draw();
+    }
+
+    function getCanvasMousePosition(event) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      return {
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
+      };
+    }
+
+    canvas.addEventListener("pointerdown", event => {
+      state.dragging = true;
+      state.auto = false;
+      autoBtn.textContent = "자동 이동 시작";
+      const pos = getCanvasMousePosition(event);
+      setP(toWorldX(pos.x), toWorldY(pos.y));
+    });
+
+    canvas.addEventListener("pointermove", event => {
+      if (!state.dragging) return;
+      const pos = getCanvasMousePosition(event);
+      setP(toWorldX(pos.x), toWorldY(pos.y));
+    });
+
+    window.addEventListener("pointerup", () => {
+      state.dragging = false;
+    });
+
+    xSlider.addEventListener("input", () => {
+      state.auto = false;
+      autoBtn.textContent = "자동 이동 시작";
+      setP(parseFloat(xSlider.value), parseFloat(ySlider.value));
+    });
+
+    ySlider.addEventListener("input", () => {
+      state.auto = false;
+      autoBtn.textContent = "자동 이동 시작";
+      setP(parseFloat(xSlider.value), parseFloat(ySlider.value));
+    });
+
+    const checks = [
+      xAxisModeCheck,
+      regionCheck,
+      boundaryCheck,
+      tangentCheck,
+      triangleCheck,
+      centroidTraceCheck,
+      locusCheck,
+      pointLabelCheck
+    ];
+
+    checks.forEach(chk => {
+      chk.addEventListener("change", () => {
+        if (chk === xAxisModeCheck && xAxisModeCheck.checked) {
+          state.b = 0;
+        }
+        setP(state.a, state.b, false);
+      });
+    });
+
+    autoBtn.addEventListener("click", () => {
+      state.auto = !state.auto;
+      autoBtn.textContent = state.auto ? "자동 이동 정지" : "자동 이동 시작";
+      state.lastTime = null;
+    });
+
+    scanBtn.addEventListener("click", generateScanPoints);
+
+    resetBtn.addEventListener("click", () => {
+      state.auto = false;
+      autoBtn.textContent = "자동 이동 시작";
+      state.centroidTrace = [];
+      state.scanPoints = [];
+      xAxisModeCheck.checked = true;
+      setP(1.5, 0, false);
+    });
+
+    clearBtn.addEventListener("click", () => {
+      state.centroidTrace = [];
+      state.scanPoints = [];
+      draw();
+    });
+
+    function animate(timestamp) {
+      if (state.auto) {
+        if (state.lastTime === null) {
+          state.lastTime = timestamp;
+        }
+
+        const dt = timestamp - state.lastTime;
+        state.lastTime = timestamp;
+        state.autoT += dt * 0.00045;
+
+        // x축 모드에서는 P가 x축 전체를 왕복하면서 접선 1개/3개 영역 변화를 보여줌
+        if (xAxisModeCheck.checked) {
+          const center = 0;
+          const amp = 2.6;
+          const a = center + amp * Math.sin(state.autoT);
+          setP(a, 0);
+        } else {
+          // 자유 모드에서는 두 경계 사이를 따라 움직이는 예시 경로
+          const a = 2.4 * Math.sin(state.autoT);
+          const yLow = Math.min(-a, f(a));
+          const yHigh = Math.max(-a, f(a));
+          const ratio = 0.5 + 0.45 * Math.sin(1.7 * state.autoT);
+          const b = yLow + (yHigh - yLow) * ratio;
+          setP(a, b);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    setP(1.5, 0, false);
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>격자점 직선 최종 시뮬레이터 (완벽 수정판)</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background: #2c3e50; display: flex; flex-direction: column; align-items: center; padding: 20px; color: #333;}
+        .panel { background: rgba(255,255,255,0.95); padding: 20px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); margin-bottom: 20px; width: 650px; }
+        .control-group { margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        input[type="range"] { flex-grow: 1; margin: 0 15px; cursor: pointer; }
+        .result-box { background: #e8f4f8; padding: 15px; border-radius: 8px; border-left: 5px solid #3498db; margin-top: 15px; height: 60px; display: flex; flex-direction: column; justify-content: center;}
+        .result-text { font-size: 1.1em; font-weight: bold; margin: 5px 0; }
+        .highlight { color: #e74c3c; font-size: 1.4em; }
+        canvas { background: #ecf0f1; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); cursor: crosshair; }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <h3 style="margin-top:0;">💡 최종: 정답 도출 및 검증 모드 (버그 완벽 수정)</h3>
+        <div class="control-group">
+            <label style="width: 120px;">가로 칸 수: <span id="val-w" style="font-weight:bold;">4</span></label>
+            <input type="range" id="sl-w" min="1" max="8" value="4">
+        </div>
+        <div class="control-group">
+            <label style="width: 120px;">세로 칸 수: <span id="val-h" style="font-weight:bold;">3</span></label>
+            <input type="range" id="sl-h" min="1" max="8" value="3">
+        </div>
+        <div class="control-group">
+            <label style="width: 160px;">n개 점 지나는 직선: <span id="val-n" style="color:#e74c3c; font-weight:bold;">2</span></label>
+            <input type="range" id="sl-n" min="2" max="10" value="2">
+        </div>
+        <hr>
+        <div class="control-group" style="justify-content: flex-start;">
+            <input type="checkbox" id="chk-interactive" style="margin-right: 10px; transform: scale(1.3); cursor: pointer;">
+            <label for="chk-interactive" style="font-weight: bold; color: #2980b9; cursor: pointer;">마우스로 직접 두 점 클릭해보기 (검증 모드)</label>
+        </div>
+        
+        <div class="result-box">
+            <div class="result-text">전체 직선의 총 개수 (정답): <span id="total-ans" class="highlight">93</span> 개</div>
+            <div class="result-text" id="mode-filter-text">현재 <span id="n-val-text" style="font-weight:bold;">2</span>개 점을 지나는 직선: <span id="filter-ans" style="color:#27ae60; font-weight:bold; font-size:1.2em;">72</span> 개</div>
+            <div class="result-text" id="mode-interact-text" style="display:none; color:#2980b9;">안내: 캔버스에서 첫 번째 점을 클릭하세요.</div>
+        </div>
+    </div>
+    <canvas id="canvas" width="650" height="450"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let globalPoints = [];
+        let globalLines = [];
+        let clickedPoints = [];
+
+        // 최대공약수 함수 (기약분수화 용도)
+        function gcd(a, b) {
+            a = Math.abs(a); b = Math.abs(b);
+            while(b) { let t = b; b = a % b; a = t; }
+            return a;
+        }
+
+        // 데이터 계산 함수 (중복 제거 및 직선 그룹화)
+        function calculateData(w, h) {
+            globalPoints = [];
+            let margin = 60;
+            let stepX = (canvas.width - margin*2) / w;
+            let stepY = (canvas.height - margin*2) / h;
+            let step = Math.min(stepX, stepY);
+            
+            let offsetX = (canvas.width - w * step) / 2;
+            let offsetY = (canvas.height - h * step) / 2;
+
+            for(let y=0; y<=h; y++) {
+                for(let x=0; x<=w; x++) {
+                    globalPoints.push({x: x, y: y, px: offsetX + x*step, py: offsetY + y*step});
+                }
+            }
+
+            let lineMap = new Map();
+            for(let i=0; i<globalPoints.length; i++) {
+                for(let j=i+1; j<globalPoints.length; j++) {
+                    let p1 = globalPoints[i];
+                    let p2 = globalPoints[j];
+                    
+                    // 직선의 방정식 (ax + by + c = 0)
+                    let a = p1.y - p2.y;
+                    let b = p2.x - p1.x;
+                    let c = p1.x * p2.y - p2.x * p1.y;
+
+                    let g = gcd(a, gcd(b, c));
+                    a /= g; b /= g; c /= g;
+                    
+                    // 부호 정규화 (방향 동일화)
+                    if (a < 0 || (a === 0 && b < 0)) {
+                        a = -a; b = -b; c = -c;
+                    }
+                    
+                    // -0 방지
+                    if(a === 0) a = 0; if(b === 0) b = 0; if(c === 0) c = 0;
+                    
+                    let key = `${a},${b},${c}`;
+                    if(!lineMap.has(key)) {
+                        lineMap.set(key, new Set());
+                    }
+                    lineMap.get(key).add(p1);
+                    lineMap.get(key).add(p2);
+                }
+            }
+
+            globalLines = [];
+            lineMap.forEach((set) => {
+                let pts = Array.from(set);
+                pts.sort((A, B) => A.x !== B.x ? A.x - B.x : A.y - B.y);
+                globalLines.push(pts);
+            });
+        }
+
+        // 전체 화면 업데이트 로직
+        function update() {
+            const w = parseInt(document.getElementById('sl-w').value);
+            const h = parseInt(document.getElementById('sl-h').value);
+            const n = parseInt(document.getElementById('sl-n').value);
+            const isInteractive = document.getElementById('chk-interactive').checked;
+            
+            // 1. 값 텍스트 업데이트 (여기서 에러가 나지 않도록 태그 분리 유지)
+            document.getElementById('val-w').innerText = w;
+            document.getElementById('val-h').innerText = h;
+            document.getElementById('val-n').innerText = n;
+            document.getElementById('n-val-text').innerText = n;
+            
+            if(!isInteractive) clickedPoints = []; 
+            
+            // 2. 직선 데이터 계산
+            calculateData(w, h);
+            
+            // 3. 정답란 출력 업데이트
+            document.getElementById('total-ans').innerText = globalLines.length;
+            const filteredCount = globalLines.filter(l => l.length === n).length;
+            document.getElementById('filter-ans').innerText = filteredCount;
+            
+            // 4. 모드에 따른 안내문 전환
+            const filterBox = document.getElementById('mode-filter-text');
+            const interactBox = document.getElementById('mode-interact-text');
+
+            if(isInteractive) {
+                filterBox.style.display = 'none';
+                interactBox.style.display = 'block';
+                if(clickedPoints.length === 0) interactBox.innerHTML = "안내: 캔버스에서 <span style='color:#2980b9; font-weight:bold;'>첫 번째 점</span>을 클릭하세요.";
+                else if(clickedPoints.length === 1) interactBox.innerHTML = "안내: 캔버스에서 <span style='color:#2980b9; font-weight:bold;'>두 번째 점</span>을 클릭하세요.";
+            } else {
+                filterBox.style.display = 'block';
+                interactBox.style.display = 'none';
+            }
+
+            // 5. 캔버스 그리기
+            draw(n, isInteractive);
+        }
+
+        // 캔버스 렌더링
+        function draw(n, isInteractive) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 필터링된 직선 그리기
+            if(!isInteractive) {
+                let filtered = globalLines.filter(l => l.length === n);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(231, 76, 60, 0.6)';
+                filtered.forEach(l => {
+                    ctx.beginPath(); 
+                    ctx.moveTo(l[0].px, l[0].py); 
+                    ctx.lineTo(l[l.length-1].px, l[l.length-1].py); 
+                    ctx.stroke();
+                });
+            }
+
+            // 모든 격자점 그리기
+            globalPoints.forEach(p => {
+                ctx.fillStyle = '#7f8c8d';
+                ctx.beginPath(); ctx.arc(p.px, p.py, 5, 0, Math.PI*2); ctx.fill();
+            });
+
+            // 검증 모드에서 클릭한 점 및 연결 직선 그리기
+            if(isInteractive) {
+                clickedPoints.forEach(p => {
+                    ctx.fillStyle = '#2980b9';
+                    ctx.beginPath(); ctx.arc(p.px, p.py, 8, 0, Math.PI*2); ctx.fill();
+                });
+
+                if(clickedPoints.length === 2) {
+                    let p1 = clickedPoints[0], p2 = clickedPoints[1];
+                    let matchLine = globalLines.find(l => l.some(pt => pt.x===p1.x && pt.y===p1.y) && l.some(pt => pt.x===p2.x && pt.y===p2.y));
+                    
+                    if(matchLine) {
+                        ctx.lineWidth = 4; 
+                        ctx.strokeStyle = 'rgba(52, 152, 219, 0.6)';
+                        let first = matchLine[0], last = matchLine[matchLine.length-1];
+                        
+                        let dx = last.px - first.px;
+                        let dy = last.py - first.py;
+                        
+                        ctx.beginPath(); 
+                        ctx.moveTo(first.px - dx*50, first.py - dy*50); 
+                        ctx.lineTo(last.px + dx*50, last.py + dy*50); 
+                        ctx.stroke();
+                        
+                        matchLine.forEach(p => {
+                            ctx.fillStyle = '#f1c40f';
+                            ctx.beginPath(); ctx.arc(p.px, p.py, 7, 0, Math.PI*2); ctx.fill();
+                        });
+                        
+                        document.getElementById('mode-interact-text').innerHTML = `이 직선은 총 <span style="color:#e67e22; font-weight:bold; font-size:1.2em;">${matchLine.length}</span> 개의 격자점을 지납니다!`;
+                    }
+                }
+            }
+        }
+
+        // 캔버스 클릭 이벤트 리스너
+        canvas.addEventListener('mousedown', (e) => {
+            if(!document.getElementById('chk-interactive').checked) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            let clicked = globalPoints.find(p => Math.hypot(p.px - x, p.py - y) < 15);
+            if(clicked) {
+                if(clickedPoints.length === 2) clickedPoints = [];
+                if(!clickedPoints.some(p => p.x === clicked.x && p.y === clicked.y)) {
+                    clickedPoints.push(clicked);
+                }
+                update();
+            }
+        });
+
+        // 명시적 이벤트 리스너 등록
+        document.getElementById('sl-w').addEventListener('input', update);
+        document.getElementById('sl-h').addEventListener('input', update);
+        document.getElementById('sl-n').addEventListener('input', update);
+        document.getElementById('chk-interactive').addEventListener('change', update);
+        
+        // 초기 1회 실행
+        update();
+    </script>
+</body>
+</html>

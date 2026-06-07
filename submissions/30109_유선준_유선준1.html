@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>쌍곡선의 반사 원리 및 내각 이등분선 증명 시뮬레이터</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            display: flex;
+            width: 1150px;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .canvas-area {
+            padding: 20px;
+            background: #1e222b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            background: #11141a;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .control-panel {
+            flex: 1;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-left: 1px solid #e1e6eb;
+            overflow-y: auto;
+        }
+        h2 { margin-top: 0; color: #1a202c; border-bottom: 2px solid #3182ce; padding-bottom: 10px; font-size: 20px; }
+        h3 { color: #2d3748; margin-bottom: 8px; font-size: 15px; margin-top: 15px; }
+        .control-group {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #edf2f7;
+        }
+        .slider-label { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 6px; font-size: 13px; }
+        input[type=range] { width: 100%; margin-bottom: 8px; cursor: pointer; }
+        .btn {
+            background-color: #3182ce; color: white; border: none; padding: 8px 12px;
+            border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-right: 5px; font-size: 12px;
+        }
+        .btn:hover { background-color: #2b6cb0; }
+        .btn-active { background-color: #2b6cb0; box-shadow: inset 0 0 5px rgba(0,0,0,0.3); }
+        .btn-toggle { background-color: #e53e3e; }
+        .btn-toggle:hover { background-color: #c53030; }
+        .data-panel {
+            background: #2d3748; color: #fff; padding: 12px; border-radius: 8px;
+            font-family: 'Courier New', monospace; font-size: 12.5px; line-height: 1.6;
+        }
+        .highlight { color: #4fd1c5; font-weight: bold; }
+        .proof-highlight { color: #f6e05e; font-weight: bold; font-size: 14px; }
+        .ans-box { background: #ebf8ff; border-left: 4px solid #3182ce; padding: 10px; border-radius: 4px; margin-top: 12px; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="canvas-area">
+        <canvas id="mathCanvas" width="550" height="550"></canvas>
+        <div style="color: #a0aec0; margin-top: 10px; font-size: 12px;">2D모드에선 마우스 드래그 조작 가능, 3D모드에선 다각도 관찰이 가능합니다.</div>
+    </div>
+
+    <div class="control-panel">
+        <div>
+            <h2>📐 쌍곡선 접선 및 내각 이등분선 증명</h2>
+            
+            <div class="control-group">
+                <div class="slider-label">
+                    <span>방정식 파라미터 (a 값 조절)</span>
+                    <span id="aTxt" style="color:#e53e3e;">a = 1.73</span>
+                </div>
+                <input type="range" id="aSlider" min="1.0" max="2.5" step="0.01" value="1.73">
+                <div style="font-size:12px; color:#4a5568; text-align:center; font-weight:bold;">
+                    현재 모양: <span id="eqnText" style="color:#3182ce;">x² / 3.00 - y² = 1</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="slider-label">
+                    <span>점 P의 x₁ 좌표 설정</span>
+                    <span id="xVal" style="color:#3182ce;">3.00</span>
+                </div>
+                <input type="range" id="xSlider" min="1.79" max="5.0" step="0.01" value="3.0">
+                <div>
+                    <button class="btn" id="btnPlay">▶ 위치 자동 재생</button>
+                    <button class="btn" id="btnSnap">x₁ = 3 고정</button>
+                </div>
+            </div>
+
+            <div class="control-group" id="ui3DControls" style="background:#edf2f7;">
+                <div class="slider-label"><span style="color:#2d3748;">🌐 3D 관찰 각도 제어</span></div>
+                <div style="margin-bottom: 8px;">
+                    <button class="btn" id="btnAngleAuto">🔄 자동 회전 모드</button>
+                    <button class="btn" id="btnAngleManual">정지 및 수동 조작</button>
+                </div>
+                <div class="slider-label">
+                    <span style="font-size:11px; color:#718096;">수동 회전 각도(우측 버튼 클릭 시 활성화)</span>
+                    <span id="angleVal" style="font-size:11px;">0.60 rad</span>
+                </div>
+                <input type="range" id="angleSlider" min="0" max="6.28" step="0.02" value="0.60" disabled>
+            </div>
+
+            <h3>📊 실시간 거리 비(Ratio) 추적 및 증명</h3>
+            <div class="data-panel">
+                • 초점 위치: F(<span id="dataF">2.00</span>, 0), F'(<span id="dataF2">-2.00</span>, 0)<br>
+                • 점 P 좌표: (<span id="ptP">3.00, 1.41</span>) | 교점 A: (<span id="ptA">1.00, 0</span>)<br>
+                <hr style="border:0; border-top:1px dashed #4a5568; margin:6px 0;">
+                • <span style="color:#4fd1c5;">① P와 두 초점 사이 거리 비율 (F'P / FP)</span><br>
+                &nbsp;&nbsp;= <span id="lenF2P">4.58</span> / <span id="lenFP">1.73</span> = <span class="highlight" id="ratioP">2.6458</span><br>
+                • <span style="color:#ecc94b;">② A와 두 초점 사이 거리 비율 (F'A / FA)</span><br>
+                &nbsp;&nbsp;= <span id="lenF2A">3.00</span> / <span id="lenFA">1.00</span> = <span class="highlight" id="ratioA">2.6458</span><br>
+                <hr style="border:0; border-top:1px solid #4a5568; margin:6px 0;">
+                <div style="text-align: center; background: #1a202c; padding: 6px; border-radius: 4px;">
+                    📢 <span style="color:#fff;">두 비율의 비율 (① / ②)</span> = 
+                    <span class="proof-highlight" id="finalRatio">1.0000</span>
+                </div>
+            </div>
+
+            <div class="ans-box" style="margin-bottom:0;">
+                <b>💡 </b>쌍곡선 위의 점 P에서의 접선은 항상 ∠F'PF의 내각을 이등분합니다. 따라서 삼각형의 각 이등분선 정리에 의해 두 거리의 비는 항상 완전히 같아지며, 최종 비율은 늘 1.0000으로 유지됩니다.
+            </div>
+        </div>
+
+        <div>
+            <button class="btn btn-toggle" id="btnMode" style="width: 100%; padding: 10px; font-size:14px; margin-top:10px;">🌐 3D 회전체 부피 보기 전환</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('mathCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const aSlider = document.getElementById('aSlider');
+    const aTxt = document.getElementById('aTxt');
+    const eqnText = document.getElementById('eqnText');
+    const xSlider = document.getElementById('xSlider');
+    const xVal = document.getElementById('xVal');
+    const ptP = document.getElementById('ptP');
+    const ptA = document.getElementById('ptA');
+    const dataF = document.getElementById('dataF');
+    const dataF2 = document.getElementById('dataF2');
+    
+    const lenF2P = document.getElementById('lenF2P');
+    const lenFP = document.getElementById('lenFP');
+    const ratioP = document.getElementById('ratioP');
+    const lenF2A = document.getElementById('lenF2A');
+    const lenFA = document.getElementById('lenFA');
+    const ratioA = document.getElementById('ratioA');
+    const finalRatio = document.getElementById('finalRatio');
+
+    const btnPlay = document.getElementById('btnPlay');
+    const btnSnap = document.getElementById('btnSnap');
+    const btnMode = document.getElementById('btnMode');
+    
+    const btnAngleAuto = document.getElementById('btnAngleAuto');
+    const btnAngleManual = document.getElementById('btnAngleManual');
+    const angleSlider = document.getElementById('angleSlider');
+    const angleVal = document.getElementById('angleVal');
+
+    let a = 1.73205; 
+    let b = 1.0;     
+    let c = Math.sqrt(a*a + b*b);
+    let x1 = 3.0;
+    let y1 = Math.sqrt((x1*x1)/(a*a) - 1);
+    
+    const scale = 70; 
+    let cx = canvas.width / 2 - 40; 
+    let cy = canvas.height / 2;
+    
+    let isPlaying = false;
+    let is3DMode = false;
+    let isAngleAuto = true; 
+    let angle3D = 0.6; 
+
+    btnAngleAuto.classList.add('btn-active');
+
+    function updateParameters() {
+        a = parseFloat(aSlider.value);
+        c = Math.sqrt(a*a + b*b);
+        
+        xSlider.min = (a + 0.05).toFixed(2);
+        if (x1 <= a) {
+            x1 = a + 0.5;
+            xSlider.value = x1.toFixed(2);
+        }
+
+        y1 = b * Math.sqrt((x1*x1)/(a*a) - 1);
+        
+        aTxt.innerText = `a = ${a.toFixed(2)}`;
+        eqnText.innerText = `x² / ${(a*a).toFixed(2)} - y² = 1`;
+        xVal.innerText = x1.toFixed(2);
+        ptP.innerText = `${x1.toFixed(2)}, ${y1.toFixed(2)}`;
+        dataF.innerText = c.toFixed(2);
+        dataF2.innerText = (-c).toFixed(2);
+
+        let ax = (a*a) / x1;
+        ptA.innerText = `${ax.toFixed(2)}, 0`;
+
+        let d_f2p = Math.sqrt((x1 + c)*(x1 + c) + y1*y1);
+        let d_fp = Math.sqrt((x1 - c)*(x1 - c) + y1*y1);
+        let rP = d_f2p / d_fp;
+
+        let d_f2a = Math.abs(ax - (-c));
+        let d_fa = Math.abs(c - ax);
+        let rA = d_f2a / d_fa;
+
+        let fRatio = rP / rA;
+
+        lenF2P.innerText = d_f2p.toFixed(2);
+        lenFP.innerText = d_fp.toFixed(2);
+        ratioP.innerText = rP.toFixed(4);
+
+        lenF2A.innerText = d_f2a.toFixed(2);
+        lenFA.innerText = d_fa.toFixed(2);
+        ratioA.innerText = rA.toFixed(4);
+
+        finalRatio.innerText = fRatio.toFixed(4); 
+    }
+
+    function toScreenX(x) { return cx + x * scale; }
+    function toScreenY(y) { return cy - y * scale; }
+
+    function rotate3D(x, y, z, angleY) {
+        let angleX = 0.45; 
+        let x1_rot = x * Math.cos(angleY) - z * Math.sin(angleY);
+        let z1_rot = x * Math.sin(angleY) + z * Math.cos(angleY);
+        let y2_rot = y * Math.cos(angleX) - z1_rot * Math.sin(angleX);
+        let z2_rot = y * Math.sin(angleX) + z1_rot * Math.cos(angleX);
+        return { x: x1_rot, y: y2_rot, z: z2_rot };
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!is3DMode) {
+            // --- 2D 모드 ---
+            cx = canvas.width / 2 - 40; 
+            
+            ctx.strokeStyle = '#4a5568'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(toScreenX(0), 0); ctx.lineTo(toScreenX(0), canvas.height); ctx.stroke();
+
+            ctx.fillStyle = '#e53e3e';
+            ctx.beginPath(); ctx.arc(toScreenX(c), toScreenY(0), 5, 0, 2*Math.PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(toScreenX(-c), toScreenY(0), 5, 0, 2*Math.PI); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = '12px sans-serif';
+            ctx.fillText(`F(${c.toFixed(1)},0)`, toScreenX(c) - 15, toScreenY(0) + 20);
+            ctx.fillText(`F'(${-c.toFixed(1)},0)`, toScreenX(-c) - 20, toScreenY(0) + 20);
+
+            ctx.strokeStyle = '#4299e1'; ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let x = a; x <= 5.2; x += 0.04) {
+                let y = b * Math.sqrt((x*x)/(a*a) - 1);
+                if (x === a) ctx.moveTo(toScreenX(x), toScreenY(y)); else ctx.lineTo(toScreenX(x), toScreenY(y));
+            }
+            ctx.stroke();
+            ctx.beginPath();
+            for (let x = a; x <= 5.2; x += 0.04) {
+                let y = -b * Math.sqrt((x*x)/(a*a) - 1);
+                if (x === a) ctx.moveTo(toScreenX(x), toScreenY(y)); else ctx.lineTo(toScreenX(x), toScreenY(y));
+            }
+            ctx.stroke();
+
+            let ax = (a*a) / x1;
+            if (x1 >= a) {
+                ctx.fillStyle = 'rgba(236, 201, 75, 0.18)';
+                ctx.beginPath();
+                ctx.moveTo(toScreenX(ax), toScreenY(0)); 
+                ctx.lineTo(toScreenX(x1), toScreenY(y1)); 
+                for (let x = x1; x >= a; x -= 0.02) {
+                    ctx.lineTo(toScreenX(x), toScreenY(b * Math.sqrt((x*x)/(a*a) - 1)));
+                }
+                ctx.closePath(); ctx.fill();
+            }
+
+            ctx.strokeStyle = '#ecc94b'; ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(toScreenX(ax - 1.5), toScreenY(-1.5 * (x1/(a*a)/y1)));
+            ctx.lineTo(toScreenX(ax + 3.5), toScreenY(3.5 * (x1/(a*a)/y1)));
+            ctx.stroke();
+
+            ctx.fillStyle = '#ecc94b';
+            ctx.beginPath(); ctx.arc(toScreenX(ax), toScreenY(0), 5, 0, 2*Math.PI); ctx.fill();
+            ctx.fillText(`A(${ax.toFixed(2)},0)`, toScreenX(ax) - 20, toScreenY(0) - 12);
+
+            ctx.strokeStyle = '#4fd1c5'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(toScreenX(-c), toScreenY(0)); ctx.lineTo(toScreenX(x1), toScreenY(y1)); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(toScreenX(c), toScreenY(0)); ctx.lineTo(toScreenX(x1), toScreenY(y1)); ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#4299e1';
+            ctx.beginPath(); ctx.arc(toScreenX(x1), toScreenY(y1), 6, 0, 2*Math.PI); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`P(${x1.toFixed(2)}, ${y1.toFixed(2)})`, toScreenX(x1) + 10, toScreenY(y1) - 5);
+
+        } else {
+            // --- 🪐 3D 모드 (버그 해결 최적화 엔진) ---
+            cx = canvas.width / 2; 
+            
+            if (isAngleAuto) {
+                angle3D += 0.008; 
+                angleSlider.value = (angle3D % 6.28).toFixed(2);
+                angleVal.innerText = `${(angle3D % 6.28).toFixed(2)} rad`;
+            }
+
+            let polygons = [];
+            let N = 26; let M = 26; 
+            let lightSource = { x: 0.577, y: 0.577, z: 0.577 }; 
+            let xOffset = 2.0;
+            let ax = (a*a) / x1;
+
+            // 1. 원뿔 외형면 데이터 생성
+            for(let i = 0; i < N; i++) {
+                let t1 = i / N; let t2 = (i + 1) / N;
+                let xa = ax + t1 * (x1 - ax); let xb = ax + t2 * (x1 - ax);
+                let ra = (y1 / Math.max(0.001, x1 - ax)) * (xa - ax); 
+                let rb = (y1 / Math.max(0.001, x1 - ax)) * (xb - ax);
+
+                for(let j = 0; j < M; j++) {
+                    let th1 = (j / M) * 2 * Math.PI; let th2 = ((j + 1) / M) * 2 * Math.PI;
+                    let p1 = rotate3D(xa - xOffset, ra * Math.cos(th1), ra * Math.sin(th1), angle3D);
+                    let p2 = rotate3D(xb - xOffset, rb * Math.cos(th1), rb * Math.sin(th1), angle3D);
+                    let p3 = rotate3D(xb - xOffset, rb * Math.cos(th2), rb * Math.sin(th2), angle3D);
+                    let p4 = rotate3D(xa - xOffset, ra * Math.cos(th2), ra * Math.sin(th2), angle3D);
+
+                    let v1 = { x: p2.x - p1.x, y: p2.y - p1.y, z: p2.z - p1.z };
+                    let v2 = { x: p4.x - p1.x, y: p4.y - p1.y, z: p4.z - p1.z };
+                    let nx = v1.y * v2.z - v1.z * v2.y; let ny = v1.z * v2.x - v1.x * v2.z; let nz = v1.x * v2.y - v1.y * v2.x;
+                    let nLen = Math.sqrt(nx*nx + ny*ny + nz*nz);
+                    if(nLen > 0) { nx /= nLen; ny /= nLen; nz /= nLen; }
+
+                    let lDot = nx * lightSource.x + ny * lightSource.y + nz * lightSource.z;
+                    let bright = 0.35 + 0.65 * Math.abs(lDot); // 조명 음영 계산 안정화
+                    let depth = (p1.z + p2.z + p3.z + p4.z) / 4;
+                    
+                    // 화면 공간의 회전 방향(Winding Order) 계산으로 전면/후면 판정
+                    let sx1 = cx + p1.x * scale, sy1 = cy - p1.y * scale;
+                    let sx2 = cx + p2.x * scale, sy2 = cy - p2.y * scale;
+                    let sx3 = cx + p3.x * scale, sy3 = cy - p3.y * scale;
+                    let cross = (sx2 - sx1) * (sy3 - sy2) - (sy2 - sy1) * (sx3 - sx2);
+                    let isFront = cross > 0;
+
+                    polygons.push({ pts: [p1, p2, p3, p4], depth: depth, bright: bright, type: 'cone', isFront: isFront });
+                }
+            }
+
+            // 2. 내각 쌍곡선 회전 껍질 데이터 생성
+            if (x1 > a) {
+                for(let i = 0; i < N; i++) {
+                    let t1 = i / N; let t2 = (i + 1) / N;
+                    let xa = a + t1 * (x1 - a); let xb = a + t2 * (x1 - a);
+                    let ra = b * Math.sqrt(Math.max(0, (xa*xa)/(a*a) - 1)); 
+                    let rb = b * Math.sqrt(Math.max(0, (xb*xb)/(a*a) - 1));
+
+                    for(let j = 0; j < M; j++) {
+                        let th1 = (j / M) * 2 * Math.PI; let th2 = ((j + 1) / M) * 2 * Math.PI;
+                        let p1 = rotate3D(xa - xOffset, ra * Math.cos(th1), ra * Math.sin(th1), angle3D);
+                        let p2 = rotate3D(xb - xOffset, rb * Math.cos(th1), rb * Math.sin(th1), angle3D);
+                        let p3 = rotate3D(xb - xOffset, rb * Math.cos(th2), rb * Math.sin(th2), angle3D);
+                        let p4 = rotate3D(xa - xOffset, ra * Math.cos(th2), ra * Math.sin(th2), angle3D);
+
+                        let v1 = { x: p2.x - p1.x, y: p2.y - p1.y, z: p2.z - p1.z };
+                        let v2 = { x: p4.x - p1.x, y: p4.y - p1.y, z: p4.z - p1.z };
+                        let nx = v1.y * v2.z - v1.z * v2.y; let ny = v1.z * v2.x - v1.x * v2.z; let nz = v1.x * v2.y - v1.y * v2.x;
+                        let nLen = Math.sqrt(nx*nx + ny*ny + nz*nz);
+                        if(nLen > 0) { nx /= nLen; ny /= nLen; nz /= nLen; }
+
+                        let lDot = nx * lightSource.x + ny * lightSource.y + nz * lightSource.z;
+                        let bright = 0.35 + 0.65 * Math.abs(lDot);
+                        
+                        // Z-Fighting 방지를 위해 안쪽 공동(hyper)에 미세한 깊이 패딩 오프셋(+0.005) 부여
+                        let depth = (p1.z + p2.z + p3.z + p4.z) / 4 + 0.005;
+                        
+                        let sx1 = cx + p1.x * scale, sy1 = cy - p1.y * scale;
+                        let sx2 = cx + p2.x * scale, sy2 = cy - p2.y * scale;
+                        let sx3 = cx + p3.x * scale, sy3 = cy - p3.y * scale;
+                        let cross = (sx2 - sx1) * (sy3 - sy2) - (sy2 - sy1) * (sx3 - sx2);
+                        let isFront = cross > 0;
+
+                        polygons.push({ pts: [p1, p2, p3, p4], depth: depth, bright: bright, type: 'hyper', isFront: isFront });
+                    }
+                }
+            }
+
+            // 3. 2패스 정렬 엔진 작동 (뒷면 레이어를 싹 깔아두고, 그 위에 앞면 레이어를 완벽히 정적 덮어쓰기)
+            let backPolygons = polygons.filter(p => !p.isFront);
+            let frontPolygons = polygons.filter(p => p.isFront);
+
+            backPolygons.sort((pA, pB) => pB.depth - pA.depth);
+            frontPolygons.sort((pA, pB) => pB.depth - pA.depth);
+
+            // 최종 렌더링 리스트 결합 (뒷면 순서대로 -> 앞면 순서대로)
+            let finalRenderList = [...backPolygons, ...frontPolygons];
+
+            // 화면에 폴리곤 드로잉
+            finalRenderList.forEach(poly => {
+                ctx.beginPath();
+                ctx.moveTo(cx + poly.pts[0].x * scale, cy - poly.pts[0].y * scale);
+                ctx.lineTo(cx + poly.pts[1].x * scale, cy - poly.pts[1].y * scale);
+                ctx.lineTo(cx + poly.pts[2].x * scale, cy - poly.pts[2].y * scale);
+                ctx.lineTo(cx + poly.pts[3].x * scale, cy - poly.pts[3].y * scale);
+                ctx.closePath();
+
+                let r, g, b_val;
+                if(poly.type === 'cone') {
+                    r = Math.floor(245 * poly.bright); g = Math.floor(190 * poly.bright); b_val = Math.floor(40 * poly.bright);
+                } else {
+                    r = Math.floor(40 * poly.bright * 1.2); g = Math.floor(120 * poly.bright * 1.2); b_val = Math.floor(240 * poly.bright * 1.2);
+                }
+                
+                r = Math.max(0, Math.min(255, r));
+                g = Math.max(0, Math.min(255, g));
+                b_val = Math.max(0, Math.min(255, b_val));
+
+                ctx.fillStyle = `rgb(${r},${g},${b_val})`; ctx.fill();
+                
+                // 안티앨리어싱으로 인한 와이어프레임 실선 구멍 틈새 메우기 조치
+                ctx.strokeStyle = `rgb(${r},${g},${b_val})`; ctx.lineWidth = 0.7; ctx.stroke();
+            });
+
+            // 3D 공간축 축선 드로잉
+            ctx.lineWidth = 1.3;
+            let axMax = rotate3D(5.2 - xOffset, 0, 0, angle3D);
+            let axMin = rotate3D(-3.5 - xOffset, 0, 0, angle3D);
+            ctx.strokeStyle = 'rgba(239,68,68,0.6)'; ctx.beginPath(); ctx.moveTo(cx + axMin.x * scale, cy - axMin.y * scale); ctx.lineTo(cx + axMax.x * scale, cy - axMax.y * scale); ctx.stroke();
+            
+            let ayMax = rotate3D(0 - xOffset, 3.2, 0, angle3D);
+            let ayMin = rotate3D(0 - xOffset, -3.2, 0, angle3D);
+            ctx.strokeStyle = 'rgba(34,197,94,0.6)'; ctx.beginPath(); ctx.moveTo(cx + ayMin.x * scale, cy - ayMin.y * scale); ctx.lineTo(cx + ayMax.x * scale, cy - ayMax.y * scale); ctx.stroke();
+
+            // 3D 쌍곡선 모선 아웃라인 강조 (입체 위에 완벽히 물리적으로 얹혀지도록 최상단 마무리 레이어 처리)
+            function draw3DHyperbola(ySign) {
+                ctx.beginPath();
+                for (let x = a; x <= 5.3; x += 0.03) {
+                    let y = ySign * b * Math.sqrt(Math.max(0, (x*x)/(a*a) - 1));
+                    let p = rotate3D(x - xOffset, y, 0, angle3D);
+                    if (x === a) ctx.moveTo(cx + p.x * scale, cy - p.y * scale); else ctx.lineTo(cx + p.x * scale, cy - p.y * scale);
+                }
+                ctx.strokeStyle = '#11141a'; ctx.lineWidth = 5; ctx.stroke(); 
+                ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 2.5; ctx.stroke(); 
+            }
+            draw3DHyperbola(1);  
+            draw3DHyperbola(-1); 
+
+            // 초점 데이터 위치 마킹 가시성 확보
+            let pF = rotate3D(c - xOffset, 0, 0, angle3D);
+            let pF2 = rotate3D(-c - xOffset, 0, 0, angle3D);
+            
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(cx + pF2.x * scale, cy - pF2.y * scale, 6.5, 0, 2*Math.PI); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(`F'(${-c.toFixed(1)}, 0)`, cx + pF2.x * scale - 25, cy - pF2.y * scale - 12);
+
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(cx + pF.x * scale, cy - pF.y * scale, 6.5, 0, 2*Math.PI); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+            ctx.fillText(`F(${c.toFixed(1)}, 0)`, cx + pF.x * scale - 15, cy - pF.y * scale - 12);
+
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif';
+            ctx.fillText("🌐 3D 구조 분석 공간", 30, 45);
+        }
+    }
+
+    aSlider.addEventListener('input', () => {
+        updateParameters();
+        if (!isPlaying && !is3DMode) draw();
+    });
+
+    xSlider.addEventListener('input', (e) => {
+        x1 = parseFloat(e.target.value);
+        updateParameters();
+        if (!isPlaying && !is3DMode) draw();
+    });
+
+    angleSlider.addEventListener('input', (e) => {
+        angle3D = parseFloat(e.target.value);
+        angleVal.innerText = `${angle3D.toFixed(2)} rad`;
+        if (!isAngleAuto) draw();
+    });
+
+    btnAngleAuto.addEventListener('click', () => {
+        isAngleAuto = true;
+        btnAngleAuto.classList.add('btn-active');
+        btnAngleManual.classList.remove('btn-active');
+        angleSlider.disabled = true;
+        animate();
+    });
+
+    btnAngleManual.addEventListener('click', () => {
+        isAngleAuto = false;
+        btnAngleManual.classList.add('btn-active');
+        btnAngleAuto.classList.remove('btn-active');
+        angleSlider.disabled = false;
+    });
+
+    btnSnap.addEventListener('click', () => {
+        x1 = 3.0;
+        xSlider.value = 3.0;
+        updateParameters();
+        draw();
+    });
+
+    btnPlay.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        if (isPlaying) {
+            btnPlay.innerText = "⏸ 위치 일시 정지";
+            animate();
+        } else {
+            btnPlay.innerText = "▶ 위치 자동 재생";
+        }
+    });
+
+    btnMode.addEventListener('click', () => {
+        is3DMode = !is3DMode;
+        if (is3DMode) {
+            btnMode.innerText = "📈 2D 평면 원리 및 완전 증명 보기";
+            animate(); 
+        } else {
+            btnMode.innerText = "🌐 3D 회전체 부피 보기 전환";
+            if (!isPlaying) draw();
+        }
+    });
+
+    let dir = 0.006;
+    function animate() {
+        if (isPlaying) {
+            x1 += dir;
+            if (x1 > 4.5 || x1 < a + 0.1) dir = -dir;
+            xSlider.value = x1.toFixed(2);
+            updateParameters();
+        }
+        draw();
+        if (isPlaying || (is3DMode && isAngleAuto)) {
+            requestAnimationFrame(animate);
+        }
+    }
+
+    updateParameters();
+    draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2022 KAIST 기출문제 시뮬레이션</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
+        canvas { background-color: white; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .fade-in { animation: fadeIn 0.8s ease-in forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .hidden-content { opacity: 0; display: none; }
+        .visible-content { display: block; animation: fadeIn 0.8s ease-in forwards; }
+    </style>
+</head>
+<body class="p-3 md:p-6 h-screen flex flex-col overflow-hidden">
+    
+    <header class="mb-4 flex justify-between items-center shrink-0">
+        <div>
+            <h1 class="text-xl md:text-2xl font-bold text-slate-800">2022학년도 KAIST 기출 시뮬레이션</h1>
+            <p class="text-slate-500 text-sm mt-1">100회의 무작위 탐색을 통해 최댓값을 추정하고, 진짜 정답을 확인합니다.</p>
+        </div>
+        <button id="startBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition duration-200 text-sm">
+            최댓값 시뮬레이션 시작 (100회)
+        </button>
+    </header>
+
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
+        <!-- 왼쪽: 캔버스 영역 -->
+        <div class="flex justify-center items-center bg-slate-100 rounded-xl p-2 min-h-0 h-full relative">
+            <canvas id="simCanvas" width="450" height="450" class="max-w-full max-h-full object-contain"></canvas>
+            
+            <!-- 시뮬레이션 진행 오버레이 -->
+            <div id="simOverlay" class="absolute top-4 left-4 bg-white/90 p-3 rounded-lg shadow text-sm hidden-content">
+                <div class="font-bold text-slate-700 mb-1">무작위 탐색 진행중...</div>
+                <div class="text-slate-600">시도 횟수: <span id="simCount" class="font-mono text-indigo-600 font-bold">0</span> / 100</div>
+                <div class="text-slate-600">현재 임시 최댓값: <span id="simMax" class="font-mono text-pink-600 font-bold">0.00</span></div>
+            </div>
+
+            <!-- 탐색 기록 오버레이 -->
+            <div id="historyOverlay" class="absolute top-4 right-4 bg-white/90 p-3 rounded-lg shadow text-sm hidden-content flex flex-col w-40 max-h-[90%]">
+                <div class="font-bold text-slate-700 mb-2 text-xs border-b pb-1">탐색 기록 (클릭하여 확인)</div>
+                <div id="simHistory" class="overflow-y-auto flex-1 font-mono text-[11px] space-y-1">
+                    <!-- 기록이 여기에 추가됩니다 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 오른쪽: 문제 해설 영역 (위: 문제1, 아래: 문제2) -->
+        <div class="flex flex-col gap-4 min-h-0 h-full">
+            
+            <!-- 문제 1 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-y-auto">
+                <div class="border-b-2 border-indigo-500 pb-2 mb-3 shrink-0">
+                    <h2 class="text-base font-bold text-slate-800">문제 1</h2>
+                    <p class="text-xs text-slate-600 mt-1">각 \(\angle X_1OX_2\)와 선분 \(Y_3Z_3\)의 길이 사이의 관계를 구하시오.</p>
+                </div>
+                
+                <div id="q1Status" class="flex-1 flex items-center justify-center text-slate-400 italic text-sm">
+                    시뮬레이션 진행 중 수식이 공개됩니다.
+                </div>
+
+                <div id="q1Result" class="hidden-content flex-1 space-y-3">
+                    <div class="bg-indigo-50 p-3 rounded-lg shrink-0">
+                        <p class="font-bold text-indigo-800 text-base">
+                            정답: \( 2\sqrt{5 - \cos^2\frac{\theta}{2}} \)
+                        </p>
+                    </div>
+                    <div class="text-sm text-slate-700 space-y-2">
+                        <p>단, \( \theta = \angle X_1OX_2 \) 입니다.</p>
+                        <p class="text-xs text-slate-500 leading-relaxed mt-2">
+                            * 점 \(X_1, X_2\)를 지나는 직선과 원점 사이의 거리는 \(d = \cos\frac{\theta}{2}\) 입니다.<br>
+                            * 이 직선이 반지름 \(\sqrt{5}\)인 원 B와 만나는 현의 길이는 피타고라스 정리에 의해 \(2\sqrt{(\sqrt{5})^2 - d^2}\) 가 됩니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 문제 2 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-y-auto">
+                <div class="border-b-2 border-pink-500 pb-2 mb-3 shrink-0">
+                    <h2 class="text-base font-bold text-slate-800">문제 2</h2>
+                    <p class="text-xs text-slate-600 mt-1">세 선분 \(Y_1Z_1, Y_2Z_2, Y_3Z_3\)의 길이의 제곱의 합의 최댓값을 구하시오.</p>
+                </div>
+
+                <div id="q2Status" class="flex-1 flex items-center justify-center text-slate-400 italic text-sm">
+                    100회 무작위 탐색이 완료되면 진짜 정답이 공개됩니다.
+                </div>
+
+                <div id="q2Result" class="hidden-content flex-1 space-y-3">
+                    <div class="bg-pink-50 p-3 rounded-lg shrink-0">
+                        <p class="font-bold text-pink-800 text-base">정답: 57</p>
+                    </div>
+                    <div class="text-sm text-slate-700 space-y-2">
+                        <p><strong>최대값을 가질 때의 조건:</strong></p>
+                        <p>삼각형 \(X_1X_2X_3\)가 <strong>정삼각형</strong>일 때 (\(\theta_1 = \theta_2 = \theta_3 = 120^\circ\)) 최댓값을 가집니다.</p>
+                        
+                        <details class="bg-slate-50 border border-slate-200 rounded-lg p-3 mt-3 cursor-pointer group outline-none">
+                            <summary class="font-semibold text-sm text-indigo-600 hover:text-indigo-800 transition-colors outline-none">
+                                💡 수학적 증명 보기 (왜 정삼각형일까?)
+                            </summary>
+                            <div class="mt-3 text-xs leading-loose text-slate-700 space-y-2 cursor-auto border-t border-slate-200 pt-3">
+                                <p>1. 문제 1에서 구한 \( Y_3Z_3 = 2\sqrt{5 - \cos^2\frac{\theta_3}{2}} \) 의 양변을 제곱합니다.</p>
+                                <p>2. 반각 공식(\( \cos^2\frac{\theta}{2} = \frac{1 + \cos\theta}{2} \))을 적용하면,<br>
+                                   &nbsp;&nbsp;&nbsp;\( (Y_3Z_3)^2 = 4(5 - \frac{1 + \cos\theta_3}{2}) = 18 - 2\cos\theta_3 \) 가 됩니다.</p>
+                                <p>3. 따라서 세 선분 길이의 제곱의 합은 다음과 같습니다.<br>
+                                   &nbsp;&nbsp;&nbsp;\( \sum (Y_iZ_i)^2 = 54 - 2(\cos\theta_1 + \cos\theta_2 + \cos\theta_3) \)</p>
+                                <p>4. 전체 값이 최대가 되려면 \( \cos\theta_1 + \cos\theta_2 + \cos\theta_3 \) 의 값이 최소가 되어야 합니다.</p>
+                                <p>5. 원점을 중심으로 하는 단위벡터 \( \vec{x_1}, \vec{x_2}, \vec{x_3} \)에 대해 절대부등식 \( |\vec{x_1} + \vec{x_2} + \vec{x_3}|^2 \ge 0 \) 이 성립합니다.</p>
+                                <p>6. 위 식을 전개하면 \( 3 + 2(\vec{x_1}\cdot\vec{x_2} + \vec{x_2}\cdot\vec{x_3} + \vec{x_3}\cdot\vec{x_1}) \ge 0 \) 이고,<br>
+                                   &nbsp;&nbsp;&nbsp;내적의 정의에 의해 \( 3 + 2(\cos\theta_1 + \cos\theta_2 + \cos\theta_3) \ge 0 \) 입니다.</p>
+                                <p>7. 정리하면 \( \cos\theta_1 + \cos\theta_2 + \cos\theta_3 \ge -\frac{3}{2} \) 입니다.</p>
+                                <p>8. 최솟값을 가지는 등호 성립 조건은 \( \vec{x_1} + \vec{x_2} + \vec{x_3} = \vec{0} \) 이며, 이는 세 점이 <strong>정삼각형</strong>을 이룰 때입니다.</p>
+                                <p>9. 결론적으로 최댓값은 \( 54 - 2(-\frac{3}{2}) = 57 \) 입니다.</p>
+                            </div>
+                        </details>
+
+                        <div class="bg-slate-50 p-3 rounded border border-slate-200 mt-2">
+                            <p class="font-semibold text-xs mb-1">최적 위치 좌표 (예시):</p>
+                            <ul class="list-disc pl-5 text-xs text-slate-600 font-mono">
+                                <li>\( X_1(1, 0) \)</li>
+                                <li>\( X_2(-\frac{1}{2}, \frac{\sqrt{3}}{2}) \)</li>
+                                <li>\( X_3(-\frac{1}{2}, -\frac{\sqrt{3}}{2}) \)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+
+        // 좌표계 설정
+        const scale = 75; // 1단위 = 75픽셀
+        const originX = canvas.width / 2;
+        const originY = canvas.height / 2;
+        const radiusB = Math.sqrt(5); // 약 2.236
+
+        // 시뮬레이션 상태 변수
+        let isSimulating = false;
+        let simCount = 0;
+        const maxSimulations = 100;
+        let currentMaxSumSq = 0;
+        let bestAngles = [];
+        let animationId;
+        
+        // 탐색 기록 저장 배열
+        let historyData = [];
+
+        // 좌표 변환
+        function toCX(x) { return originX + x * scale; }
+        function toCY(y) { return originY - y * scale; }
+
+        function init() {
+            simCount = 0;
+            currentMaxSumSq = 0;
+            bestAngles = [];
+            historyData = [];
+            
+            // UI 초기화
+            document.getElementById('simOverlay').classList.remove('hidden-content');
+            document.getElementById('simOverlay').classList.add('visible-content');
+            
+            document.getElementById('historyOverlay').classList.remove('hidden-content');
+            document.getElementById('historyOverlay').classList.add('visible-content');
+            document.getElementById('simHistory').innerHTML = ''; // 기록 초기화
+            
+            document.getElementById('q1Status').style.display = 'flex';
+            document.getElementById('q1Result').classList.replace('visible-content', 'hidden-content');
+            
+            document.getElementById('q2Status').style.display = 'flex';
+            document.getElementById('q2Result').classList.replace('visible-content', 'hidden-content');
+            
+            document.getElementById('simCount').innerText = '0';
+            document.getElementById('simMax').innerText = '0.00';
+
+            drawBase();
+        }
+
+        function drawBase() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 축 그리기
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(originX, 0); ctx.lineTo(originX, canvas.height); ctx.stroke();
+            
+            ctx.fillStyle = '#94a3b8'; ctx.font = '12px Arial';
+            ctx.fillText('O', originX - 15, originY + 15);
+
+            // 원 A (r=1)
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(originX, originY, 1 * scale, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillText('A', toCX(1.1), toCY(0.2));
+
+            // 원 B (r=sqrt(5))
+            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath(); ctx.arc(originX, originY, radiusB * scale, 0, Math.PI * 2); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillText('B', toCX(radiusB + 0.1), toCY(0.2));
+        }
+
+        // 세 점이 중심을 포함하도록 랜덤 각도 생성
+        function getRandomAngles() {
+            let a1 = 0;
+            let a2 = Math.random() * Math.PI; // 0 ~ 180도
+            let a3 = Math.PI + Math.random() * a2; // 180도 ~ (180+a2)도 (이래야 중심 포함)
+            
+            // 전체 회전 부여
+            let rot = Math.random() * Math.PI * 2;
+            return [(a1 + rot) % (2 * Math.PI), (a2 + rot) % (2 * Math.PI), (a3 + rot) % (2 * Math.PI)];
+        }
+
+        // 두 점을 지나는 직선과 원 B의 교점(현) 정보 계산
+        function getChord(angle1, angle2) {
+            const x1 = Math.cos(angle1), y1 = Math.sin(angle1);
+            const x2 = Math.cos(angle2), y2 = Math.sin(angle2);
+            
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            const mx = (x1 + x2) / 2;
+            const my = (y1 + y2) / 2;
+            
+            // 원점에서 현까지의 거리 제곱
+            const dSq = mx*mx + my*my;
+            
+            // 피타고라스: 현의 절반 길이 = sqrt(R^2 - d^2)
+            const halfL = Math.sqrt(5 - dSq);
+            
+            // 방향 단위 벡터
+            const ux = dx / dist;
+            const uy = dy / dist;
+            
+            const y_pt = { x: mx - halfL * ux, y: my - halfL * uy };
+            const z_pt = { x: mx + halfL * ux, y: my + halfL * uy };
+            const lenSq = 4 * (5 - dSq); // (2 * halfL)^2
+            
+            return { p1: y_pt, p2: z_pt, lenSq: lenSq };
+        }
+
+        function drawState(angles, isFinal = false) {
+            drawBase();
+
+            const pts = angles.map(a => ({ x: Math.cos(a), y: Math.sin(a) }));
+            
+            // 현 계산
+            const c1 = getChord(angles[1], angles[2]); // X2-X3
+            const c2 = getChord(angles[2], angles[0]); // X3-X1
+            const c3 = getChord(angles[0], angles[1]); // X1-X2
+            
+            const totalLenSq = c1.lenSq + c2.lenSq + c3.lenSq;
+
+            // 현 그리기 (원 B 내부)
+            ctx.lineWidth = 2;
+            const chords = [c1, c2, c3];
+            chords.forEach((c, idx) => {
+                ctx.strokeStyle = isFinal ? '#ec4899' : '#f59e0b'; // 마지막은 핑크, 진행중은 주황
+                ctx.beginPath();
+                ctx.moveTo(toCX(c.p1.x), toCY(c.p1.y));
+                ctx.lineTo(toCX(c.p2.x), toCY(c.p2.y));
+                ctx.stroke();
+
+                // 현 끝점 (Y, Z)
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.beginPath(); ctx.arc(toCX(c.p1.x), toCY(c.p1.y), 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(toCX(c.p2.x), toCY(c.p2.y), 3, 0, Math.PI*2); ctx.fill();
+            });
+
+            // 내부 삼각형 그리기 (X1, X2, X3)
+            ctx.fillStyle = isFinal ? 'rgba(99, 102, 241, 0.2)' : 'rgba(148, 163, 184, 0.2)';
+            ctx.strokeStyle = isFinal ? '#4f46e5' : '#64748b';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(toCX(pts[0].x), toCY(pts[0].y));
+            ctx.lineTo(toCX(pts[1].x), toCY(pts[1].y));
+            ctx.lineTo(toCX(pts[2].x), toCY(pts[2].y));
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 점 X 그리기
+            pts.forEach((p, i) => {
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath(); ctx.arc(toCX(p.x), toCY(p.y), 4, 0, Math.PI*2); ctx.fill();
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText(`X${i+1}`, toCX(p.x) - 10, toCY(p.y) - 10);
+            });
+
+            return totalLenSq;
+        }
+
+        // 시뮬레이션 루프
+        let frameDelayCounter = 0;
+        function simulateStep() {
+            if (!isSimulating) return;
+
+            // 너무 빨리 지나가지 않도록 프레임 딜레이 조절
+            frameDelayCounter++;
+            if (frameDelayCounter % 3 !== 0) {
+                animationId = requestAnimationFrame(simulateStep);
+                return;
+            }
+
+            simCount++;
+            const angles = getRandomAngles();
+            const sumSq = drawState(angles);
+
+            // 탐색 데이터 저장
+            const currentStepIndex = simCount - 1;
+            historyData.push({ angles: angles, sumSq: sumSq });
+
+            let isNewMax = false;
+            if (sumSq > currentMaxSumSq) {
+                currentMaxSumSq = sumSq;
+                bestAngles = angles;
+                document.getElementById('simMax').innerText = currentMaxSumSq.toFixed(3);
+                isNewMax = true;
+            }
+
+            document.getElementById('simCount').innerText = simCount;
+
+            // 탐색 기록 UI에 추가 및 클릭 이벤트 바인딩
+            const historyDiv = document.getElementById('simHistory');
+            const item = document.createElement('div');
+            item.innerText = `#${simCount}: ${sumSq.toFixed(3)}`;
+            
+            // 스타일 지정 (클릭 가능하도록 hover, cursor 등 추가)
+            const baseClass = isNewMax ? 'text-pink-600 font-bold' : 'text-slate-600';
+            item.className = `${baseClass} cursor-pointer hover:bg-indigo-50 p-1 rounded transition-colors`;
+            
+            // 클릭 이벤트: 캔버스 재렌더링
+            item.addEventListener('click', () => {
+                if (isSimulating) return; // 시뮬레이션이 모두 끝나야 클릭 가능
+                
+                // 선택된 항목에 배경색 하이라이트 표시
+                Array.from(historyDiv.children).forEach(child => child.classList.remove('bg-indigo-100'));
+                item.classList.add('bg-indigo-100');
+                
+                // 해당 회차의 위치 정보로 캔버스 다시 그리기
+                drawState(historyData[currentStepIndex].angles, historyData[currentStepIndex].sumSq === currentMaxSumSq);
+            });
+
+            historyDiv.appendChild(item);
+            historyDiv.scrollTop = historyDiv.scrollHeight; // 자동 스크롤
+
+            // 문제 1 정답은 시뮬레이션 초반(20회)에 공개
+            if (simCount === 20) {
+                document.getElementById('q1Status').style.display = 'none';
+                document.getElementById('q1Result').classList.replace('hidden-content', 'visible-content');
+            }
+
+            if (simCount >= maxSimulations) {
+                isSimulating = false;
+                finishSimulation();
+                return;
+            }
+
+            animationId = requestAnimationFrame(simulateStep);
+        }
+
+        function finishSimulation() {
+            // 진짜 최댓값 (정삼각형: 0, 120도, 240도)
+            const perfectAngles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
+            
+            // 0.5초 딜레이 후 정답 공개
+            setTimeout(() => {
+                document.getElementById('simOverlay').classList.replace('visible-content', 'hidden-content');
+
+                // 탐색 기록에 "완벽한 정답" 항목 추가
+                const historyDiv = document.getElementById('simHistory');
+                const finalItem = document.createElement('div');
+                finalItem.innerText = `★ 진짜 정답: 57.000`;
+                finalItem.className = 'text-indigo-600 font-bold cursor-pointer hover:bg-indigo-50 p-1 rounded transition-colors mt-2 border-t pt-1';
+                finalItem.addEventListener('click', () => {
+                    if (isSimulating) return;
+                    Array.from(historyDiv.children).forEach(child => child.classList.remove('bg-indigo-100'));
+                    finalItem.classList.add('bg-indigo-100');
+                    drawState(perfectAngles, true);
+                });
+                historyDiv.appendChild(finalItem);
+                historyDiv.scrollTop = historyDiv.scrollHeight;
+
+                drawState(perfectAngles, true); // true = isFinal (핑크색 강조)
+
+                document.getElementById('q2Status').style.display = 'none';
+                document.getElementById('q2Result').classList.replace('hidden-content', 'visible-content');
+
+                startBtn.disabled = false;
+                startBtn.innerText = "다시 시뮬레이션";
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }, 500);
+        }
+
+        startBtn.addEventListener('click', () => {
+            if(isSimulating) return;
+            init();
+            isSimulating = true;
+            startBtn.disabled = true;
+            startBtn.innerText = "탐색 중...";
+            startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            simulateStep();
+        });
+
+        // 초기 화면
+        drawBase();
+    </script>
+</body>
+</html>

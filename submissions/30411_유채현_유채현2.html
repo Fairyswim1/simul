@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>함수 f(x) 및 도함수 정밀 분석 시뮬레이터</title>
+    <style>
+        :root {
+            --primary: #2563eb; /* f(x) Blue */
+            --derivative: #dc2626; /* f'(x) Red */
+            --point-f: #facc15; /* Yellow Point */
+            --point-df: #22c55e; /* Green Point */
+            --text: #1e293b;
+            --bg: #f8fafc;
+            --panel: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-container {
+            background: var(--panel);
+            max-width: 1200px;
+            width: 100%;
+            height: 90vh;
+            border-radius: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 15px 25px;
+            background: var(--text);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 { margin: 0; font-size: 1.2rem; }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background: white;
+            cursor: crosshair;
+        }
+
+        .sidebar {
+            width: 340px;
+            padding: 25px;
+            background: #f1f5f9;
+            border-left: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .card h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: #64748b; }
+
+        .slider-group label { display: block; font-weight: bold; font-size: 0.95rem; margin-bottom: 10px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+
+        .math-expr {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            font-weight: bold;
+            color: var(--derivative);
+            font-size: 1.1rem;
+        }
+
+        .data-box {
+            background: var(--text);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+        .line-marker { width: 30px; height: 3px; border-radius: 2px; }
+        .dot-marker { width: 12px; height: 12px; border-radius: 50%; }
+
+        #tooltip {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid var(--text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            pointer-events: none;
+            display: none;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <h1>함수 f(x) 및 f'(x) 정밀 분석기</h1>
+        <div style="font-size: 0.8rem; opacity: 0.9;">휠: 확대/축소 | 드래그: 화면이동 | 노란점 드래그: 값 탐색</div>
+    </div>
+
+    <div class="main-layout">
+        <div class="canvas-area" id="canvasContainer">
+            <canvas id="graphCanvas"></canvas>
+            <div id="tooltip"></div>
+        </div>
+
+        <div class="sidebar">
+            <div class="card slider-group">
+                <label id="rLabel">매개변수 r: 1.000</label>
+                <input type="range" id="rSlider" min="0" max="6" step="0.001" value="1">
+                <div style="margin-top:12px; font-size:0.8rem;">
+                    증가함수 임계값: <span class="math-expr">r = √(6√3) ≈ 3.2237</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>범례 (Legend)</h3>
+                <div class="legend">
+                    <div class="legend-item"><div class="line-marker" style="background: var(--primary);"></div> f(x) 그래프</div>
+                    <div class="legend-item"><div class="line-marker" style="background: var(--derivative);"></div> f'(x) (도함수) 그래프</div>
+                    <div class="legend-item"><div class="dot-marker" style="background: var(--point-f);"></div> f(x) 위 탐색점 (Yellow)</div>
+                    <div class="legend-item"><div class="dot-marker" style="background: var(--point-df);"></div> f'(x) 위 대응점 (Green)</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>실시간 포인트 데이터</h3>
+                <div class="data-box" id="dataDisplay">
+                    노란색 점을 드래그하여<br>함수 정보를 확인하세요.
+                </div>
+            </div>
+
+            <div style="font-size: 0.8rem; color: #64748b; line-height: 1.5; padding: 0 5px;">
+                <strong>[인사이트]</strong> r이 임계값을 초과하면 초록색 점(f')이 0 아래로 내려가는 지점이 발생하며, 그 지점에서 노란색 점(f) 주변의 그래프가 감소하는 것을 관찰할 수 있습니다.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+    const rSlider = document.getElementById('rSlider');
+    const rLabel = document.getElementById('rLabel');
+    const dataDisplay = document.getElementById('dataDisplay');
+    const tooltip = document.getElementById('tooltip');
+
+    let r = 1.0;
+    let scale = 70;
+    let originX = 0, originY = 0;
+    let isPanning = false;
+    let isDraggingPoint = false;
+    let lastMouseX, lastMouseY;
+    
+    // 추적점의 x 좌표 (초기값 0)
+    let selectedX = 0;
+
+    // 함수 정의
+    const f = (x, rVal) => x + (rVal / Math.sqrt(1 + Math.sin(x)**2));
+    const df = (x, rVal) => {
+        const s = Math.sin(x);
+        const c = Math.cos(x);
+        return 1 - (rVal * s * c) / Math.pow(1 + s**2, 1.5);
+    };
+
+    function resize() {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        if (originX === 0) originX = canvas.width / 2;
+        if (originY === 0) originY = canvas.height / 2;
+        draw();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. 그리드 및 축
+        const step = scale;
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = originX % step; x < canvas.width; x += step) {
+            ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+        }
+        for (let y = originY % step; y < canvas.height; y += step) {
+            ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY);
+        ctx.moveTo(originX, 0); ctx.lineTo(originX, canvas.height);
+        ctx.stroke();
+
+        // 2. 그래프 렌더링
+        // f(x) - Blue
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#2563eb';
+        ctx.beginPath();
+        for (let px = 0; px < canvas.width; px++) {
+            const x = (px - originX) / scale;
+            const y = f(x, r);
+            const py = originY - y * scale;
+            if (px === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // f'(x) - Red
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#dc2626';
+        ctx.beginPath();
+        for (let px = 0; px < canvas.width; px++) {
+            const x = (px - originX) / scale;
+            const y = df(x, r);
+            const py = originY - y * scale;
+            if (px === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // 3. 점 표시
+        const fy = f(selectedX, r);
+        const dfy = df(selectedX, r);
+        
+        const px_f = originX + selectedX * scale;
+        const py_f = originY - fy * scale;
+        const py_df = originY - dfy * scale;
+
+        // f(x) 위 노란색 점
+        ctx.fillStyle = '#facc15';
+        ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(250, 204, 21, 0.5)';
+        ctx.beginPath(); ctx.arc(px_f, py_f, 8, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+
+        // f'(x) 위 초록색 점
+        ctx.fillStyle = '#22c55e';
+        ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(34, 197, 94, 0.5)';
+        ctx.beginPath(); ctx.arc(px_f, py_df, 8, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // 수치 업데이트
+        dataDisplay.innerHTML = `
+            X = ${selectedX.toFixed(4)}<br>
+            f(X) = ${fy.toFixed(4)}<br>
+            f'(X) = ${dfy.toFixed(4)}<br><br>
+            <span style="color:${dfy >= 0 ? '#4ade80' : '#f87171'}">
+                ${dfy >= 0 ? '● 증가 상태' : '● 감소 상태'}
+            </span>
+        `;
+    }
+
+    // 마우스 이벤트
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const px_f = originX + selectedX * scale;
+        const py_f = originY - f(selectedX, r) * scale;
+        const distF = Math.sqrt((mx - px_f)**2 + (my - py_f)**2);
+
+        if (distF < 20) {
+            isDraggingPoint = true;
+        } else {
+            isPanning = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        if (isDraggingPoint) {
+            selectedX = (mx - originX) / scale;
+            draw();
+        } else if (isPanning) {
+            originX += e.clientX - lastMouseX;
+            originY += e.clientY - lastMouseY;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            draw();
+        }
+
+        // 툴팁 (커서 근처 점 정보)
+        const curX = (mx - originX) / scale;
+        const curF = f(curX, r);
+        const curDF = df(curX, r);
+        const py_curF = originY - curF * scale;
+
+        if (Math.abs(my - py_curF) < 60) {
+            tooltip.style.display = 'block';
+            tooltip.style.left = (mx + 15) + 'px';
+            tooltip.style.top = (my - 20) + 'px';
+            tooltip.innerHTML = `x: ${curX.toFixed(3)} | f': ${curDF.toFixed(3)}`;
+        } else {
+            tooltip.style.display = 'none';
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDraggingPoint = false;
+        isPanning = false;
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const worldX = (mx - originX) / scale;
+        const worldY = (originY - my) / scale;
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+
+        scale *= delta;
+        scale = Math.max(10, Math.min(1000, scale));
+        originX = mx - worldX * scale;
+        originY = my + worldY * scale;
+        draw();
+    }, { passive: false });
+
+    rSlider.addEventListener('input', () => {
+        r = parseFloat(rSlider.value);
+        rLabel.innerText = `매개변수 r: ${r.toFixed(3)}`;
+        draw();
+    });
+
+    window.addEventListener('resize', resize);
+    window.onload = resize;
+</script>
+
+</body>
+</html>

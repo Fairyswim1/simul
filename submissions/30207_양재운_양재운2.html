@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S(a)와 S'(a) 완벽 검증 시뮬레이터</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            color: #333;
+        }
+        .dashboard {
+            width: 100%;
+            max-width: 1300px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: #2c3e50; color: white; padding: 0; text-align: center;
+        }
+        .header h1 { margin: 0; padding: 20px; font-size: 22px; font-weight: 600; }
+        
+        /* 모드 탭 */
+        .tabs { display: flex; background: #1a252f; }
+        .tab {
+            flex: 1; padding: 12px; text-align: center; color: #bdc3c7;
+            cursor: pointer; font-weight: bold; transition: all 0.2s; border-bottom: 4px solid transparent;
+        }
+        .tab:hover { background: #2c3e50; color: white; }
+        .tab.active { color: white; border-bottom: 4px solid #3498db; background: #2c3e50; }
+
+        /* 메인 컨트롤 패널 */
+        .control-panel {
+            background: #f8f9fa; border-bottom: 1px solid #e9ecef; padding: 20px 30px;
+            display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between;
+        }
+        .sliders-container {
+            display: flex; gap: 30px; flex: 1; flex-wrap: wrap;
+        }
+        .slider-group { display: flex; flex-direction: column; gap: 12px; min-width: 250px; flex: 1; }
+        .slider-row { display: flex; align-items: center; gap: 15px; }
+        .slider-row label { font-weight: bold; width: 60px; color: #2c3e50; font-size: 14px; }
+        input[type="range"] { flex: 1; cursor: pointer; accent-color: #3498db; }
+        .val-badge {
+            background: #e1f0fa; color: #2980b9; padding: 4px 10px; border-radius: 6px;
+            font-weight: bold; font-size: 14px; min-width: 50px; text-align: center;
+        }
+        
+        /* 결과값 요약 */
+        .summary-stats { display: flex; gap: 15px; align-items: stretch; }
+        .stat-box {
+            background: white; border: 1px solid #e9ecef; padding: 10px 15px; border-radius: 8px;
+            text-align: center; min-width: 130px; display: flex; flex-direction: column; justify-content: center;
+        }
+        .stat-label { font-size: 12px; color: #7f8c8d; margin-bottom: 5px; font-weight: bold; }
+        .stat-value { font-size: 18px; font-weight: bold; color: #2c3e50; }
+        .highlight { color: #e74c3c; }
+        .highlight-blue { color: #3498db; }
+        .highlight-purple { color: #9b59b6; }
+
+        .btn-play { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; height: 100%; font-size: 15px;}
+        .btn-play:hover { background: #2ecc71; }
+        .btn-play.playing { background: #e67e22; }
+        .btn-play.playing:hover { background: #d35400; }
+
+        /* 그래프 영역 */
+        .graph-container { display: flex; padding: 25px; gap: 25px; justify-content: center; flex-wrap: wrap; }
+        .graph-box { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 600px; }
+        .graph-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; color: #34495e; text-align: center; }
+        canvas { background: white; border: 1px solid #bdc3c7; border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.02); width: 100%; height: auto; }
+        .legend { display: flex; gap: 12px; margin-top: 10px; font-size: 12px; color: #7f8c8d; flex-wrap: wrap; justify-content: center;}
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .color-box { width: 14px; height: 14px; border-radius: 3px; }
+
+        /* 모드 2 사용자 맞춤형 슬라이더 패널 (맨 하단 배치) */
+        .fit-panel {
+            background: #e8f4f8; border-top: 1px solid #d1e3ea; padding: 20px 30px;
+            display: flex; gap: 30px; align-items: center; justify-content: center; flex-wrap: wrap;
+        }
+        .fit-title { font-size: 14px; font-weight: bold; color: #2980b9; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="header">
+        <h1>S(a)와 S'(a)의 최적화 원리 시뮬레이터</h1>
+        <div class="tabs">
+            <div class="tab active" id="tab1">모드 1: 극한(da → 0)에 따른 변화율 수렴 확인</div>
+            <div class="tab" id="tab2">모드 2: S'(a)와 길이 차이 L의 선형 관계 직접 추정</div>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div class="sliders-container">
+            <div class="slider-group">
+                <div class="slider-row">
+                    <label>변수 a</label>
+                    <input type="range" id="a-slider" min="1.85" max="2.25" step="0.001" value="1.85">
+                    <span class="val-badge" id="a-val">1.850</span>
+                </div>
+                <div class="slider-row" id="da-row">
+                    <label>증분 da</label>
+                    <input type="range" id="da-slider" min="0.001" max="0.100" step="0.001" value="0.050">
+                    <span class="val-badge" id="da-val">0.050</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="summary-stats">
+            <div class="stat-box" id="box1">
+                <div class="stat-label" id="label1">-</div>
+                <div class="stat-value" id="val1">-</div>
+            </div>
+            <div class="stat-box" id="box2">
+                <div class="stat-label" id="label2">-</div>
+                <div class="stat-value" id="val2">-</div>
+            </div>
+            <div class="stat-box" id="box3">
+                <div class="stat-label" id="label3">-</div>
+                <div class="stat-value" id="val3">-</div>
+            </div>
+            <button class="btn-play" id="btn-play">▶ 자동 재생</button>
+        </div>
+    </div>
+
+    <div class="graph-container" id="graph-container">
+        <div class="graph-box" id="gb-1">
+            <div class="graph-title" id="title-1">1. 기하학적 면적 변화 (a → a+da)</div>
+            <canvas id="canvas-1" width="600" height="400"></canvas>
+            <div class="legend" id="legend-1"></div>
+        </div>
+
+        <div class="graph-box" id="gb-2">
+            <div class="graph-title" id="title-2">2. 정적분 넓이 S(a) 그래프</div>
+            <canvas id="canvas-2" width="600" height="400"></canvas>
+            <div class="legend" id="legend-2"></div>
+        </div>
+
+        <div class="graph-box" id="gb-3">
+            <div class="graph-title" id="title-3">3. 변화율 비교 그래프</div>
+            <canvas id="canvas-3" width="600" height="400"></canvas>
+            <div class="legend" id="legend-3"></div>
+        </div>
+
+        <div class="graph-box" id="gb-4" style="display:none;">
+            <div class="graph-title" id="title-4">4. 실제 S'(a)와 사용자 추정식 비교</div>
+            <canvas id="canvas-4" width="600" height="400"></canvas>
+            <div class="legend" id="legend-4"></div>
+        </div>
+    </div>
+
+    <div class="fit-panel" id="fit-panel" style="display:none;">
+        <div class="fit-title">사용자 추정식 조작: y = m × L + n</div>
+        <div class="slider-group" style="flex-direction: row; align-items: center; min-width: auto; gap: 30px;">
+            <div class="slider-row" style="flex: 1; min-width: 250px;">
+                <label style="width: auto;">기울기 m</label>
+                <input type="range" id="m-slider" min="-2" max="4" step="0.1" value="1.0">
+                <span class="val-badge" id="m-val">1.0</span>
+            </div>
+            <div class="slider-row" style="flex: 1; min-width: 250px;">
+                <label style="width: auto;">y절편 n</label>
+                <input type="range" id="n-slider" min="-8" max="2" step="0.1" value="-2.0">
+                <span class="val-badge" id="n-val">-2.0</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Elements
+    const sliderA = document.getElementById('a-slider');
+    const sliderDa = document.getElementById('da-slider');
+    const sliderM = document.getElementById('m-slider');
+    const sliderN = document.getElementById('n-slider');
+    
+    const valA = document.getElementById('a-val');
+    const valDa = document.getElementById('da-val');
+    const valM = document.getElementById('m-val');
+    const valN = document.getElementById('n-val');
+    
+    const val1Text = document.getElementById('val1');
+    const val2Text = document.getElementById('val2');
+    const val3Text = document.getElementById('val3');
+    const label1Text = document.getElementById('label1');
+    const label2Text = document.getElementById('label2');
+    const label3Text = document.getElementById('label3');
+    
+    const btnPlay = document.getElementById('btn-play');
+    const tab1 = document.getElementById('tab1');
+    const tab2 = document.getElementById('tab2');
+    
+    const title1 = document.getElementById('title-1');
+    const title2 = document.getElementById('title-2');
+    const title3 = document.getElementById('title-3');
+    const title4 = document.getElementById('title-4');
+    
+    const legend1 = document.getElementById('legend-1');
+    const legend2 = document.getElementById('legend-2');
+    const legend3 = document.getElementById('legend-3');
+    const legend4 = document.getElementById('legend-4');
+    
+    const graphContainer = document.getElementById('graph-container');
+    const gb3 = document.getElementById('gb-3');
+    const gb4 = document.getElementById('gb-4');
+    const fitPanel = document.getElementById('fit-panel');
+    const daRow = document.getElementById('da-row');
+
+    const ctx1 = document.getElementById('canvas-1').getContext('2d');
+    const ctx2 = document.getElementById('canvas-2').getContext('2d');
+    const ctx3 = document.getElementById('canvas-3').getContext('2d');
+    const ctx4 = document.getElementById('canvas-4').getContext('2d');
+
+    // State
+    let currentMode = 1;
+    let isPlaying = false;
+    let animationId = null;
+
+    // Canvas Mapping with Padding
+    const pad = 40; 
+    const mapX = (x, min, max, width) => pad + ((x - min) / (max - min)) * (width - pad * 2);
+    const mapY = (y, min, max, height) => height - pad - ((y - min) / (max - min)) * (height - pad * 2);
+
+    // Math Functions
+    function g(x) {
+        if (x <= 1.01) return 0;
+        return (x * Math.log(2)) / Math.log(x);
+    }
+
+    function calcArea(a) {
+        let sum = 0, dx = 0.01;
+        for(let x=2; x<=6; x+=dx) { sum += Math.abs(a - g(x)) * dx; }
+        return sum;
+    }
+
+    function findRoots(a) {
+        let alpha = 2.718, beta = 2.718;
+        let l = 1.01, r = 2.718;
+        for(let i=0; i<20; i++) {
+            let m = (l+r)/2;
+            if(g(m) > a) l = m; else r = m;
+        }
+        alpha = Math.max(2, l);
+        
+        l = 2.718; r = 15;
+        for(let i=0; i<20; i++) {
+            let m = (l+r)/2;
+            if(g(m) < a) l = m; else r = m;
+        }
+        beta = Math.min(6, l);
+        return { alpha, beta };
+    }
+
+    // Precalculate full curves
+    let fullCurveSa = [];
+    let fullCurveLen = [];
+    let fullCurveDeriv = []; // S'(a) = 2L - 4
+    
+    for(let a=1.85; a<=2.25; a+=0.005) {
+        let roots = findRoots(a);
+        let sa = calcArea(a);
+        let len = roots.beta - roots.alpha;
+        let lenDiff = 2 * len - 4; 
+        
+        fullCurveSa.push({x: a, y: sa});
+        fullCurveLen.push({x: a, y: len});
+        fullCurveDeriv.push({x: a, y: lenDiff});
+    }
+
+    // Grid Drawing Helper
+    function drawGrid(ctx, cw, ch, minX, maxX, stepX, minY, maxY, stepY, precisionX, precisionY) {
+        ctx.strokeStyle = '#ecf0f1'; ctx.lineWidth = 1;
+        ctx.fillStyle = '#7f8c8d'; ctx.font = '11px sans-serif';
+        
+        ctx.beginPath();
+        ctx.moveTo(pad, pad); ctx.lineTo(pad, ch - pad);
+        ctx.moveTo(pad, ch - pad); ctx.lineTo(cw - pad, ch - pad);
+        ctx.strokeStyle = '#bdc3c7'; ctx.stroke();
+        ctx.strokeStyle = '#ecf0f1'; 
+        
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        for(let x = minX; x <= maxX + 0.001; x += stepX) {
+            let px = mapX(x, minX, maxX, cw);
+            ctx.beginPath(); ctx.moveTo(px, pad); ctx.lineTo(px, ch - pad); ctx.stroke();
+            ctx.fillText(x.toFixed(precisionX), px, ch - pad + 5);
+        }
+        
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        for(let y = minY; y <= maxY + 0.001; y += stepY) {
+            let py = mapY(y, minY, maxY, ch);
+            ctx.beginPath(); ctx.moveTo(pad, py); ctx.lineTo(cw - pad, py); ctx.stroke();
+            ctx.fillText(y.toFixed(precisionY), pad - 5, py);
+        }
+    }
+
+    // 1. S(a) Area / g(x) Graph
+    function drawAreaGraph(ctx, cw, ch, a, da, roots, showDaChanges) {
+        ctx.clearRect(0, 0, cw, ch);
+        drawGrid(ctx, cw, ch, 1.8, 6.2, 1, 1.7, 2.5, 0.1, 0, 1);
+        
+        ctx.fillStyle = 'rgba(52, 152, 219, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(mapX(2, 1.8, 6.2, cw), mapY(a, 1.7, 2.5, ch));
+        for(let x=2; x<=6.01; x+=0.02) {
+            ctx.lineTo(mapX(x, 1.8, 6.2, cw), mapY(g(x), 1.7, 2.5, ch));
+        }
+        ctx.lineTo(mapX(6, 1.8, 6.2, cw), mapY(a, 1.7, 2.5, ch));
+        ctx.closePath();
+        ctx.fill();
+
+        const ya = mapY(a, 1.7, 2.5, ch);
+
+        if (showDaChanges) {
+            const yada = mapY(a+da, 1.7, 2.5, ch);
+            ctx.fillStyle = 'rgba(46, 204, 113, 0.5)';
+            let gap = roots.beta - roots.alpha;
+            if (gap > 0) ctx.fillRect(mapX(roots.alpha, 1.8, 6.2, cw), Math.min(ya, yada), mapX(roots.beta, 1.8, 6.2, cw) - mapX(roots.alpha, 1.8, 6.2, cw), Math.abs(yada - ya));
+            
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.5)';
+            if (roots.alpha > 2) ctx.fillRect(mapX(2, 1.8, 6.2, cw), Math.min(ya, yada), mapX(roots.alpha, 1.8, 6.2, cw) - mapX(2, 1.8, 6.2, cw), Math.abs(yada - ya));
+            if (roots.beta < 6) ctx.fillRect(mapX(roots.beta, 1.8, 6.2, cw), Math.min(ya, yada), mapX(6, 1.8, 6.2, cw) - mapX(roots.beta, 1.8, 6.2, cw), Math.abs(yada - ya));
+        }
+
+        ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 2.5; ctx.beginPath();
+        for(let x=2; x<=6.2; x+=0.02) {
+            let px = mapX(x, 1.8, 6.2, cw); let py = mapY(g(x), 1.7, 2.5, ch);
+            if(x===2) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        } ctx.stroke();
+
+        ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(pad, ya); ctx.lineTo(cw-pad, ya); ctx.stroke();
+        
+        if (showDaChanges) {
+            const yada = mapY(a+da, 1.7, 2.5, ch);
+            ctx.strokeStyle = '#e74c3c'; ctx.setLineDash([5,5]); ctx.beginPath();
+            ctx.moveTo(pad, yada); ctx.lineTo(cw-pad, yada); ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+
+    // 2. S(a) 전체 그래프
+    function drawSaFull(ctx, cw, ch, a, sa) {
+        ctx.clearRect(0, 0, cw, ch);
+        drawGrid(ctx, cw, ch, 1.85, 2.25, 0.1, 0.4, 1.2, 0.2, 2, 1);
+
+        ctx.strokeStyle = '#2ecc71'; ctx.lineWidth = 3; ctx.beginPath();
+        fullCurveSa.forEach((pt, i) => {
+            let px = mapX(pt.x, 1.85, 2.25, cw); let py = mapY(pt.y, 0.4, 1.2, ch);
+            if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }); ctx.stroke();
+
+        let curX = mapX(a, 1.85, 2.25, cw); let curY = mapY(sa, 0.4, 1.2, ch);
+        ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(curX, curY, 6, 0, Math.PI*2); ctx.fill();
+    }
+
+    // 3. 수치미분 vs 이론미분 비교 그래프 (모드 1 전용 - 수렴성 확인)
+    function drawConvergenceCompare(ctx, cw, ch, a, da, derivNum, derivTheo) {
+        ctx.clearRect(0, 0, cw, ch);
+        drawGrid(ctx, cw, ch, 1.85, 2.25, 0.1, -4, 4, 2, 2, 0);
+
+        let yZero = mapY(0, -4, 4, ch);
+        ctx.strokeStyle = '#34495e'; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(pad, yZero); ctx.lineTo(cw-pad, yZero); ctx.stroke();
+
+        // 이론적 곡선 (주황 실선)
+        ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 4; ctx.beginPath();
+        fullCurveDeriv.forEach((pt, i) => {
+            let px = mapX(pt.x, 1.85, 2.25, cw); let py = mapY(pt.y, -4, 4, ch);
+            if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }); ctx.stroke();
+
+        // 수치미분(ΔS/da) 곡선 동적 계산 (파란 점선)
+        ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2.5; ctx.setLineDash([5, 5]); ctx.beginPath();
+        for(let x=1.85; x<=2.251; x+=0.01) {
+            let numY = (calcArea(x + da) - calcArea(x)) / da;
+            let px = mapX(x, 1.85, 2.25, cw); let py = mapY(numY, -4, 4, ch);
+            if(x === 1.85) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+
+        // 현재 a 위치
+        let curX = mapX(a, 1.85, 2.25, cw);
+        ctx.fillStyle = '#e67e22'; ctx.beginPath(); ctx.arc(curX, mapY(derivTheo, -4, 4, ch), 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(curX, mapY(derivNum, -4, 4, ch), 5, 0, Math.PI*2); ctx.fill();
+    }
+
+    // 4. L(a) 전체 그래프 (모드 2 전용)
+    function drawLenFull(ctx, cw, ch, a, len) {
+        ctx.clearRect(0, 0, cw, ch);
+        drawGrid(ctx, cw, ch, 1.85, 2.25, 0.1, 0, 4, 1, 2, 0);
+
+        ctx.strokeStyle = '#9b59b6'; ctx.lineWidth = 3; ctx.beginPath();
+        fullCurveLen.forEach((pt, i) => {
+            let px = mapX(pt.x, 1.85, 2.25, cw); let py = mapY(pt.y, 0, 4, ch);
+            if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }); ctx.stroke();
+
+        let curX = mapX(a, 1.85, 2.25, cw); let curY = mapY(len, 0, 4, ch);
+        ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(curX, curY, 6, 0, Math.PI*2); ctx.fill();
+    }
+
+    // 5. S'(a)와 사용자 추정식 비교 그래프 (모드 2 전용)
+    function drawDerivUserCompare(ctx, cw, ch, a, targetDeriv, userDeriv, m, n) {
+        ctx.clearRect(0, 0, cw, ch);
+        drawGrid(ctx, cw, ch, 1.85, 2.25, 0.1, -4, 4, 2, 2, 0);
+
+        let yZero = mapY(0, -4, 4, ch);
+        ctx.strokeStyle = '#34495e'; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(pad, yZero); ctx.lineTo(cw-pad, yZero); ctx.stroke();
+
+        // 목표 실제 변화율 (S'(a) = 2L - 4)
+        ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 4; ctx.beginPath();
+        fullCurveDeriv.forEach((pt, i) => {
+            let px = mapX(pt.x, 1.85, 2.25, cw); let py = mapY(pt.y, -4, 4, ch);
+            if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }); ctx.stroke();
+
+        // 사용자 추정 곡선 (y = mL + n)
+        ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]); ctx.beginPath();
+        fullCurveLen.forEach((pt, i) => {
+            let userY = m * pt.y + n;
+            let px = mapX(pt.x, 1.85, 2.25, cw); let py = mapY(userY, -4, 4, ch);
+            if(i===0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 현재 a 위치 점
+        let curX = mapX(a, 1.85, 2.25, cw); 
+        ctx.fillStyle = '#e67e22'; ctx.beginPath(); ctx.arc(curX, mapY(targetDeriv, -4, 4, ch), 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(curX, mapY(userDeriv, -4, 4, ch), 5, 0, Math.PI*2); ctx.fill();
+    }
+
+    // --- Main Draw ---
+    function draw() {
+        const a = parseFloat(sliderA.value);
+        const da = parseFloat(sliderDa.value);
+        const m = parseFloat(sliderM.value);
+        const n = parseFloat(sliderN.value);
+        
+        valA.innerText = a.toFixed(3);
+        valDa.innerText = da.toFixed(3);
+        valM.innerText = m.toFixed(1);
+        valN.innerText = n.toFixed(1);
+
+        const roots = findRoots(a);
+        const len = roots.beta - roots.alpha;
+        
+        const sa = calcArea(a);
+        const sada = calcArea(a + da);
+        const deltaS = sada - sa;
+        
+        const derivNum = deltaS / da; 
+        const derivTheo = 2 * len - 4; // 실제 S'(a)
+        const derivUser = m * len + n; // 사용자 추정식
+
+        if (currentMode === 1) {
+            val1Text.innerText = (deltaS > 0 ? "+" : "") + deltaS.toFixed(4);
+            val2Text.className = "stat-value highlight-blue";
+            val2Text.innerText = (derivNum > 0 ? "+" : "") + derivNum.toFixed(3);
+            val3Text.className = "stat-value highlight";
+            val3Text.innerText = (derivTheo > 0 ? "+" : "") + derivTheo.toFixed(3);
+            
+            drawAreaGraph(ctx1, 600, 400, a, da, roots, true);
+            drawSaFull(ctx2, 600, 400, a, sa);
+            drawConvergenceCompare(ctx3, 600, 400, a, da, derivNum, derivTheo);
+        } else {
+            val1Text.innerText = sa.toFixed(4);
+            val2Text.className = "stat-value highlight-purple";
+            val2Text.innerText = len.toFixed(3);
+            val3Text.className = "stat-value highlight-blue";
+            val3Text.innerText = (derivUser > 0 ? "+" : "") + derivUser.toFixed(3);
+            
+            title4.innerText = `4. 실제 S'(a)와 사용자 추정식 비교 (y = ${m.toFixed(1)}L ${n >= 0 ? '+ ' : '- '}${Math.abs(n).toFixed(1)})`;
+            
+            drawAreaGraph(ctx1, 600, 400, a, da, roots, false);
+            drawSaFull(ctx2, 600, 400, a, sa);
+            drawLenFull(ctx3, 600, 400, a, len);
+            drawDerivUserCompare(ctx4, 600, 400, a, derivTheo, derivUser, m, n);
+        }
+    }
+
+    // --- Mode Switching ---
+    function setMode(mode) {
+        currentMode = mode;
+        if (mode === 1) {
+            tab1.classList.add('active'); tab2.classList.remove('active');
+            
+            daRow.style.opacity = '1'; sliderDa.disabled = false;
+            fitPanel.style.display = 'none';
+            gb4.style.display = 'none';
+            
+            label1Text.innerText = "면적 변화량 (ΔS)";
+            label2Text.innerText = "수치 미분값 (ΔS/da)";
+            label3Text.innerText = "이론적 미분값 S'(a)";
+
+            title1.innerText = "1. 기하학적 면적 변화 (a → a+da)";
+            title2.innerText = "2. 정적분 넓이 S(a) 그래프";
+            title3.innerText = "3. 극한(da)에 따른 수치미분과 S'(a) 수렴 비교";
+            
+            legend1.innerHTML = '<div class="legend-item"><div class="color-box" style="background:rgba(52, 152, 219, 0.3);"></div>현재 넓이</div><div class="legend-item"><div class="color-box" style="background:#2ecc71;"></div>+ 증가 구간</div><div class="legend-item"><div class="color-box" style="background:#e74c3c;"></div>- 감소 구간</div>';
+            legend2.innerHTML = '<div class="legend-item"><div class="color-box" style="background:#2ecc71; height:4px;"></div>S(a) 개형</div><div class="legend-item"><div class="color-box" style="background:#e74c3c; border-radius:50%;"></div>현재 값</div>';
+            legend3.innerHTML = '<div class="legend-item"><div class="color-box" style="background:#e67e22; height:4px;"></div>실제 S\'(a) 곡선</div><div class="legend-item"><div class="color-box" style="background:#3498db; border-top: 3px dashed #3498db; height:0px;"></div>수치미분(ΔS/da) 곡선</div>';
+        } else {
+            tab2.classList.add('active'); tab1.classList.remove('active');
+            
+            daRow.style.opacity = '0.4'; sliderDa.disabled = true; 
+            fitPanel.style.display = 'flex';
+            gb4.style.display = 'flex';
+            
+            label1Text.innerText = "현재 넓이 S(a)";
+            label2Text.innerText = "길이 차이 L = (β - α)";
+            label3Text.innerText = "추정식 값 (mL + n)";
+
+            title1.innerText = "1. 현재 a에서의 S(a) 적분 영역";
+            title2.innerText = "2. 정적분 넓이 S(a) 그래프";
+            title3.innerText = "3. 길이 차이 L(a) = β - α 그래프";
+            
+            legend1.innerHTML = '<div class="legend-item"><div class="color-box" style="background:rgba(52, 152, 219, 0.3);"></div>현재 S(a) 영역</div>';
+            legend2.innerHTML = '<div class="legend-item"><div class="color-box" style="background:#2ecc71; height:4px;"></div>S(a) 그래프</div><div class="legend-item"><div class="color-box" style="background:#e74c3c; border-radius:50%;"></div>현재 값</div>';
+            legend3.innerHTML = '<div class="legend-item"><div class="color-box" style="background:#9b59b6; height:4px;"></div>L(a) 그래프</div><div class="legend-item"><div class="color-box" style="background:#e74c3c; border-radius:50%;"></div>현재 값</div>';
+            legend4.innerHTML = '<div class="legend-item"><div class="color-box" style="background:#e67e22; height:4px;"></div>실제 S\'(a) (2L - 4)</div><div class="legend-item"><div class="color-box" style="background:#3498db; border-top: 3px dashed #3498db; height:0px;"></div>추정식 곡선</div>';
+        }
+        draw();
+    }
+
+    tab1.addEventListener('click', () => setMode(1));
+    tab2.addEventListener('click', () => setMode(2));
+    sliderDa.addEventListener('input', draw);
+    sliderA.addEventListener('input', () => { if (isPlaying) togglePlay(); draw(); });
+    sliderM.addEventListener('input', draw);
+    sliderN.addEventListener('input', draw);
+
+    function autoPlayLoop() {
+        if (!isPlaying) return;
+        let currentA = parseFloat(sliderA.value);
+        currentA += 0.002; 
+        if (currentA > 2.25) {
+            sliderA.value = 2.25; draw(); togglePlay(); return;
+        }
+        sliderA.value = currentA; draw();
+        animationId = requestAnimationFrame(autoPlayLoop);
+    }
+
+    function togglePlay() {
+        isPlaying = !isPlaying;
+        if (isPlaying) {
+            if(parseFloat(sliderA.value) >= 2.25) sliderA.value = 1.85; 
+            btnPlay.innerText = "■ 정지"; btnPlay.classList.add('playing'); autoPlayLoop();
+        } else {
+            btnPlay.innerText = "▶ 자동 재생"; btnPlay.classList.remove('playing'); cancelAnimationFrame(animationId);
+        }
+    }
+
+    btnPlay.addEventListener('click', togglePlay);
+
+    // Init
+    setMode(1);
+</script>
+</body>
+</html>

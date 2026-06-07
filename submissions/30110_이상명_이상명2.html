@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>점 C, D 최적 위치 시뮬레이터</title>
+<style>
+  :root{
+    --bg:#f5f7fb;
+    --card:#ffffff;
+    --line:#dbe3ef;
+    --text:#1f2937;
+    --muted:#6b7280;
+    --blue:#2563eb;
+    --bluebg:#eff6ff;
+    --green:#16a34a;
+    --greenbg:#dcfce7;
+    --red:#dc2626;
+    --orange:#f59e0b;
+    --shadow:0 6px 22px rgba(15,23,42,.06);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:"Segoe UI","Noto Sans KR",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .wrap{max-width:1520px;margin:0 auto;padding:18px}
+  h1{
+    margin:0 0 8px;
+    font-size:30px;
+    color:#173a78;
+    letter-spacing:-.2px;
+  }
+  .sub{margin:0 0 16px;color:var(--muted);line-height:1.6;font-size:15px}
+  .top,.main{display:grid;gap:14px}
+  .top{grid-template-columns:1.1fr 1fr;margin-bottom:14px}
+  .main{grid-template-columns:1.7fr 1fr;align-items:start}
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    box-shadow:var(--shadow);
+    padding:16px;
+  }
+  .card h3{margin:0 0 10px;font-size:20px;letter-spacing:-.2px}
+  .tagrow{display:flex;flex-wrap:wrap;gap:8px}
+  .tag{
+    display:inline-flex;align-items:center;
+    padding:8px 12px;border-radius:999px;
+    background:#eef2ff;color:#3730a3;font-weight:700;font-size:14px;
+  }
+  .formula{
+    background:var(--bluebg);
+    border:1px solid #dbeafe;
+    border-left:4px solid var(--blue);
+    border-radius:12px;
+    padding:10px 12px;
+    margin:8px 0;
+    line-height:1.6;
+    font-size:15px;
+  }
+  .canvas-card{padding:12px}
+  canvas{
+    width:100%;
+    display:block;
+    background:#fff;
+    border-radius:14px;
+    border:1px solid var(--line);
+  }
+  .legend{
+    display:flex;flex-wrap:wrap;gap:8px;margin-top:10px
+  }
+  .legend span{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:7px 10px;border-radius:999px;background:#f3f4f6;
+    font-size:13px;color:#374151
+  }
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .blue{background:var(--blue)}
+  .red{background:var(--red)}
+  .green{background:var(--green)}
+  .orange{background:var(--orange)}
+  .gray{background:#6b7280}
+  .controls h3{margin-bottom:12px}
+  .slider-block{margin-top:12px}
+  .slider-block label{display:block;font-weight:800;margin-bottom:6px;font-size:15px}
+  input[type="range"]{width:100%;accent-color:#d81b60}
+  .btn-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  button{
+    border:none;border-radius:12px;padding:11px 12px;
+    font-weight:800;cursor:pointer;transition:transform .12s ease, opacity .12s ease
+  }
+  button:hover{transform:translateY(-1px);opacity:.96}
+  .preset{background:var(--greenbg);color:#166534}
+  .play{width:100%;margin-top:12px;background:var(--blue);color:#fff;font-size:17px}
+  .secondary{width:100%;margin-top:10px;background:#f3f4f6;color:#111827;font-size:14px}
+  .stat{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .box{
+    background:#fafafa;border:1px solid var(--line);border-radius:12px;padding:12px
+  }
+  .box .title{color:#374151;font-size:14px;margin-bottom:4px}
+  .value{font-size:24px;line-height:1.15;font-weight:900;color:var(--red);word-break:break-word}
+  .flow{
+    margin-top:14px;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;line-height:1.75;font-size:15px
+  }
+  .mini{
+    margin-top:10px;color:var(--muted);font-size:13px;line-height:1.5
+  }
+  .graph{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}
+  .graph-title{font-weight:800;margin-bottom:6px;font-size:14px}
+  .smallsvg{width:100%;height:150px;display:block}
+  @media (max-width:1100px){
+    .top,.main,.graph-row{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>점 C, D의 최적 위치 시뮬레이터</h1>
+  <p class="sub">
+    점 A(-10, 2), B(10, 2)가 주어지고 점 C, D는 x축 위를 움직인다.
+    <b>AC + kCD + DB</b>가 최소가 되도록 하는 위치를 확인하고, k에 따라 최솟점이 어떻게 달라지는지 살펴본다.
+  </p>
+
+  <div class="top">
+    <div class="card">
+      <h3>문제에서 구하는 것</h3>
+      <div class="tagrow">
+        <span class="tag">임계값 k</span>
+        <span class="tag">최소점 d</span>
+        <span class="tag">C, D의 위치</span>
+        <span class="tag">f(d) 그래프</span>
+      </div>
+      <div class="formula">
+        점 C, D를 x축 위에서 대칭적으로 두고,
+        <b>AC + kCD + DB</b>의 최소가 되는 위치를 찾는다.
+        그 결과 경계값은 <b>k = 5/√26</b>이다. 이 값이 기준이 되어 최솟점이 d = 0에서 내부로 이동할지 결정된다.
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>핵심 식</h3>
+      <div class="formula">
+        C(-d,0), D(d,0)로 두면
+        <br><b>f(d) = kd + √((10−d)² + 4)</b>
+      </div>
+      <div class="formula">
+        <b>f′(d) = k − (10−d) / √((10−d)² + 4)</b>
+      </div>
+      <div class="formula">
+        <b>d=0</b>에서의 임계값:
+        <br><b>k = 5/√26 ≈ 0.98058</b>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="main">
+    <div class="left-col">
+      <div class="card canvas-card">
+        <canvas id="canvas" width="1000" height="620"></canvas>
+        <div class="legend">
+          <span><i class="dot blue"></i>좌표축 / 기준선</span>
+          <span><i class="dot red"></i>점 A, B</span>
+          <span><i class="dot green"></i>점 C, D</span>
+          <span><i class="dot orange"></i>이동 경로</span>
+        </div>
+      </div>
+
+      <div class="card graph-row">
+        <div class="graph">
+          <div class="graph-title">f(d) 그래프</div>
+          <svg class="smallsvg" id="funcSvg" viewBox="0 0 300 150" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="graph">
+          <div class="graph-title">도함수 f′(d)</div>
+          <svg class="smallsvg" id="derSvg" viewBox="0 0 300 150" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="card controls">
+      <h3>조작</h3>
+      <div class="btn-row">
+        <button class="preset" type="button" onclick="setK(0.50)">0.50</button>
+        <button class="preset" type="button" onclick="setK(0.80)">0.80</button>
+        <button class="preset" type="button" onclick="setK(0.98)">0.98</button>
+        <button class="preset" type="button" onclick="setK(1.00)">1.00</button>
+      </div>
+
+      <div class="slider-block">
+        <label>k = <span id="kVal">0.50</span></label>
+        <input id="kSlider" type="range" min="0.05" max="1.00" step="0.01" value="0.50" />
+      </div>
+
+      <div class="slider-block">
+        <label>자동 재생 속도 = <span id="speedVal">1.0</span>x</label>
+        <input id="speedSlider" type="range" min="0.2" max="8" step="0.1" value="1.0" />
+      </div>
+
+      <button class="play" id="playBtn" type="button">⏸ 일시정지</button>
+      <button class="secondary" id="resetBtn" type="button">↺ 위치 초기화</button>
+
+      <div class="stat">
+        <div class="box">
+          <div class="title">임계값</div>
+          <div class="value" id="thresholdVal">5/√26</div>
+        </div>
+        <div class="box">
+          <div class="title">현재 최적 d</div>
+          <div class="value" id="dStarVal">0</div>
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="box">
+          <div class="title">현재 최소값</div>
+          <div class="value" id="fVal">0</div>
+        </div>
+        <div class="box">
+          <div class="title">판정</div>
+          <div class="value" id="stateVal" style="font-size:18px;color:#0f172a;">d=0 최소</div>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="line"><b>(1)</b> C, D를 x축 위의 대칭 위치로 두면 식이 단순해진다.</div>
+        <div class="line"><b>(2)</b> f(d) = kd + √((10−d)² + 4)를 최소화한다.</div>
+        <div class="line"><b>(3)</b> k가 임계값보다 작으면 내부 최소점이 생기고, 크면 d=0에서 최소가 된다.</div>
+        <div class="line"><b>(4)</b> 경계값은 k=5/√26이다.</div>
+      </div>
+
+      <div class="mini">
+        이 시뮬레이터는 k 값을 바꾸면서 점 C, D의 위치와 f(d)의 최솟점이 어떻게 달라지는지
+        눈으로 확인하도록 구성했다.
+      </div>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const kSlider = document.getElementById('kSlider');
+const speedSlider = document.getElementById('speedSlider');
+const playBtn = document.getElementById('playBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+let k = 0.50;
+let speed = 1.0;
+let playing = true;
+let t = 0;
+let lastTs = null;
+
+function threshold() {
+  return 5 / Math.sqrt(26);
+}
+
+function dStarFor(val) {
+  const th = threshold();
+  if (val >= th) return 0;
+  return 10 - 2 * val / Math.sqrt(1 - val * val);
+}
+
+function fOf(d, val) {
+  return val * d + Math.sqrt((10 - d) * (10 - d) + 4);
+}
+
+function fd(d, val) {
+  return val - (10 - d) / Math.sqrt((10 - d) * (10 - d) + 4);
+}
+
+function compact(x) {
+  return (Math.round(x * 10000) / 10000).toFixed(4);
+}
+
+function updateLabels() {
+  document.getElementById('kVal').textContent = k.toFixed(2);
+  document.getElementById('speedVal').textContent = speed.toFixed(1);
+  document.getElementById('thresholdVal').textContent = '5/√26 ≈ ' + compact(threshold());
+  const ds = dStarFor(k);
+  document.getElementById('dStarVal').textContent = compact(ds);
+  document.getElementById('fVal').textContent = compact(fOf(ds, k));
+  document.getElementById('stateVal').textContent = (k < threshold()) ? '내부 최소점' : 'd=0 최소';
+}
+
+function setK(val) {
+  k = Math.max(0.05, Math.min(1, val));
+  kSlider.value = k.toFixed(2);
+  updateLabels();
+  drawGraph();
+}
+window.setK = setK;
+
+function sceneX(x, margin, scale) {
+  return margin + (x + 12) * scale;
+}
+function sceneY(y, cy, scale) {
+  return cy - y * scale;
+}
+
+function drawAxes(cx, cy) {
+  ctx.strokeStyle = '#9ca3af';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(40, cy);
+  ctx.lineTo(canvas.width - 40, cy);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(cx, 40);
+  ctx.lineTo(cx, canvas.height - 40);
+  ctx.stroke();
+
+  ctx.fillStyle = '#374151';
+  ctx.font = '16px sans-serif';
+  ctx.fillText('x', canvas.width - 28, cy - 8);
+  ctx.fillText('y', cx + 8, 34);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const margin = 100;
+  const scale = 28;
+  const cx = sceneX(0, margin, scale);
+  const cy = canvas.height * 0.60;
+
+  drawAxes(cx, cy);
+
+  const ds = dStarFor(k);
+  const A = { x: sceneX(-10, margin, scale), y: sceneY(2, cy, scale) };
+  const B = { x: sceneX(10, margin, scale), y: sceneY(2, cy, scale) };
+  const C = { x: sceneX(-ds, margin, scale), y: sceneY(0, cy, scale) };
+  const D = { x: sceneX(ds, margin, scale), y: sceneY(0, cy, scale) };
+  const O = { x: sceneX(0, margin, scale), y: sceneY(0, cy, scale) };
+
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(40, cy - 70);
+  ctx.lineTo(canvas.width - 40, cy - 70);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(A.x, A.y);
+  ctx.lineTo(C.x, C.y);
+  ctx.lineTo(D.x, D.y);
+  ctx.lineTo(B.x, B.y);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#d1d5db';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 5]);
+  ctx.beginPath();
+  ctx.moveTo(C.x, C.y);
+  ctx.lineTo(D.x, D.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  function dot(P, color, r) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(P.x, P.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  dot(A, '#dc2626', 7);
+  dot(B, '#dc2626', 7);
+  dot(C, '#16a34a', 8);
+  dot(D, '#16a34a', 8);
+  dot(O, '#111827', 5);
+
+  ctx.fillStyle = '#111827';
+  ctx.font = '18px sans-serif';
+  ctx.fillText('A(-10, 2)', A.x - 18, A.y - 14);
+  ctx.fillText('B(10, 2)', B.x - 12, B.y - 14);
+  ctx.fillText('C', C.x - 18, C.y - 12);
+  ctx.fillText('D', D.x + 10, D.y - 12);
+  ctx.fillText('O', O.x + 8, O.y + 18);
+
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '16px sans-serif';
+  ctx.fillText('AC + kCD + DB = ' + compact(2 * fOf(ds, k)), 40, 44);
+
+  ctx.fillStyle = '#4b5563';
+  ctx.font = '15px sans-serif';
+  ctx.fillText((k < threshold()) ? 'k가 임계값보다 작으면 내부 최소점이 생긴다.' : 'k가 임계값 이상이면 d=0에서 최소가 된다.', 40, 68);
+  ctx.fillText('현재 최적 d = ' + compact(ds), canvas.width - 150, 44);
+  ctx.fillText('k = ' + k.toFixed(2), canvas.width - 150, 66);
+}
+
+function drawGraph() {
+  const funcSvg = document.getElementById('funcSvg');
+  const derSvg = document.getElementById('derSvg');
+
+  const w = 300, h = 150;
+  const pad = 18;
+  const x0 = pad, x1 = w - pad, y0 = h - pad, y1 = pad;
+
+  const xmin = 0, xmax = 10;
+  const fmin = 2, fmax = 13;
+  const dstep = 0.2;
+  const ds = dStarFor(k);
+  const ymin2 = -1.0, ymax2 = 1.0;
+
+  function sx(x){ return x0 + (x - xmin) * (x1 - x0) / (xmax - xmin); }
+  function sy(y){ return y0 - (y - fmin) * (y0 - y1) / (fmax - fmin); }
+  function sy2(y){ return y0 - (y - ymin2) * (y0 - y1) / (ymax2 - ymin2); }
+
+  let path1 = '';
+  for (let d = xmin; d <= xmax; d += dstep) {
+    const y = fOf(d, k);
+    path1 += (d === xmin ? 'M ' : ' L ') + sx(d) + ' ' + sy(y);
+  }
+  let path2 = '';
+  for (let d = xmin; d <= xmax; d += dstep) {
+    const y = fd(d, k);
+    path2 += (d === xmin ? 'M ' : ' L ') + sx(d) + ' ' + sy2(y);
+  }
+
+  const minY = fOf(ds, k);
+  const dotx = sx(ds), doty = sy(minY);
+  const dotx2 = sx(ds), doty2 = sy2(fd(ds, k));
+
+  funcSvg.innerHTML = `
+    <rect x="0" y="0" width="${w}" height="${h}" fill="white"></rect>
+    <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="#9ca3af" stroke-width="1.5"></line>
+    <line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y1}" stroke="#9ca3af" stroke-width="1.5"></line>
+    <path d="${path1}" fill="none" stroke="#2563eb" stroke-width="3"></path>
+    <circle cx="${dotx}" cy="${doty}" r="5.5" fill="#dc2626"></circle>
+    <text x="${dotx + 8}" y="${doty - 8}" font-size="12" fill="#111827">min</text>
+    <text x="8" y="14" font-size="12" fill="#6b7280">f(d)</text>
+    <text x="${w - 18}" y="${h - 4}" font-size="12" fill="#6b7280">d</text>
+  `;
+
+  derSvg.innerHTML = `
+    <rect x="0" y="0" width="${w}" height="${h}" fill="white"></rect>
+    <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="#9ca3af" stroke-width="1.5"></line>
+    <line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y1}" stroke="#9ca3af" stroke-width="1.5"></line>
+    <line x1="${x0}" y1="${sy2(0)}" x2="${x1}" y2="${sy2(0)}" stroke="#e5e7eb" stroke-width="1"></line>
+    <path d="${path2}" fill="none" stroke="#f59e0b" stroke-width="3"></path>
+    <circle cx="${dotx2}" cy="${doty2}" r="5.5" fill="#dc2626"></circle>
+    <text x="8" y="14" font-size="12" fill="#6b7280">f'(d)</text>
+    <text x="${w - 18}" y="${h - 4}" font-size="12" fill="#6b7280">d</text>
+  `;
+}
+
+function loop(ts){
+  if (lastTs === null) lastTs = ts;
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+
+  if (playing) {
+    t += dt * speed;
+    // 자동 재생은 k값을 천천히 바꿔서 경계값 근처 변화를 볼 수 있게 함
+    const sweep = 0.50 + 0.50 * Math.sin(t * 0.55);
+    k = 0.05 + 0.95 * sweep;
+    kSlider.value = k.toFixed(2);
+    updateLabels();
+    drawGraph();
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
+kSlider.addEventListener('input', e => {
+  k = parseFloat(e.target.value);
+  updateLabels();
+  drawGraph();
+});
+
+speedSlider.addEventListener('input', e => {
+  speed = parseFloat(e.target.value);
+  updateLabels();
+});
+
+playBtn.addEventListener('click', () => {
+  playing = !playing;
+  playBtn.textContent = playing ? '⏸ 일시정지' : '▶ 자동 재생';
+});
+
+resetBtn.addEventListener('click', () => {
+  t = 0;
+  k = 0.50;
+  kSlider.value = '0.50';
+  updateLabels();
+  drawGraph();
+});
+
+updateLabels();
+drawGraph();
+draw();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

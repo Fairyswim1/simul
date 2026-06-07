@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수학 논술 수열과 극한 시뮬레이터</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for rendering LaTeX formulas -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f8fafc; }
+        .math-box { background-color: white; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1.5rem; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); }
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        /* Custom scrollbar for stats */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+</head>
+<body class="p-4 md:p-8 text-slate-800">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">기약분수 분모와 리만합 시뮬레이터</h1>
+            <p class="text-slate-600">제시문의 성질을 바탕으로 극한값 $\lim_{n\to\infty} \frac{1}{d(a_n)} \sum_{k=1}^{d(a_n)} g(k a_n)$ 이 수렴하는 과정을 확인해보세요.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Panel: Controls and Info -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Problem Info -->
+                <div class="math-box">
+                    <h2 class="text-lg font-semibold border-b pb-2 mb-4">문제 조건</h2>
+                    <ul class="space-y-2 text-sm">
+                        <li>$a_n = \frac{n}{3n+8}$</li>
+                        <li>$g(x) = \left( x - [x] - \frac{1}{2} \right)^8$ (단, $[x]$는 최대 정수)</li>
+                        <li>$d(a_n)$ : $a_n$을 기약분수로 나타냈을 때의 분모</li>
+                        <li class="font-bold text-indigo-700 mt-2">
+                            목표: $S_n = \frac{1}{d(a_n)} \sum_{k=1}^{d(a_n)} g(k a_n)$ 의 변화 관찰
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Controls -->
+                <div class="math-box bg-indigo-50 border-indigo-100">
+                    <h2 class="text-lg font-semibold text-indigo-900 mb-4">시뮬레이션 조작</h2>
+                    
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="nSlider" class="font-medium text-indigo-800">$n$ 값 설정:</label>
+                            <span id="nValueDisplay" class="text-xl font-bold text-indigo-600 bg-white px-3 py-1 rounded shadow-sm border">1</span>
+                        </div>
+                        <input type="range" id="nSlider" min="1" max="200" value="1" class="w-full h-2 bg-indigo-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                        <div class="flex justify-between text-xs text-indigo-400 mt-1">
+                            <span>1</span>
+                            <span>200</span>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-3">
+                        <button id="playBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition flex justify-center items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            자동 재생
+                        </button>
+                        <button id="resetBtn" class="bg-white hover:bg-slate-50 text-slate-700 font-semibold border border-slate-300 py-2 px-4 rounded transition">
+                            초기화
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Calculation Results -->
+                <div class="math-box">
+                    <h2 class="text-lg font-semibold border-b pb-2 mb-4">현재 계산 결과</h2>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="bg-slate-50 p-3 rounded border">
+                            <div class="text-slate-500 mb-1">원래 분수 ($a_n$)</div>
+                            <div id="originalFraction" class="font-mono text-lg">1/11</div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded border">
+                            <div class="text-slate-500 mb-1">최대공약수 (GCD)</div>
+                            <div id="gcdValue" class="font-mono text-lg">1</div>
+                        </div>
+                        <div class="bg-indigo-50 p-3 rounded border border-indigo-100 col-span-2">
+                            <div class="text-indigo-800 font-medium mb-1 flex justify-between">
+                                <span>기약분수 분모 $d(a_n)$</span>
+                                <span class="text-xs font-normal text-indigo-500">(표본점의 개수)</span>
+                            </div>
+                            <div id="denominator" class="font-mono text-2xl font-bold text-indigo-700">11</div>
+                        </div>
+                        
+                        <!-- 추가된 비교 UI -->
+                        <div class="bg-amber-50 p-3 rounded border border-amber-200 col-span-2">
+                            <div class="text-amber-800 font-medium mb-2 text-center border-b border-amber-200 pb-2">수식 결과 비교 (두 값이 동일한지 확인)</div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="text-center">
+                                    <div class="text-xs text-amber-700 mb-1">$\sum_{k=1}^{d(a_n)} g(ka_n)$</div>
+                                    <div id="sumValue1" class="font-mono text-sm font-bold text-amber-900 break-all">0</div>
+                                </div>
+                                <div class="text-center border-l border-amber-200">
+                                    <div class="text-xs text-amber-700 mb-1">$\sum_{k=1}^{d(a_n)} \left(\frac{k}{d(a_n)} - \frac{1}{2}\right)^8$</div>
+                                    <div id="sumValue2" class="font-mono text-sm font-bold text-amber-900 break-all">0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-emerald-50 p-3 rounded border border-emerald-100 col-span-2">
+                            <div class="text-emerald-800 font-medium mb-1 flex justify-between">
+                                <span>시그마 계산값 ($S_n$)</span>
+                                <span class="text-xs font-normal text-emerald-500">(위 합계 ÷ $d(a_n)$)</span>
+                            </div>
+                            <div id="sumValue" class="font-mono text-xl font-bold text-emerald-700">0.00000000</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Panel: Charts -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Chart 2: Convergence -->
+                <div class="math-box">
+                    <div class="flex justify-between items-end mb-4">
+                        <h2 class="text-lg font-semibold">극한값 수렴 과정 ($S_n$)</h2>
+                        <span class="text-xs text-slate-500">빨간 점선: 극한값 (1/2304)</span>
+                    </div>
+                    <p class="text-sm text-slate-600 mb-2">
+                        $n$이 커지면서 $d(a_n)$이 커짐에 따라, 리만 합이 정적분 $\int_0^1 (x-0.5)^8 dx = \frac{1}{2304}$ 에 수렴합니다.
+                    </p>
+                    <div class="chart-container">
+                        <canvas id="convergenceChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Mathematical Logic ---
+
+        // 유클리드 호제법 (최대공약수)
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
+
+        // 특정 n에 대한 모든 값 계산
+        function calculateForN(n) {
+            const num = n;
+            const den = 3 * n + 8;
+            
+            // 기약분수 만들기
+            const g = gcd(num, den);
+            const p = num / g;
+            const q = den / g; // 이것이 d(a_n)
+            
+            let sum1 = 0;
+            let sum2 = 0;
+            
+            // k=1 부터 q까지 시그마 계산
+            for (let k = 1; k <= q; k++) {
+                // 부동소수점 오차를 막기 위해 정수 연산으로 소수부분 계산
+                // k * a_n 의 소수부분 = (k * p % q) / q
+                const fracPart = (k * p % q) / q;
+                
+                sum1 += Math.pow(fracPart - 0.5, 8);
+                sum2 += Math.pow(k / q - 0.5, 8);
+            }
+            
+            const Sn = sum1 / q;
+            
+            return {
+                num: num,
+                den: den,
+                gcd: g,
+                d_an: q,
+                sum1: sum1,
+                sum2: sum2,
+                Sn: Sn
+            };
+        }
+
+        // 이론적 극한값: \int_0^1 (x-0.5)^8 dx = 1/2304
+        const THEORETICAL_LIMIT = 1 / 2304;
+
+        // --- UI & State Management ---
+
+        const state = {
+            n: 1,
+            maxN: 200,
+            isPlaying: false,
+            historySn: [] // n에 따른 Sn 기록
+        };
+
+        // DOM Elements
+        const nSlider = document.getElementById('nSlider');
+        const nValueDisplay = document.getElementById('nValueDisplay');
+        const playBtn = document.getElementById('playBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        const uiOriginalFraction = document.getElementById('originalFraction');
+        const uiGcdValue = document.getElementById('gcdValue');
+        const uiDenominator = document.getElementById('denominator');
+        const uiSumValue = document.getElementById('sumValue');
+        const uiSumValue1 = document.getElementById('sumValue1');
+        const uiSumValue2 = document.getElementById('sumValue2');
+
+        // Charts
+        let convChart;
+
+        function initCharts() {
+            // Chart 2: Convergence
+            const ctxConv = document.getElementById('convergenceChart').getContext('2d');
+            
+            convChart = new Chart(ctxConv, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '계산된 극한값 (Sn)',
+                            data: [],
+                            borderColor: 'rgba(16, 185, 129, 1)', // Emerald-500
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            fill: true,
+                            tension: 0.1
+                        },
+                        {
+                            label: '이론적 극한값 (1/2304)',
+                            data: [],
+                            borderColor: 'rgba(239, 68, 68, 0.8)', // Red-500
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'n 값' }
+                        },
+                        y: { 
+                            title: { display: true, text: 'Sn' },
+                            // 값이 1/2304(약 0.000434) 근처에서 변동하므로 축 조절
+                            min: 0.0003,
+                            max: 0.0006
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(8)}`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 0 // 애니메이션 끄기 (빠른 업데이트 위해)
+                    }
+                }
+            });
+        }
+
+        // 데이터 계산 및 UI 업데이트
+        function updateAll(n) {
+            const data = calculateForN(n);
+            
+            // Text UI 업데이트
+            nValueDisplay.textContent = n;
+            uiOriginalFraction.textContent = `${data.num} / ${data.den}`;
+            uiGcdValue.textContent = data.gcd;
+            uiDenominator.textContent = data.d_an;
+            uiSumValue1.textContent = data.sum1.toFixed(8);
+            uiSumValue2.textContent = data.sum2.toFixed(8);
+            uiSumValue.textContent = data.Sn.toFixed(8);
+
+            // Chart 2 (수렴 그래프) 히스토리 관리 및 업데이트
+            // n이 점프할 수 있으므로, 현재 n까지만 그리기 위해 배열 재생성 (단순화를 위해 매번 다시 그림)
+            
+            let convLabels = [];
+            let convData = [];
+            let limitData = [];
+            
+            for(let i=1; i<=n; i++) {
+                // 캐싱 없이 매번 계산 (n=200이므로 브라우저에서 매우 순식간에 처리됨)
+                // 만약 n이 엄청 크다면 캐싱이 필요하지만 200까지는 충분함
+                let temp = calculateForN(i);
+                convLabels.push(i);
+                convData.push(temp.Sn);
+                limitData.push(THEORETICAL_LIMIT);
+            }
+
+            convChart.data.labels = convLabels;
+            convChart.data.datasets[0].data = convData;
+            convChart.data.datasets[1].data = limitData;
+            convChart.update();
+        }
+
+        // --- Event Listeners ---
+
+        nSlider.addEventListener('input', (e) => {
+            state.n = parseInt(e.target.value);
+            updateAll(state.n);
+        });
+
+        let playInterval;
+        
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            
+            if (state.isPlaying) {
+                playBtn.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 일시정지`;
+                playBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                playBtn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+                
+                playInterval = setInterval(() => {
+                    if (state.n >= state.maxN) {
+                        togglePlay(); // 끝까지 가면 멈춤
+                        return;
+                    }
+                    state.n++;
+                    nSlider.value = state.n;
+                    updateAll(state.n);
+                }, 200); // 0.2초마다 1씩 증가
+            } else {
+                playBtn.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 자동 재생`;
+                playBtn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+                playBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                clearInterval(playInterval);
+            }
+        }
+
+        playBtn.addEventListener('click', togglePlay);
+
+        resetBtn.addEventListener('click', () => {
+            if(state.isPlaying) togglePlay();
+            state.n = 1;
+            nSlider.value = 1;
+            updateAll(state.n);
+        });
+
+        // 초기화 실행
+        window.onload = () => {
+            initCharts();
+            updateAll(state.n);
+        };
+
+    </script>
+</body>
+</html>

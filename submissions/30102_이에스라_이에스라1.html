@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>동적 기하 시뮬레이터 v2</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg0:#ffffff;--bg1:#f5f4f0;--bg2:#eeedea;
+  --t0:#2c2c2a;--t1:#5f5e5a;--t2:#888780;
+  --bd:rgba(0,0,0,0.09);--bdl:rgba(0,0,0,0.05);
+  --blue:#185FA5;--blue2:rgba(55,138,221,0.7);--bluef:rgba(55,138,221,0.16);
+  --ora:#993C1D;--ora2:rgba(216,90,48,0.7);--oraf:rgba(216,90,48,0.16);
+  --grn:#2d7a3a;--amb:#854F0B;
+  --rad:8px;--radl:12px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg0:#1e1e1c;--bg1:#262624;--bg2:#2e2e2b;
+    --t0:#e2e0d6;--t1:#b4b2a9;--t2:#888780;
+    --bd:rgba(255,255,255,0.09);--bdl:rgba(255,255,255,0.04);
+    --blue:#7BAEE8;--blue2:rgba(91,168,240,0.65);--bluef:rgba(91,168,240,0.15);
+    --ora:#F0997B;--ora2:rgba(240,153,123,0.65);--oraf:rgba(240,153,123,0.15);
+    --grn:#5fcf70;--amb:#EF9F27;
+  }
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  background:var(--bg2);color:var(--t0);
+  min-height:100vh;padding:20px 14px 36px;
+  display:flex;flex-direction:column;align-items:center;
+}
+h1{font-size:17px;font-weight:500;margin-bottom:14px;letter-spacing:-0.01em;color:var(--t0);}
+
+.layout{
+  display:grid;
+  grid-template-columns:1fr 256px;
+  gap:0;
+  width:100%;max-width:960px;
+  background:var(--bg0);
+  border:0.5px solid var(--bd);
+  border-radius:var(--radl);
+  overflow:hidden;
+}
+.canvas-area{
+  background:var(--bg1);
+  border-right:0.5px solid var(--bd);
+  position:relative;
+  min-height:460px;
+}
+canvas#geo{display:block;width:100%;height:100%;}
+
+.panel{
+  width:256px;padding:14px 13px;
+  display:flex;flex-direction:column;gap:12px;
+  overflow-y:auto;
+  font-size:12px;
+}
+.sec{display:flex;flex-direction:column;gap:8px;}
+.lbl{
+  font-size:10px;font-weight:500;letter-spacing:.07em;
+  color:var(--t2);text-transform:uppercase;
+}
+.divider{height:0.5px;background:var(--bd);flex-shrink:0;}
+
+.srow{display:flex;flex-direction:column;gap:3px;}
+.shdr{display:flex;justify-content:space-between;align-items:baseline;}
+.sname{font-size:12px;color:var(--t1);}
+.sval{font-size:12px;font-weight:500;font-family:monospace;color:var(--t0);min-width:48px;text-align:right;}
+input[type=range]{width:100%;accent-color:var(--blue);height:4px;margin:2px 0;cursor:pointer;}
+
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  width:100%;padding:8px;border-radius:var(--rad);
+  border:0.5px solid var(--bd);background:transparent;
+  color:var(--t0);font-size:12px;font-weight:500;
+  cursor:pointer;transition:background .12s;font-family:inherit;
+}
+.btn:hover{background:var(--bg1);}
+.btn:active{transform:scale(.98);}
+
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.mc{background:var(--bg1);border-radius:var(--rad);padding:8px 9px 7px;}
+.mc.full{grid-column:1/-1;}
+.mlbl{font-size:10px;color:var(--t2);margin-bottom:3px;}
+.mval{font-size:14px;font-weight:500;font-family:monospace;color:var(--t0);word-break:break-all;}
+.mval.bl{color:var(--blue);}
+.mval.or{color:var(--ora);}
+.mval.gn{color:var(--grn);}
+.mval.am{color:var(--amb);}
+
+.mc-highlight{
+  grid-column:1/-1;
+  background:var(--bg1);
+  border-radius:var(--rad);
+  padding:8px 9px;
+  border:0.5px solid var(--bd);
+}
+.mc-highlight .mlbl{font-size:10px;color:var(--t2);margin-bottom:2px;}
+.mc-highlight .mval{font-size:13px;font-weight:500;font-family:monospace;}
+
+.mini-canvas-wrap{
+  background:var(--bg1);
+  border-radius:var(--rad);
+  padding:8px 9px 6px;
+  border:0.5px solid var(--bdl);
+}
+.mini-title{font-size:10px;color:var(--t2);margin-bottom:5px;font-weight:500;letter-spacing:.04em;}
+canvas.mini{display:block;width:100%;border-radius:4px;}
+
+.legend-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t1);}
+.ls{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+.info{font-size:10px;color:var(--t2);line-height:1.8;}
+</style>
+</head>
+<body>
+<h1>동적 기하 시뮬레이터</h1>
+<div class="layout">
+  <div class="canvas-area"><canvas id="geo"></canvas></div>
+  <div class="panel">
+
+    <!-- 슬라이더 -->
+    <div class="sec">
+      <div class="lbl">매개변수</div>
+      <div class="srow">
+        <div class="shdr"><span class="sname">k 값</span><span class="sval" id="kVal">0.50</span></div>
+        <input type="range" id="kSlider" min="0.10" max="0.90" step="0.01" value="0.50">
+      </div>
+      <div class="srow">
+        <div class="shdr"><span class="sname">θ (rad)</span><span class="sval" id="tVal">0.785</span></div>
+        <input type="range" id="tSlider" min="0.01" max="1.565" step="0.003" value="0.785">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 재생 버튼 -->
+    <button class="btn" id="playBtn">
+      <span id="playIcon">&#9654;</span>
+      <span id="playLabel">자동 재생</span>
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- 수치 데이터 -->
+    <div class="sec">
+      <div class="lbl">실시간 수치</div>
+      <div class="mgrid">
+        <div class="mc"><div class="mlbl">θ (rad)</div><div class="mval" id="mTheta">—</div></div>
+        <div class="mc"><div class="mlbl">α (rad)</div><div class="mval" id="mAlpha">—</div></div>
+        <div class="mc"><div class="mlbl">넓이 f</div><div class="mval bl" id="mF">—</div></div>
+        <div class="mc"><div class="mlbl">넓이 g</div><div class="mval or" id="mG">—</div></div>
+        <div class="mc full"><div class="mlbl">dα/dθ (현재)</div><div class="mval gn" id="mDAlpha">—</div></div>
+        <div class="mc-highlight">
+          <div class="mlbl">g/f 비율 (현재)</div>
+          <div class="mval am" id="mGF">—</div>
+        </div>
+        <div class="mc-highlight">
+          <div class="mlbl">g/f 극한값 (θ→π/2)</div>
+          <div class="mval" id="mGFLimit">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- dα/dθ 변화율 그래프 -->
+    <div class="mini-canvas-wrap">
+      <div class="mini-title">dα/dθ vs θ — 변화율 비교</div>
+      <canvas class="mini" id="cAlpha" height="80"></canvas>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- g/f 비율 그래프 -->
+    <div class="mini-canvas-wrap">
+      <div class="mini-title">g/f 비율 vs θ 추이</div>
+      <canvas class="mini" id="cGF" height="80"></canvas>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 범례 -->
+    <div class="sec">
+      <div class="lbl">영역 범례</div>
+      <div class="legend-row"><div class="ls" style="background:rgba(55,138,221,0.22);border:1px solid rgba(55,138,221,0.5);"></div>f — 도형 OQR</div>
+      <div class="legend-row"><div class="ls" style="background:rgba(216,90,48,0.22);border:1px solid rgba(216,90,48,0.5);"></div>g — 삼각형 OCR − f</div>
+    </div>
+
+    <div style="flex:1;min-height:4px;"></div>
+    <div class="info">
+      Q: OP 연장 ∩ 타원 &nbsp; R: y=sinθ ∩ 타원<br>
+      C: 직선OQ ∩ 직선RH &nbsp; H: R의 수선발<br>
+      α = ∠AOR &nbsp; g/f → (1−k)/k as θ→π/2
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const geo   = document.getElementById('geo');
+const gc    = geo.getContext('2d');
+const cAlpha= document.getElementById('cAlpha');
+const acx   = cAlpha.getContext('2d');
+const cGF   = document.getElementById('cGF');
+const gfx   = cGF.getContext('2d');
+
+const kSlider= document.getElementById('kSlider');
+const tSlider= document.getElementById('tSlider');
+const playBtn= document.getElementById('playBtn');
+
+let k=0.5, theta=0.785, animating=false, animDir=1, animId=null;
+
+/* ── helpers ── */
+function isDark(){return window.matchMedia('(prefers-color-scheme:dark)').matches;}
+function S(x,y,cx,cy,sc){return[cx+x*sc, cy-y*sc];}
+
+function computeGeom(k,t){
+  const ct=Math.cos(t), st=Math.sin(t);
+  const D=Math.sqrt(k*k*ct*ct + st*st);
+  const tQ=1/D;
+  const Qx=tQ*ct, Qy=tQ*st;
+  const Rx=ct/k,  Ry=st;
+  const Hx=Rx,    Hy=0;
+  let Cx=null, Cy=null;
+  if(Math.abs(ct)>1e-10){Cx=Rx; Cy=st/k;}
+  const alpha=Math.atan2(st, ct/k); // atan(k*tan(t)) equivalent, atan2 handles Q1
+  const dAlpha= k/(ct*ct + k*k*st*st);
+  // g/f = (D-k)/k  [derived analytically]
+  const gfRatio=(D-k)/k;
+  const gfLimit=(1-k)/k;
+  // areas
+  const f = (Cx!==null) ? 0.5*Math.abs(Qx*Ry - Qy*Rx) : 0;
+  const ocr= (Cx!==null) ? 0.5*Math.abs(Cx*Ry - Cy*Rx) : 0;
+  const g= Math.max(0, ocr-f);
+  // theta* where dAlpha/dTheta = 1
+  const thetaStar= (k<1) ? Math.acos(Math.sqrt(k/(1+k))) : null;
+  return{Px:ct,Py:st,Qx,Qy,Rx,Ry,Hx,Hy,Cx,Cy,alpha,dAlpha,gfRatio,gfLimit,f,g,ocr,thetaStar,D};
+}
+
+/* ── main canvas ── */
+function drawMain(){
+  const W=geo.width/devicePixelRatio, H=geo.height/devicePixelRatio;
+  const dk=isDark();
+  const sc=Math.min((W-48)/2.9,(H-48)/2.4);
+  const cx=W/2-sc*0.12, cy=H/2;
+  const Sv=(x,y)=>S(x,y,cx,cy,sc);
+
+  gc.clearRect(0,0,W,H);
+
+  const t0=dk?'#e2e0d6':'#2c2c2a';
+  const t2=dk?'#888780':'#888780';
+  const ax=dk?'rgba(255,255,255,.18)':'rgba(0,0,0,.16)';
+  const gr=dk?'rgba(255,255,255,.04)':'rgba(0,0,0,.04)';
+  const dash=dk?'rgba(255,255,255,.18)':'rgba(0,0,0,.15)';
+
+  // grid
+  gc.strokeStyle=gr; gc.lineWidth=0.5;
+  for(let v=-3;v<=4;v+=.5){const[sx]=Sv(v,0);gc.beginPath();gc.moveTo(sx,0);gc.lineTo(sx,H);gc.stroke();}
+  for(let v=-2.5;v<=2.5;v+=.5){const[,sy]=Sv(0,v);gc.beginPath();gc.moveTo(0,sy);gc.lineTo(W,sy);gc.stroke();}
+
+  // axes
+  const[ox,oy]=Sv(0,0);
+  gc.strokeStyle=ax;gc.lineWidth=1;
+  gc.beginPath();gc.moveTo(6,oy);gc.lineTo(W-6,oy);gc.stroke();
+  gc.beginPath();gc.moveTo(ox,H-6);gc.lineTo(ox,6);gc.stroke();
+  gc.fillStyle=ax;
+  gc.beginPath();gc.moveTo(W-6,oy);gc.lineTo(W-13,oy-4);gc.lineTo(W-13,oy+4);gc.closePath();gc.fill();
+  gc.beginPath();gc.moveTo(ox,6);gc.lineTo(ox-4,13);gc.lineTo(ox+4,13);gc.closePath();gc.fill();
+
+  gc.font='10px monospace';gc.fillStyle=t2;
+  for(let v=-3;v<=3;v++){if(!v)continue;const[sx]=Sv(v,0);if(sx>18&&sx<W-18){gc.textAlign='center';gc.fillText(v,sx,oy+13);}}
+  for(let v=-2;v<=2;v++){if(!v)continue;const[,sy]=Sv(0,v);if(sy>18&&sy<H-18){gc.textAlign='right';gc.fillText(v,ox-6,sy+4);}}
+  gc.font='11px sans-serif';gc.fillStyle=t2;
+  gc.textAlign='left';gc.fillText('x',W-18,oy-8);
+  gc.textAlign='center';gc.fillText('y',ox+11,15);
+
+  // unit circle
+  gc.beginPath();gc.arc(cx,cy,sc,0,Math.PI*2);
+  gc.strokeStyle=dk?'rgba(91,168,240,.65)':'rgba(24,95,165,.75)';
+  gc.lineWidth=1.8;gc.setLineDash([]);gc.stroke();
+
+  // ellipse
+  gc.beginPath();
+  for(let a=0;a<=Math.PI*2+.01;a+=.01){
+    const[sx,sy]=Sv(Math.cos(a)/k,Math.sin(a));
+    a===0?gc.moveTo(sx,sy):gc.lineTo(sx,sy);
+  }
+  gc.closePath();
+  gc.strokeStyle=dk?'rgba(240,153,123,.65)':'rgba(153,60,29,.75)';
+  gc.lineWidth=1.8;gc.stroke();
+
+  const g=computeGeom(k,theta);
+  const{Px,Py,Qx,Qy,Rx,Ry,Hx,Hy,Cx,Cy,alpha,dAlpha,gfRatio,gfLimit,f,gAr,ocr,thetaStar}=
+    {...g, gAr:g.g};
+
+  const pO=Sv(0,0),pP=Sv(Px,Py),pQ=Sv(Qx,Qy),pR=Sv(Rx,Ry);
+  const pH=Sv(Hx,Hy);
+  const pC=Cx!==null?Sv(Cx,Cy):null;
+
+  // fill f (OQR)
+  if(theta>0.02){
+    gc.beginPath();gc.moveTo(pO[0],pO[1]);gc.lineTo(pQ[0],pQ[1]);gc.lineTo(pR[0],pR[1]);gc.closePath();
+    gc.fillStyle='rgba(55,138,221,0.17)';gc.fill();
+    gc.strokeStyle='rgba(55,138,221,0.35)';gc.lineWidth=1;gc.stroke();
+  }
+  // fill g (QCR)
+  if(pC&&theta>0.02){
+    gc.beginPath();gc.moveTo(pQ[0],pQ[1]);gc.lineTo(pC[0],pC[1]);gc.lineTo(pR[0],pR[1]);gc.closePath();
+    gc.fillStyle='rgba(216,90,48,0.17)';gc.fill();
+    gc.strokeStyle='rgba(216,90,48,0.35)';gc.lineWidth=1;gc.stroke();
+  }
+
+  // lines
+  function ln(ax,ay,bx,by,col,da=[]){
+    const[sax,say]=Sv(ax,ay),[sbx,sby]=Sv(bx,by);
+    gc.beginPath();gc.setLineDash(da);gc.moveTo(sax,say);gc.lineTo(sbx,sby);
+    gc.strokeStyle=col;gc.lineWidth=1;gc.stroke();gc.setLineDash([]);
+  }
+  ln(0,0,Qx,Qy,dk?'rgba(91,168,240,.55)':'rgba(24,95,165,.5)');
+  ln(Px,Py,Rx,Ry,dash,[5,3]);
+  ln(Rx,Ry,Hx,Hy,dash,[3,3]);
+  if(pC){
+    ln(0,0,Rx,Ry,dk?'rgba(240,153,123,.4)':'rgba(153,60,29,.4)');
+    ln(Cx,Cy,Rx,Ry,dk?'rgba(240,153,123,.55)':'rgba(153,60,29,.5)');
+  }
+
+  // alpha arc
+  if(theta>0.02){
+    const arcR=sc*0.18;
+    gc.beginPath();gc.arc(pO[0],pO[1],arcR,0,-alpha,true);
+    gc.strokeStyle=dk?'rgba(239,159,39,.6)':'rgba(133,79,11,.6)';
+    gc.lineWidth=1.2;gc.setLineDash([3,2]);gc.stroke();gc.setLineDash([]);
+    // alpha label
+    const amid=alpha/2;
+    gc.font='11px sans-serif';
+    gc.fillStyle=dk?'rgba(239,159,39,.9)':'rgba(133,79,11,.9)';
+    gc.textAlign='center';
+    gc.fillText('α',pO[0]+arcR*1.5*Math.cos(amid/2), pO[1]-arcR*0.7*Math.sin(amid));
+  }
+
+  // dots + labels
+  function dot(px,py,col,r=4.5){
+    gc.beginPath();gc.arc(px,py,r,0,Math.PI*2);
+    gc.fillStyle=col;gc.fill();
+    gc.strokeStyle=dk?'rgba(0,0,0,.3)':'rgba(255,255,255,.55)';
+    gc.lineWidth=1;gc.stroke();
+  }
+  function lbl(txt,px,py,dx,dy,col,sz=13,bold=false){
+    gc.font=`${bold?'500 ':''}${sz}px sans-serif`;
+    gc.fillStyle=col;
+    gc.textAlign=dx>0?'left':dx<0?'right':'center';
+    gc.fillText(txt,px+dx,py+dy);
+  }
+  const ptP=dk?'#7BAEE8':'#185FA5';
+  const ptQR=dk?'#F0997B':'#993C1D';
+  const ptC2=dk?'#EF9F27':'#854F0B';
+  dot(pO[0],pO[1],t2,3);lbl('O',pO[0],pO[1],-9,-6,t2,12,true);
+  dot(pP[0],pP[1],ptP);lbl('P',pP[0],pP[1],-11,-9,ptP,13,true);
+  dot(pQ[0],pQ[1],ptQR);lbl('Q',pQ[0],pQ[1],9,-9,ptQR,13,true);
+  dot(pR[0],pR[1],ptQR);lbl('R',pR[0],pR[1],9,-9,ptQR,13,true);
+  dot(pH[0],pH[1],t2,3.5);lbl('H',pH[0],pH[1],7,15,t2,12,true);
+  if(pC){dot(pC[0],pC[1],ptC2);lbl('C',pC[0],pC[1],9,-9,ptC2,13,true);}
+  const pA=Sv(1,0),pB=Sv(1/k,0);
+  dot(pA[0],pA[1],t2,3);lbl('A',pA[0],pA[1],0,16,t2,11);
+  dot(pB[0],pB[1],t2,3);lbl('B',pB[0],pB[1],0,16,t2,11);
+
+  // theta* marker on x-axis arc
+  if(thetaStar&&thetaStar<1.565){
+    const pTS=Sv(Math.cos(thetaStar),Math.sin(thetaStar));
+    gc.beginPath();gc.arc(pTS[0],pTS[1],5,0,Math.PI*2);
+    gc.fillStyle=dk?'rgba(95,207,112,.8)':'rgba(45,122,58,.8)';
+    gc.fill();
+    gc.font='10px sans-serif';gc.fillStyle=dk?'rgba(95,207,112,.9)':'rgba(45,122,58,.9)';
+    gc.textAlign='left';
+    gc.fillText('θ* (dα/dθ=1)',pTS[0]+8,pTS[1]-8);
+  }
+
+  // curve labels
+  gc.font='10px monospace';
+  gc.fillStyle=dk?'rgba(91,168,240,.7)':'rgba(24,95,165,.75)';
+  gc.textAlign='center';
+  const[clx,cly]=Sv(-.68,.76);gc.fillText('x²+y²=1',clx,cly);
+  gc.fillStyle=dk?'rgba(240,153,123,.7)':'rgba(153,60,29,.75)';
+  const[elx,ely]=Sv(-1/k*.66,.76);gc.fillText('k²x²+y²=1',elx,ely-12);
+
+  // area labels
+  if(f>0.003){
+    const[mlx,mly]=Sv((Qx+Rx)/3,(Qy+Ry)/3);
+    gc.font='500 12px sans-serif';
+    gc.fillStyle=dk?'rgba(91,168,240,.85)':'rgba(24,95,165,.8)';
+    gc.textAlign='center';gc.fillText('f',mlx,mly);
+  }
+  if(pC&&gAr>0.003){
+    const[mlx,mly]=Sv((Qx+Cx+Rx)/3,(Qy+Cy+Ry)/3);
+    gc.font='500 12px sans-serif';
+    gc.fillStyle=dk?'rgba(240,153,123,.85)':'rgba(153,60,29,.8)';
+    gc.textAlign='center';gc.fillText('g',mlx,mly);
+  }
+
+  // panel metrics
+  document.getElementById('mTheta').textContent=theta.toFixed(4);
+  document.getElementById('mAlpha').textContent=alpha.toFixed(4);
+  document.getElementById('mF').textContent=f.toFixed(5);
+  document.getElementById('mG').textContent=gAr.toFixed(5);
+  document.getElementById('mDAlpha').textContent=dAlpha.toFixed(4);
+  // g/f: use analytical formula for numerical stability
+  const gfDisplay = (g.D-k)/k;
+  document.getElementById('mGF').textContent=
+    (isFinite(gfDisplay)&&!isNaN(gfDisplay))?gfDisplay.toFixed(4):'—';
+  document.getElementById('mGFLimit').textContent=((1-k)/k).toFixed(4);
+}
+
+/* ── mini chart helper ── */
+function drawMini(canvas, ctx2d, plotFn, W, H){
+  ctx2d.clearRect(0,0,W,H);
+  const dk=isDark();
+  const bg1=dk?'#262624':'#f5f4f0';
+  const t2c=dk?'rgba(255,255,255,.12)':'rgba(0,0,0,.08)';
+  ctx2d.fillStyle=bg1;ctx2d.fillRect(0,0,W,H);
+  plotFn(ctx2d,W,H,dk,t2c);
+}
+
+/* ── dα/dθ mini chart ── */
+function drawAlphaChart(){
+  const W=cAlpha.width/devicePixelRatio, H=cAlpha.height/devicePixelRatio;
+  const dk=isDark();
+  const t2c=dk?'rgba(255,255,255,.1)':'rgba(0,0,0,.07)';
+  acx.clearRect(0,0,W,H);
+
+  const pad={l:6,r:6,t:6,b:16};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+
+  // background
+  acx.fillStyle=dk?'#262624':'#f5f4f0';acx.fillRect(0,0,W,H);
+
+  // grid line at dα/dθ = 1
+  const yAt1=pad.t + ph*(1-Math.min(1/2.5,1));
+  // we'll set ymax=2.5 for the chart
+  const ymax=2.5;
+  const yOne=pad.t + ph*(1 - 1/ymax);
+  acx.strokeStyle=dk?'rgba(95,207,112,.4)':'rgba(45,122,58,.35)';
+  acx.lineWidth=0.8;acx.setLineDash([3,3]);
+  acx.beginPath();acx.moveTo(pad.l,yOne);acx.lineTo(pad.l+pw,yOne);acx.stroke();
+  acx.setLineDash([]);
+  acx.font='9px monospace';acx.fillStyle=dk?'rgba(95,207,112,.7)':'rgba(45,122,58,.7)';
+  acx.textAlign='left';acx.fillText('1',pad.l+1,yOne-2);
+
+  // axis labels
+  acx.font='9px monospace';acx.fillStyle=dk?'rgba(255,255,255,.35)':'rgba(0,0,0,.35)';
+  acx.textAlign='center';acx.fillText('0',pad.l,H-3);
+  acx.fillText('π/2',pad.l+pw,H-3);
+
+  const N=120;
+  const tmin=0.01, tmax=1.565;
+
+  // dθ/dθ = 1 reference line (just a flat line at y=1, already drawn)
+  // draw dα/dθ curve
+  acx.beginPath();
+  let first=true;
+  for(let i=0;i<=N;i++){
+    const t=tmin+(tmax-tmin)*i/N;
+    const ct=Math.cos(t),st=Math.sin(t);
+    const da=k/(ct*ct+k*k*st*st);
+    const xp=pad.l+pw*i/N;
+    const yp=pad.t+ph*(1-Math.min(da/ymax,1.05));
+    if(first){acx.moveTo(xp,yp);first=false;}else{acx.lineTo(xp,yp);}
+  }
+  acx.strokeStyle=dk?'rgba(91,168,240,.8)':'rgba(24,95,165,.8)';
+  acx.lineWidth=1.5;acx.stroke();
+
+  // dθ/dθ = 1 curve (always 1)
+  acx.beginPath();
+  acx.moveTo(pad.l, yOne);acx.lineTo(pad.l+pw, yOne);
+  acx.strokeStyle=dk?'rgba(255,255,255,.25)':'rgba(0,0,0,.2)';
+  acx.lineWidth=1;acx.setLineDash([4,3]);acx.stroke();acx.setLineDash([]);
+
+  // theta* marker
+  const thetaStar= (k<1)?Math.acos(Math.sqrt(k/(1+k))):null;
+  if(thetaStar&&thetaStar>tmin&&thetaStar<tmax){
+    const xts=pad.l+pw*(thetaStar-tmin)/(tmax-tmin);
+    acx.strokeStyle=dk?'rgba(95,207,112,.7)':'rgba(45,122,58,.6)';
+    acx.lineWidth=1.2;acx.setLineDash([2,2]);
+    acx.beginPath();acx.moveTo(xts,pad.t);acx.lineTo(xts,pad.t+ph);acx.stroke();
+    acx.setLineDash([]);
+    acx.font='8px sans-serif';acx.fillStyle=dk?'rgba(95,207,112,.8)':'rgba(45,122,58,.8)';
+    acx.textAlign='center';acx.fillText('θ*',xts,pad.t+ph+12);
+  }
+
+  // current theta indicator
+  const xt=pad.l+pw*(theta-tmin)/(tmax-tmin);
+  acx.strokeStyle=dk?'rgba(239,159,39,.8)':'rgba(186,117,23,.8)';
+  acx.lineWidth=1.2;
+  acx.beginPath();acx.moveTo(xt,pad.t);acx.lineTo(xt,pad.t+ph);acx.stroke();
+  // dot on curve
+  const ct0=Math.cos(theta),st0=Math.sin(theta);
+  const da0=k/(ct0*ct0+k*k*st0*st0);
+  const yd=pad.t+ph*(1-Math.min(da0/ymax,1.05));
+  acx.beginPath();acx.arc(xt,yd,3,0,Math.PI*2);
+  acx.fillStyle=dk?'rgba(239,159,39,.9)':'rgba(186,117,23,.9)';acx.fill();
+
+  // legend
+  acx.font='9px sans-serif';
+  acx.fillStyle=dk?'rgba(91,168,240,.8)':'rgba(24,95,165,.8)';
+  acx.textAlign='left';acx.fillText('dα/dθ',pad.l+2,pad.t+9);
+  acx.fillStyle=dk?'rgba(255,255,255,.45)':'rgba(0,0,0,.35)';
+  acx.fillText('dθ/dθ=1',pad.l+2,pad.t+18);
+}
+
+/* ── g/f ratio mini chart ── */
+function drawGFChart(){
+  const W=cGF.width/devicePixelRatio, H=cGF.height/devicePixelRatio;
+  const dk=isDark();
+  gfx.clearRect(0,0,W,H);
+  gfx.fillStyle=dk?'#262624':'#f5f4f0';gfx.fillRect(0,0,W,H);
+
+  const pad={l:6,r:6,t:6,b:16};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+
+  const tmin=0.01, tmax=1.565;
+  const limit=(1-k)/k;
+
+  // determine ymax for display (limit +10%)
+  const ymax=Math.max(limit*1.15, 0.1);
+
+  // limit line
+  const yLim=pad.t+ph*(1-Math.min(limit/ymax,1.0));
+  gfx.strokeStyle=dk?'rgba(239,159,39,.45)':'rgba(186,117,23,.4)';
+  gfx.lineWidth=0.8;gfx.setLineDash([3,3]);
+  gfx.beginPath();gfx.moveTo(pad.l,yLim);gfx.lineTo(pad.l+pw,yLim);gfx.stroke();
+  gfx.setLineDash([]);
+  gfx.font='9px monospace';gfx.fillStyle=dk?'rgba(239,159,39,.7)':'rgba(186,117,23,.7)';
+  gfx.textAlign='right';gfx.fillText(limit.toFixed(3),pad.l+pw-1,yLim-2);
+
+  // axis labels
+  gfx.font='9px monospace';gfx.fillStyle=dk?'rgba(255,255,255,.35)':'rgba(0,0,0,.35)';
+  gfx.textAlign='center';gfx.fillText('0',pad.l,H-3);gfx.fillText('π/2',pad.l+pw,H-3);
+
+  // g/f curve
+  const N=150;
+  gfx.beginPath();
+  let first=true;
+  for(let i=0;i<=N;i++){
+    const t=tmin+(tmax-tmin)*i/N;
+    const ct=Math.cos(t),st=Math.sin(t);
+    const D=Math.sqrt(k*k*ct*ct+st*st);
+    const gf=(D-k)/k;
+    const xp=pad.l+pw*i/N;
+    const yp=pad.t+ph*(1-Math.min(gf/ymax,1.05));
+    if(first){gfx.moveTo(xp,yp);first=false;}else{gfx.lineTo(xp,yp);}
+  }
+  gfx.strokeStyle=dk?'rgba(240,153,123,.85)':'rgba(153,60,29,.8)';
+  gfx.lineWidth=1.5;gfx.stroke();
+
+  // current theta line
+  const xt=pad.l+pw*(theta-tmin)/(tmax-tmin);
+  gfx.strokeStyle=dk?'rgba(239,159,39,.8)':'rgba(186,117,23,.8)';
+  gfx.lineWidth=1.2;
+  gfx.beginPath();gfx.moveTo(xt,pad.t);gfx.lineTo(xt,pad.t+ph);gfx.stroke();
+  // dot on g/f curve
+  const ct0=Math.cos(theta),st0=Math.sin(theta);
+  const D0=Math.sqrt(k*k*ct0*ct0+st0*st0);
+  const gf0=(D0-k)/k;
+  const yd=pad.t+ph*(1-Math.min(gf0/ymax,1.05));
+  gfx.beginPath();gfx.arc(xt,yd,3,0,Math.PI*2);
+  gfx.fillStyle=dk?'rgba(239,159,39,.9)':'rgba(186,117,23,.9)';gfx.fill();
+
+  // label inside chart
+  gfx.font='9px sans-serif';
+  gfx.fillStyle=dk?'rgba(240,153,123,.8)':'rgba(153,60,29,.75)';
+  gfx.textAlign='left';gfx.fillText('g/f',pad.l+2,pad.t+9);
+  gfx.fillStyle=dk?'rgba(239,159,39,.7)':'rgba(186,117,23,.65)';
+  gfx.fillText('→ '+(limit.toFixed(3)),pad.l+2,pad.t+18);
+}
+
+/* ── resize ── */
+function resizeMain(){
+  const rect=geo.parentElement.getBoundingClientRect();
+  const W=Math.max(rect.width,260), H=Math.max(W*0.76,380);
+  geo.width=W*devicePixelRatio; geo.height=H*devicePixelRatio;
+  geo.style.height=H+'px';
+  gc.setTransform(1,0,0,1,0,0); gc.scale(devicePixelRatio,devicePixelRatio);
+}
+
+function resizeMinis(){
+  [cAlpha,cGF].forEach(cv=>{
+    const pw=cv.parentElement.clientWidth-18;
+    cv.width=pw*devicePixelRatio;
+    cv.style.width=pw+'px';
+    cv.style.height=(cv===cAlpha?80:80)+'px';
+    if(cv===cAlpha){cv.height=80*devicePixelRatio;}else{cv.height=80*devicePixelRatio;}
+    const c2=cv.getContext('2d');
+    c2.setTransform(1,0,0,1,0,0);c2.scale(devicePixelRatio,devicePixelRatio);
+  });
+}
+
+function redrawAll(){
+  drawMain();
+  drawAlphaChart();
+  drawGFChart();
+}
+
+function update(){
+  k=parseFloat(kSlider.value);
+  theta=parseFloat(tSlider.value);
+  document.getElementById('kVal').textContent=k.toFixed(2);
+  document.getElementById('tVal').textContent=theta.toFixed(3);
+  redrawAll();
+}
+
+kSlider.addEventListener('input',update);
+tSlider.addEventListener('input',update);
+
+playBtn.addEventListener('click',()=>{
+  animating=!animating;
+  document.getElementById('playIcon').innerHTML=animating?'&#9646;&#9646;':'&#9654;';
+  document.getElementById('playLabel').textContent=animating?'일시정지':'자동 재생';
+  if(animating)animate(); else cancelAnimationFrame(animId);
+});
+
+function animate(){
+  if(!animating)return;
+  theta+=animDir*0.007;
+  if(theta>=1.565){theta=1.565;animDir=-1;}
+  if(theta<=0.01){theta=0.01;animDir=1;}
+  tSlider.value=theta;
+  document.getElementById('tVal').textContent=theta.toFixed(3);
+  redrawAll();
+  animId=requestAnimationFrame(animate);
+}
+
+const ro=new ResizeObserver(()=>{resizeMain();resizeMinis();redrawAll();});
+ro.observe(geo.parentElement);
+ro.observe(cAlpha.parentElement);
+
+resizeMain(); resizeMinis(); update();
+
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{
+  resizeMain();resizeMinis();redrawAll();
+});
+
+})();
+</script>
+</body>
+</html>

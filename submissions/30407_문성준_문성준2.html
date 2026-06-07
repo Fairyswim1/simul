@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>서울대 2번 동전 패턴 게임 - 최종 시뮬레이터</title>
+<style>
+  :root{--blue:#2563eb;--red:#dc2626;--gray:#64748b;--green:#059669;--ink:#0f172a;--line:#e2e8f0;--light:#f8fafc;--yellow:#fef3c7;}
+  *{box-sizing:border-box} body{margin:0;font-family:Arial,'Noto Sans KR',sans-serif;background:#f1f5f9;color:var(--ink)}
+  .wrap{max-width:1160px;margin:24px auto;padding:0 16px}.card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 18px rgba(15,23,42,.07);padding:20px;margin-bottom:16px}
+  h1{font-size:24px;margin:0 0 6px} h2{font-size:18px;margin:0 0 12px} h3{font-size:16px;margin:0 0 8px}.sub{color:#475569;line-height:1.6;margin:0 0 10px}
+  .grid{display:grid;grid-template-columns:330px 1fr;gap:16px;align-items:start}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:900px){.grid,.grid2{grid-template-columns:1fr}}
+  .panel{background:var(--light);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:12px}label{font-weight:800;display:block;margin-bottom:7px}.row{margin-bottom:14px}input[type=range]{width:100%}input[type=text], select{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:10px;font-size:15px;background:#fff}button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;font-weight:800}button:hover{background:#f8fafc}.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .val{font-weight:900}.blue{color:var(--blue)}.red{color:var(--red)}.gray{color:var(--gray)}.green{color:var(--green)}
+  canvas{width:100%;height:360px;border:1px solid var(--line);border-radius:14px;background:#fff;display:block}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.stat{border:1px solid var(--line);border-radius:12px;padding:11px;background:#fff}.stat b{display:block;font-size:12px;color:#475569;margin-bottom:3px}.stat span{font-size:19px;font-weight:900}
+  .formula{font-size:15px;line-height:1.8;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}.mono{font-family:Consolas,monospace;background:#eef2ff;border-radius:6px;padding:1px 5px}.note{font-size:14px;color:#475569;line-height:1.55}.pill{display:inline-block;border-radius:999px;padding:3px 9px;background:#e0f2fe;color:#075985;font-weight:900;font-size:13px;margin:2px}.seq{font-size:22px;letter-spacing:4px;line-height:1.8;word-break:break-all}.hitA{background:#dbeafe;color:#1d4ed8;border-radius:7px;padding:2px 4px}.hitB{background:#fee2e2;color:#b91c1c;border-radius:7px;padding:2px 4px}.table{width:100%;border-collapse:collapse;font-size:14px}.table th,.table td{border-bottom:1px solid var(--line);padding:8px;text-align:center}.table th{background:#f8fafc}.warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;padding:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>서울대 2번 동전 패턴 게임 - 최종 시뮬레이터</h1>
+    <p class="sub">최종 버전은 기본 조건 <b>A=HHT, B=TH</b>의 수식과 그래프를 보여 주고, 직접 결과열 판정 및 두 자리 문자열 확장 실험을 함께 제공합니다.</p>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h3>1. 기본 조건 조절</h3>
+        <div class="row"><label>앞면 확률 p: <span class="val" id="pLabel">0.50</span></label><input type="range" id="p" min="0.01" max="0.99" step="0.01" value="0.50"><div class="btns"><button onclick="setP(0.25)">p=1/4</button><button onclick="setP(0.50)">p=1/2</button><button onclick="setP(Math.SQRT1_2)">p=1/√2</button></div></div>
+        <div class="row"><label>제한 횟수 n: <span class="val" id="nLabel">30</span></label><input type="range" id="n" min="3" max="100" step="1" value="30"></div>
+      </div>
+      <div class="panel formula">
+        <h3>2. A=HHT, B=TH의 핵심 구조</h3>
+        <span class="pill">처음 두 번 HH</span> <span class="pill">그 뒤 T 등장</span> → A 승리<br>
+        <span class="pill">T 뒤에 H 등장</span> → B 승리<br><br>
+        a<sub>n</sub> = p<sup>2</sup>(1 - p<sup>n-2</sup>)<br>
+        c<sub>n</sub> = p<sup>n</sup> + (1-p)<sup>n</sup> + p(1-p)<sup>n-1</sup><br>
+        b<sub>n</sub> = 1 - a<sub>n</sub> - c<sub>n</sub><br><br>
+        n→∞이면 a<sub>n</sub>→p<sup>2</sup>, b<sub>n</sub>→1-p<sup>2</sup>입니다.<br>
+        두 극한값이 같아지는 값: <b>p=1/√2</b>
+      </div>
+    </div>
+    <div class="card" style="margin:0">
+      <h2>기본 조건의 확률 그래프</h2>
+      <canvas id="mainChart" width="780" height="360"></canvas>
+      <div class="stats"><div class="stat"><b>A 승리 a<sub>n</sub></b><span class="blue" id="aNow">-</span></div><div class="stat"><b>B 승리 b<sub>n</sub></b><span class="red" id="bNow">-</span></div><div class="stat"><b>무승부 c<sub>n</sub></b><span class="gray" id="cNow">-</span></div></div>
+      <p class="note" id="limitText"></p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>직접 결과열 판정</h2>
+      <p class="sub">H와 T로 이루어진 결과열을 입력하면, HHT와 TH 중 어느 문자열이 먼저 등장하는지 확인합니다.</p>
+      <div class="row"><label>결과열 입력</label><input type="text" id="seqInput" value="HHHT" placeholder="예: HHT, HHHT, TTH, HTTT"></div>
+      <div class="btns"><button onclick="judgeSeq()">판정하기</button><button onclick="example('HHT')">HHT</button><button onclick="example('HHHT')">HHHT</button><button onclick="example('TTH')">TTH</button><button onclick="example('HTTT')">HTTT</button></div>
+      <div id="judgeResult" class="formula" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <h2>두 자리 문자열 확장 실험</h2>
+      <p class="sub">A와 B가 HH, HT, TH, TT 중 서로 다른 문자열을 골랐을 때도 같은 방식으로 승률을 계산합니다.</p>
+      <div class="grid2">
+        <div><label>A 문자열</label><select id="patA"><option>HH</option><option selected>HT</option><option>TH</option><option>TT</option></select></div>
+        <div><label>B 문자열</label><select id="patB"><option>HH</option><option>HT</option><option selected>TH</option><option>TT</option></select></div>
+      </div>
+      <div class="row" style="margin-top:12px"><label>확장 실험 제한 횟수: <span id="n2Label">30</span></label><input type="range" id="n2" min="2" max="100" value="30"></div>
+      <canvas id="extChart" width="560" height="280" style="height:280px"></canvas>
+      <div id="extResult" class="formula" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+<script>
+const pEl=document.getElementById('p'), nEl=document.getElementById('n'), n2El=document.getElementById('n2');
+const mainCanvas=document.getElementById('mainChart'), mctx=mainCanvas.getContext('2d');
+const extCanvas=document.getElementById('extChart'), ectx=extCanvas.getContext('2d');
+function defaultProbs(p,n){const q=1-p; const a=p*p*(1-Math.pow(p,n-2)); const c=Math.pow(p,n)+Math.pow(q,n)+p*Math.pow(q,n-1); return {a:a,b:Math.max(0,1-a-c),c:c};}
+function drawChart(ctx,canvas,series,maxN,startN,extras={}){
+  ctx.clearRect(0,0,canvas.width,canvas.height); const W=canvas.width,H=canvas.height,L=52,R=18,T=18,B=38;
+  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=1; ctx.font='12px Arial';
+  for(let i=0;i<=5;i++){const y=T+(H-T-B)*i/5; ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-R,y); ctx.stroke(); ctx.fillStyle='#64748b'; ctx.textAlign='right'; ctx.fillText((1-i/5).toFixed(1),L-8,y+4);}
+  function xAt(i){return L+(W-L-R)*(i/(maxN-startN||1));} function yAt(v){return T+(H-T-B)*(1-v);} 
+  if(extras.lines){ extras.lines.forEach(line=>{ctx.save(); ctx.setLineDash([6,5]); ctx.strokeStyle=line.color; ctx.lineWidth=1.5; const y=yAt(line.y); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(W-R,y); ctx.stroke(); ctx.restore(); ctx.fillStyle=line.color; ctx.textAlign='left'; ctx.fillText(line.label,L+6,y-5);}); }
+  function plot(arr,color){ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=3; arr.forEach((v,i)=>{const x=xAt(i); const y=yAt(v); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);}); ctx.stroke();}
+  plot(series.a,'#2563eb'); plot(series.b,'#dc2626'); plot(series.c,'#64748b');
+  ctx.beginPath(); ctx.moveTo(L,T); ctx.lineTo(L,H-B); ctx.lineTo(W-R,H-B); ctx.strokeStyle='#94a3b8'; ctx.stroke();
+  ctx.fillStyle='#0f172a'; ctx.textAlign='center'; ctx.fillText('제한 횟수 n',(L+W-R)/2,H-10); ctx.save(); ctx.translate(16,(T+H-B)/2); ctx.rotate(-Math.PI/2); ctx.fillText('확률',0,0); ctx.restore();
+  const leg=[['A','#2563eb'],['B','#dc2626'],['무승부','#64748b']]; leg.forEach((d,i)=>{ctx.fillStyle=d[1]; ctx.fillRect(W-95,T+10+i*20,14,4); ctx.fillStyle='#0f172a'; ctx.textAlign='left'; ctx.fillText(d[0],W-75,T+15+i*20);});
+}
+function updateMain(){const p=parseFloat(pEl.value), n=parseInt(nEl.value); document.getElementById('pLabel').textContent=p.toFixed(2); document.getElementById('nLabel').textContent=n; const pr=defaultProbs(p,n); document.getElementById('aNow').textContent=pr.a.toFixed(6); document.getElementById('bNow').textContent=pr.b.toFixed(6); document.getElementById('cNow').textContent=pr.c.toFixed(6); const series={a:[],b:[],c:[]}; for(let k=3;k<=n;k++){const r=defaultProbs(p,k); series.a.push(r.a); series.b.push(r.b); series.c.push(r.c);} drawChart(mctx,mainCanvas,series,n,3,{lines:[{y:p*p,color:'#1d4ed8',label:'a 극한 p²'},{y:1-p*p,color:'#b91c1c',label:'b 극한 1-p²'}]}); document.getElementById('limitText').innerHTML=`현재 p에서 극한값: A → <b class="blue">${(p*p).toFixed(6)}</b>, B → <b class="red">${(1-p*p).toFixed(6)}</b>. p=1/√2일 때 두 극한값은 모두 0.5입니다.`;}
+function setP(x){pEl.value=Number(x).toFixed(2); updateAll();}
+function judgeSeq(){const A='HHT',B='TH'; let s=document.getElementById('seqInput').value.toUpperCase().replace(/[^HT]/g,''); document.getElementById('seqInput').value=s; let winner='무승부', who='', idx=-1, pat=''; for(let i=1;i<=s.length;i++){const prefix=s.slice(0,i); const endA=prefix.endsWith(A), endB=prefix.endsWith(B); if(endA){winner='A 승리'; who='A'; idx=i-A.length; pat=A; break;} if(endB){winner='B 승리'; who='B'; idx=i-B.length; pat=B; break;}}
+  let html=''; if(idx>=0){const cls=who==='A'?'hitA':'hitB'; html+=`<b class="${who==='A'?'blue':'red'}">${winner}</b> : ${idx+1}번째부터 ${idx+pat.length}번째까지 <span class="mono">${pat}</span>가 처음 완성됩니다.<br><div class="seq">${escapeHtml(s.slice(0,idx))}<span class="${cls}">${escapeHtml(s.slice(idx,idx+pat.length))}</span>${escapeHtml(s.slice(idx+pat.length))}</div>`;} else {html+=`<b class="gray">무승부 또는 아직 승부 없음</b> : 입력한 결과열 안에는 HHT와 TH가 아직 등장하지 않았습니다.<br><div class="seq">${escapeHtml(s)}</div>`;} document.getElementById('judgeResult').innerHTML=html;}
+function escapeHtml(t){return t.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));} function example(s){document.getElementById('seqInput').value=s; judgeSeq();}
+function calcPattern(patternA,patternB,p,maxN){let q=1-p,L=Math.max(patternA.length,patternB.length),dist={'':1},A=0,B=0,arr={a:[],b:[],c:[]}; for(let t=1;t<=maxN;t++){let nd={}; for(const key in dist){const base=dist[key]; [['H',p],['T',q]].forEach(([ch,prob])=>{if(prob<=0)return; const ns=key+ch, val=base*prob; const endA=ns.endsWith(patternA), endB=ns.endsWith(patternB); if(endA&&!endB) A+=val; else if(endB&&!endA) B+=val; else if(endA&&endB){A+=val/2; B+=val/2;} else {const k=ns.slice(-(L-1)); nd[k]=(nd[k]||0)+val;}});} dist=nd; const undec=Object.values(dist).reduce((x,y)=>x+y,0); arr.a.push(A); arr.b.push(B); arr.c.push(undec);} return arr;}
+function updateExt(){const p=parseFloat(pEl.value), n=parseInt(n2El.value), A=document.getElementById('patA').value, B=document.getElementById('patB').value; document.getElementById('n2Label').textContent=n; if(A===B){document.getElementById('extResult').innerHTML='<div class="warn">A와 B는 서로 다른 문자열을 선택해야 합니다.</div>'; return;} const arr=calcPattern(A,B,p,n); drawChart(ectx,extCanvas,arr,n,1); const last={a:arr.a[n-1],b:arr.b[n-1],c:arr.c[n-1]}; const lim=calcPattern(A,B,p,300); const la=lim.a[299], lb=lim.b[299], lc=lim.c[299]; document.getElementById('extResult').innerHTML=`선택한 문자열: A=<span class="mono">${A}</span>, B=<span class="mono">${B}</span><br>n=${n}에서 A 승리 ${last.a.toFixed(6)}, B 승리 ${last.b.toFixed(6)}, 무승부 ${last.c.toFixed(6)}<br>긴 시행 근사값(n=300): A ${la.toFixed(6)}, B ${lb.toFixed(6)}, 미결정 ${lc.toExponential(2)}`;}
+function updateAll(){updateMain(); updateExt();}
+pEl.addEventListener('input',updateAll); nEl.addEventListener('input',updateMain); n2El.addEventListener('input',updateExt); document.getElementById('patA').addEventListener('change',updateExt); document.getElementById('patB').addEventListener('change',updateExt); updateAll(); judgeSeq();
+</script>
+</body>
+</html>

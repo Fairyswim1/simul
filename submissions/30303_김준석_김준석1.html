@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>x² + y² = 3 유리수 해 부존재 증명 종합 시뮬레이션</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 25px;
+        }
+        h1 { color: #38bdf8; margin-bottom: 5px; text-align: center; }
+        .description { color: #94a3b8; text-align: center; max-width: 950px; font-size: 0.95rem; margin-bottom: 10px; line-height: 1.7; }
+        
+        /* 대시보드 레이아웃 */
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+        }
+        
+        .section-title {
+            font-size: 1.3rem;
+            color: #f59e0b;
+            border-left: 4px solid #f59e0b;
+            padding-left: 10px;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+
+        /* 컨트롤 패널 및 버튼 */
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: #111827;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 230px;
+        }
+        label { font-weight: bold; color: #cbd5e1; min-width: 110px; }
+        input[type="range"] { flex-grow: 1; accent-color: #38bdf8; cursor: pointer; }
+        .badge { background: #38bdf8; color: #0f172a; padding: 3px 10px; border-radius: 4px; font-weight: bold; min-width: 45px; text-align: center; }
+        
+        /* 실시간 교점 알림 텍스트 스타일 */
+        .status-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #1e293b;
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: 1px solid #334155;
+            font-weight: bold;
+            min-width: 280px;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .status-safe { color: #10b981; }
+        .status-safe .status-dot { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+        .status-warn { color: #ef4444; }
+        .status-warn .status-dot { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+        .btn-reset {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-reset:hover { background-color: #dc2626; }
+
+        /* 그래픽 영역 */
+        .grid-2d {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+        }
+        .plot-wrapper {
+            background: #111827;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .plot-div { width: 100%; height: 450px; }
+        .plot-div-3d { width: 100%; height: 550px; }
+    </style>
+</head>
+<body>
+
+    <h1>x² + y² = 3 유리수 해 부존재 증명 시뮬레이터</h1>
+    <div class="description">
+        임의의 유리수 해 x, y를 공통분모 k로 통분하여 x = a/k, y = b/k (a, b, k는 정수) 형태로 나타낼 수 있습니다.<br>
+        이를 원래 식에 대입하면 (a/k)² + (b/k)² = 3 이 되며, 양변에 k²을 곱하면 정수 방정식 <strong>a² + b² = 3k²</strong>이 유도됩니다.<br>
+        따라서 유리수 세계의 해를 찾는 문제와 정수 격자점 조합을 찾는 문제는 기하학적으로 완벽한 <strong>필요충분조건(동치)</strong>이 됩니다.<br>
+        이 성질을 바탕으로, 복잡한 분수를 대입하는 대신 3D 공간에서 정수점들이 실제 평면과 만나는지 직관적으로 검증할 수 있습니다.<br><br>
+        k값을 1부터 100까지 움직이며 실시간으로 Z = 3k² 평면과 만나는 정수 격자점(교점)이 존재하는지 검증합니다.<br>
+        수많은 격자점들이 생성되지만, 평면의 포물면은 교묘하게 정수점들을 비껴갑니다.
+    </div>
+
+    <div class="container">
+        <div class="section-title">기하학적 분석: 3D 포물면 격자와 Z = 3k² 평면의 실시간 교점 검증</div>
+        <div class="control-row">
+            <div class="control-group">
+                <label for="kSlider">현재 k값 설정:</label>
+                <input type="range" id="kSlider" min="1" max="100" value="5">
+                <span class="badge" id="kVal">5</span>
+            </div>
+            
+            <div class="status-box" id="statusContainer">
+                <span id="statusDot" class="status-dot"></span>
+                <span id="statusText">교점 검증 준비 중...</span>
+            </div>
+
+            <div class="control-group">
+                <label for="rotSlider">Z축 회전 제어:</label>
+                <input type="range" id="rotSlider" min="0" max="360" value="45">
+                <span class="badge" id="rotVal">45°</span>
+            </div>
+            <button class="btn-reset" onclick="resetAll()">전체 초기화 (RESET)</button>
+        </div>
+        <div class="plot-wrapper">
+            <div id="plot3d" class="plot-div-3d"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section-title">대수적 밀도 분석: 분모 px, py 독립 조절에 따른 조합 매핑 (1 < x, y < 2)</div>
+        <div class="grid-2d">
+            <div class="plot-wrapper">
+                <h3 style="margin: 5px 0 15px 5px; color: #38bdf8;">슬라이드 X: x = qx / px 단독 추적</h3>
+                <div class="control-row" style="background: transparent; padding: 0; margin-bottom: 15px;">
+                    <div class="control-group">
+                        <label for="pSliderX">X 분모 (px):</label>
+                        <input type="range" id="pSliderX" min="2" max="100" value="7">
+                        <span class="badge" id="pValX">7</span>
+                    </div>
+                </div>
+                <div id="plot2dX" class="plot-div"></div>
+            </div>
+
+            <div class="plot-wrapper">
+                <h3 style="margin: 5px 0 15px 5px; color: #a78bfa;">슬라이드 Y: px와 py의 모든 조합 연산 (z = x² + y²)</h3>
+                <div class="control-row" style="background: transparent; padding: 0; margin-bottom: 15px;">
+                    <div class="control-group">
+                        <label for="pSliderY">Y 분모 (py):</label>
+                        <input type="range" id="pSliderY" min="2" max="100" value="12">
+                        <span class="badge" id="pValY">12</span>
+                    </div>
+                </div>
+                <div id="plot2dY" class="plot-div"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ---------------------------------------------------------
+        // 1. 3D 포물면 격자 및 실시간 교점 체크 로직
+        // ---------------------------------------------------------
+        function update3D() {
+            const k = parseInt(document.getElementById('kSlider').value);
+            const rot = parseInt(document.getElementById('rotSlider').value);
+            document.getElementById('rotVal').innerText = rot + "°";
+            document.getElementById('kVal').innerText = k;
+
+            const targetZ = 3 * k * k;
+            const maxQ = Math.ceil(Math.sqrt(targetZ));
+            
+            let xData = [], yData = [], zData = [];
+            let hasIntersection = false;
+            let intersectionPoints = [];
+
+            for (let qx = 0; qx <= maxQ + 5; qx++) {
+                for (let qy = 0; qy <= maxQ + 5; qy++) {
+                    let z = qx*qx + qy*qy;
+                    
+                    if (z <= targetZ * 1.3) {
+                        xData.push(qx);
+                        yData.push(qy);
+                        zData.push(z);
+                    }
+
+                    if (z === targetZ) {
+                        hasIntersection = true;
+                        intersectionPoints.push(`(${qx}, ${qy})`);
+                    }
+                }
+            }
+
+            const statusBox = document.getElementById('statusContainer');
+            const statusText = document.getElementById('statusText');
+            
+            if (hasIntersection) {
+                statusBox.className = "status-box status-warn";
+                statusText.innerText = `교점 발견! 점: ${intersectionPoints.join(', ')}`;
+            } else {
+                statusBox.className = "status-box status-safe";
+                statusText.innerText = `Z = ${targetZ} ❌ 교점 없음 (증명 성립)`;
+            }
+
+            let traces = [{
+                x: xData, y: yData, z: zData,
+                mode: 'markers',
+                marker: { size: 2, color: zData, colorscale: 'Viridis', opacity: 0.7 },
+                type: 'scatter3d',
+                name: 'x² + y² 격자점'
+            }];
+
+            traces.push({
+                x: [[0, maxQ+5], [0, maxQ+5]],
+                y: [[0, 0], [maxQ+5, maxQ+5]],
+                z: [[targetZ, targetZ], [targetZ, targetZ]],
+                type: 'surface',
+                showscale: false,
+                opacity: 0.4,
+                colorscale: [[0, '#f59e0b'], [1, '#f59e0b']],
+                name: `목표 평면 Z = ${targetZ}`
+            });
+
+            const rad = rot * (Math.PI / 180);
+            const camera = {
+                eye: { x: 1.6 * Math.cos(rad), y: 1.6 * Math.sin(rad), z: 0.6 }
+            };
+
+            Plotly.react('plot3d', traces, {
+                scene: { 
+                    camera: camera, 
+                    xaxis: {title: 'X (qx)', gridcolor: '#334155', range: [0, maxQ+5]}, 
+                    yaxis: {title: 'Y (qy)', gridcolor: '#334155', range: [0, maxQ+5]}, 
+                    zaxis: {title: 'Z (제곱합)', gridcolor: '#334155', range: [0, targetZ * 1.3]} 
+                },
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                showlegend: false,
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#94a3b8' }
+            }, {scrollZoom: true});
+        }
+
+        // ---------------------------------------------------------
+        // 2. 2D 슬라이드 분석 로직 (px와 py를 조합하여 z값 매핑)
+        // ---------------------------------------------------------
+        function update2DX() {
+            const px = parseInt(document.getElementById('pSliderX').value);
+            document.getElementById('pValX').innerText = px;
+
+            let xVals = [], yVals = [];
+            for (let q = px + 1; q < 2 * px; q++) {
+                let x = q / px;
+                xVals.push(x);
+                yVals.push(x * x);
+            }
+
+            const trace = {
+                x: xVals, y: yVals,
+                mode: 'markers',
+                marker: { size: 4, color: '#38bdf8' },
+                type: 'scatter'
+            };
+
+            const layout = {
+                xaxis: { title: 'x = qx/px 범위 (1 ~ 2)', gridcolor: '#334155', range: [1, 2] },
+                yaxis: { title: 'x² 결과값', gridcolor: '#334155', range: [1, 4] },
+                margin: { l: 50, r: 20, b: 50, t: 20 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#94a3b8' },
+                shapes: [{
+                    type: 'line', y0: 3, y1: 3, x0: 1, x1: 2,
+                    line: { color: '#ef4444', width: 2, dash: 'dash' }
+                }]
+            };
+            Plotly.react('plot2dX', [trace], layout);
+        }
+
+        //핵심 수정 파트: px와 py 슬라이드 연동 데이터 연산공간
+        function update2DY() {
+            const px = parseInt(document.getElementById('pSliderX').value);
+            const py = parseInt(document.getElementById('pSliderY').value);
+            document.getElementById('pValY').innerText = py;
+
+            let xLabels = [], zVals = [], hoverTexts = [];
+            
+            // 1 < x < 2 이고 1 < y < 2 인 모든 qx, qy 정수쌍 루프
+            for (let qx = px + 1; qx < 2 * px; qx++) {
+                for (let qy = py + 1; qy < 2 * py; qy++) {
+                    let x = qx / px;
+                    let y = qy / py;
+                    let z = x*x + y*y; // 최종 z 값 산출
+                    
+                    // x축은 현재 매핑된 x 좌표 위치를 기준으로 배치하여 분포 추적 유도
+                    xLabels.push(x);
+                    zVals.push(z);
+                    hoverTexts.push(`조합 좌표:<br>x = ${qx}/${px} (${x.toFixed(3)})<br>y = ${qy}/${py} (${y.toFixed(3)})<br>z = x²+y² = ${z.toFixed(4)}`);
+                }
+            }
+
+            const trace = {
+                x: xLabels, y: zVals, text: hoverTexts, hoverinfo: 'text',
+                mode: 'markers',
+                marker: { size: 3, color: '#a78bfa', opacity: 0.7 },
+                type: 'scatter'
+            };
+
+            const layout = {
+                xaxis: { title: `조합된 분포상의 x좌표값 (분모: px=${px})`, gridcolor: '#334155', range: [1, 2] },
+                yaxis: { title: '완전 매핑된 z 결과값 (x² + y²)', gridcolor: '#334155', range: [2.0, 8.0] }, // 전체 도메인 반영 [2, 8]
+                margin: { l: 50, r: 20, b: 50, t: 20 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#94a3b8' },
+                shapes: [{
+                    type: 'line', y0: 3, y1: 3, x0: 1, x1: 2,
+                    line: { color: '#ef4444', width: 2.5 } // 목표선 Z = 3
+                }]
+            };
+            Plotly.react('plot2dY', [trace], layout);
+        }
+
+        // 양방향 데이터 동기화 업데이트 래퍼
+        function onSliderXChange() {
+            update2DX();
+            update2DY(); // X 분모가 바뀌면 조합 결과인 Y 플롯(Z값 추적)도 동시에 갱신되어야 함
+        }
+
+        // ---------------------------------------------------------
+        // 3. 컨트롤 초기화(RESET) 및 이벤트 바인딩
+        // ---------------------------------------------------------
+        function resetAll() {
+            document.getElementById('kSlider').value = 5;
+            document.getElementById('rotSlider').value = 45;
+            document.getElementById('pSliderX').value = 7; // 초기값 기획 요청 수치 반영
+            document.getElementById('pSliderY').value = 12; // 초기값 기획 요청 수치 반영
+            update3D();
+            update2DX();
+            update2DY();
+        }
+
+        // 이벤트 연결
+        document.getElementById('kSlider').addEventListener('input', update3D);
+        document.getElementById('rotSlider').addEventListener('input', update3D);
+        document.getElementById('pSliderX').addEventListener('input', onSliderXChange);
+        document.getElementById('pSliderY').addEventListener('input', update2DY);
+
+        // 첫 로드 초기화
+        resetAll();
+    </script>
+</body>
+</html>

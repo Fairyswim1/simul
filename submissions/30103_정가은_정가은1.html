@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>수학 시뮬레이터: 선분 PQ 영역 및 좌표 분석</title>
+    <style>
+        :root { --primary: #228be6; --danger: #fa5252; --success: #40c057; --bg: #f8f9fa; }
+        body { font-family: 'Pretendard', -apple-system, sans-serif; background-color: var(--bg); display: flex; justify-content: center; padding: 40px; margin: 0; color: #333; }
+        .dashboard { display: flex; gap: 30px; width: 1150px; }
+        
+        /* 왼쪽 시뮬레이터 영역 */
+        .visualizer { flex: 1.2; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.08); display: flex; flex-direction: column; align-items: center; }
+        canvas { background: #fff; border-radius: 12px; border: 1px solid #dee2e6; margin-bottom: 25px; }
+        .sim-controls { width: 100%; display: flex; flex-direction: column; gap: 20px; }
+        .play-row { display: flex; align-items: center; gap: 20px; }
+        .btn-auto { background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn-auto:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(34,139,230,0.3); }
+        input[type="range"] { flex: 1; height: 8px; border-radius: 5px; accent-color: var(--primary); cursor: pointer; }
+
+        /* 오른쪽 인사이트 패널 */
+        .insight-panel { flex: 0.8; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: white; padding: 22px; border-radius: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+        .card h3 { margin: 0 0 15px 0; font-size: 17px; display: flex; align-items: center; gap: 10px; color: #212529; }
+        
+        /* 실시간 좌표 그리드 */
+        .coord-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .coord-item { background: #f1f3f5; padding: 12px; border-radius: 8px; font-size: 13px; text-align: center; border: 1px solid #e9ecef; }
+        
+        .formula-box { background: #e7f5ff; border-left: 4px solid var(--primary); padding: 15px; margin-top: 10px; font-size: 14px; line-height: 1.7; }
+        .math { font-family: 'Times New Roman', serif; font-style: italic; font-weight: bold; color: #1864ab; }
+        .badge { background: var(--primary); color: white; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        
+        /* 결과 강조 박스 */
+        .result-highlight { background: #fff4e6; border: 2px solid #fd7e14; padding: 15px; border-radius: 12px; text-align: center; margin-top: 10px; }
+        .result-value { font-size: 22px; font-weight: 800; color: #d9480f; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="visualizer">
+        <h2 style="margin: 0 0 10px 0; font-size: 24px;">문제 상황 시뮬레이터</h2>
+        <p style="color: #666; margin-bottom: 25px;">점 P와 Q의 움직임에 따른 선분 PQ의 점유 영역 <span class="math">S</span> 시각화</p>
+        
+        <canvas id="simCanvas" width="550" height="400"></canvas>
+
+        <div class="sim-controls">
+            <div class="play-row">
+                <button class="btn-auto" id="playBtn">▶ 자동 재생</button>
+                <input type="range" id="tSlider" min="0" max="2" step="0.01" value="0">
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #868e96;">
+                <span>0 ≤ t ≤ 2 구간 자동 제한</span>
+                <button id="resetBtn" style="background:none; border:none; color:#adb5bd; cursor:pointer; text-decoration:underline;">초기화</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="insight-panel">
+        <div class="card">
+            <h3>(1) 실시간 좌표 데이터 <span class="badge" id="tDisplay">t = 0.00</span></h3>
+            <div class="coord-grid">
+                <div class="coord-item">P_x: <span id="px" class="math">0.00</span></div>
+                <div class="coord-item">P_y: <span id="py" class="math">0.00</span></div>
+                <div class="coord-item">Q_x: <span id="qx" class="math">4.00</span></div>
+                <div class="coord-item">Q_y: <span id="qy" class="math">4.00</span></div>
+            </div>
+            <div class="formula-box">
+                <span class="math">P(t, -1/4 t² + t)</span><br>
+                <span class="math">Q(1/2 t + 4, -3/2 t + 4)</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>(2) 넓이 구하기 인사이트</h3>
+            <p style="font-size: 13px; color: #495057; line-height: 1.6;">
+                점 P는 포물선을 따라, 점 Q는 직선을 따라 이동합니다. 선분 PQ가 쓸고 지나가는 영역의 상하 경계선을 분석하여 정적분을 수행합니다.
+            </p>
+            <div class="result-highlight">
+                <div style="font-size: 13px; margin-bottom: 5px; color: #854000; font-weight: bold;">최종 영역 S의 넓이 결과</div>
+                <div class="result-value">S = 22 / 3 (≈ 7.33)</div>
+                <div style="font-size: 11px; color: #fd7e14; margin-top: 5px;">* 시각 t에 따른 선분 궤적의 정적분 값</div>
+            </div>
+        </div>
+        
+        <div class="card" style="background: #f8f9fa;">
+            <p style="font-size: 12px; color: #868e96; margin: 0;">
+                ※ 슬라이더를 뒤로 움직이면 실시간으로 영역 채색이 취소되며 다시 그릴 수 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const tSlider = document.getElementById('tSlider');
+    const tDisplay = document.getElementById('tDisplay');
+    const playBtn = document.getElementById('playBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    // 실시간 수치 표시 요소
+    const elPx = document.getElementById('px'); const elPy = document.getElementById('py');
+    const elQx = document.getElementById('qx'); const elQy = document.getElementById('qy');
+
+    let t = 0;
+    let ani = null;
+    let history = [];
+
+    // 좌표계 스케일 설정
+    const margin = 50;
+    const scaleX = 70;
+    const scaleY = 55;
+
+    function toX(x) { return margin + x * scaleX; }
+    function toY(y) { return canvas.height - margin - y * scaleY; }
+
+    // 문제의 매개변수 방정식
+    function getP(time) { return { x: time, y: -0.25 * time * time + time }; }
+    function getQ(time) { return { x: 0.5 * time + 4, y: -1.5 * time + 4 }; }
+
+    function drawBase() {
+        // 격자선
+        ctx.strokeStyle = '#f1f3f5';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for(let i=0; i<=7; i++) { ctx.moveTo(toX(i), toY(-1)); ctx.lineTo(toX(i), toY(5)); }
+        for(let i=-1; i<=5; i++) { ctx.moveTo(toX(0), toY(i)); ctx.lineTo(toX(7), toY(i)); }
+        ctx.stroke();
+
+        // X, Y축
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(toX(0), toY(-1)); ctx.lineTo(toX(0), toY(5));
+        ctx.moveTo(toX(0), toY(0)); ctx.lineTo(toX(7), toY(0));
+        ctx.stroke();
+
+        // 궤적 가이드 (점선)
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = '#ced4da';
+        ctx.beginPath(); // P 궤적
+        for(let i=0; i<=2.01; i+=0.1) { let p = getP(i); i===0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y)); }
+        ctx.stroke();
+        ctx.beginPath(); // Q 궤적
+        for(let i=0; i<=2.01; i+=0.1) { let q = getQ(i); i===0 ? ctx.moveTo(toX(q.x), toY(q.y)) : ctx.lineTo(toX(q.x), toY(q.y)); }
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBase();
+
+        // 1. 영역 S 실시간 채색
+        if (history.length > 1) {
+            ctx.fillStyle = 'rgba(34, 139, 230, 0.25)';
+            ctx.beginPath();
+            ctx.moveTo(toX(history[0].p.x), toY(history[0].p.y));
+            for(let h of history) ctx.lineTo(toX(h.p.x), toY(h.p.y));
+            for(let i=history.length-1; i>=0; i--) ctx.lineTo(toX(history[i].q.x), toY(history[i].q.y));
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(34, 139, 230, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        const p = getP(t); const q = getQ(t);
+
+        // 2. 현재 움직이는 선분 PQ
+        ctx.strokeStyle = '#212529';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(toX(p.x), toY(p.y)); ctx.lineTo(toX(q.x), toY(q.y)); ctx.stroke();
+
+        // 3. 점 P, Q 헤드
+        ctx.fillStyle = '#228be6';
+        ctx.beginPath(); ctx.arc(toX(p.x), toY(p.y), 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fa5252';
+        ctx.beginPath(); ctx.arc(toX(q.x), toY(q.y), 6, 0, Math.PI*2); ctx.fill();
+
+        // 우측 데이터 업데이트
+        tDisplay.innerText = `t = ${t.toFixed(2)}`;
+        elPx.innerText = p.x.toFixed(2); elPy.innerText = p.y.toFixed(2);
+        elQx.innerText = q.x.toFixed(2); elQy.innerText = q.y.toFixed(2);
+    }
+
+    function update() {
+        const p = getP(t); const q = getQ(t);
+        // 이동 기록 저장 (역사)
+        if (history.length === 0 || history[history.length-1].t < t) {
+            history.push({t, p, q});
+        }
+        render();
+    }
+
+    tSlider.addEventListener('input', (e) => {
+        let val = parseFloat(e.target.value);
+        if (val < t) history = history.filter(h => h.t <= val); // 시간을 되돌리면 영역 지우기
+        t = val; 
+        update();
+    });
+
+    playBtn.addEventListener('click', () => {
+        if (ani) {
+            cancelAnimationFrame(ani);
+            ani = null;
+            playBtn.innerText = '▶ 자동 재생';
+        } else {
+            if (t >= 2) { t = 0; history = []; }
+            playBtn.innerText = '|| 일시 정지';
+            (function loop() {
+                if (t < 2) {
+                    t += 0.008;
+                    tSlider.value = t;
+                    update();
+                    ani = requestAnimationFrame(loop);
+                } else {
+                    ani = null;
+                    playBtn.innerText = '▶ 자동 재생';
+                }
+            })();
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        cancelAnimationFrame(ani); ani = null;
+        t = 0; tSlider.value = 0; history = [];
+        playBtn.innerText = '▶ 자동 재생';
+        update();
+    });
+
+    update(); // 초기 실행
+</script>
+
+</body>
+</html>

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>벡터 P 평면 해석 마스터 가이드 v6</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --panel-color: #ffffff;
+            --text-color: #1e293b;
+            --accent-blue: #2563eb;
+            --accent-green: #16a34a;
+            --accent-red: #dc2626;
+            --accent-yellow: #d97706;
+            --border-color: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #main-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #f1f5f9;
+            height: 100%;
+            position: relative;
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+        }
+
+        canvas { display: block; }
+
+        /* 하단 슬라이드 바 (초기 상태 접힘) */
+        #solution-slide {
+            height: 40px; 
+            background: #ffffff;
+            border-top: 2px solid var(--border-color);
+            transition: height 0.25s ease-out;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        #solution-slide.expanded {
+            height: 300px; 
+        }
+
+        #slide-header {
+            height: 40px;
+            min-height: 40px;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--accent-blue);
+            border-bottom: 1px solid var(--border-color);
+            user-select: none;
+        }
+
+        #slide-content {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+            padding: 20px 30px;
+            overflow: hidden;
+        }
+
+        .slide-section {
+            flex: 1;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .slide-title {
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--accent-blue);
+            margin-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        #axis-svg { width: 100%; height: 50px; }
+
+        #panel {
+            width: 380px;
+            background-color: var(--panel-color);
+            padding: 20px;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            border-left: 1px solid var(--border-color);
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .mode-switcher {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            background: #f8fafc;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+
+        .mode-btn.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        .formula-box {
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .control-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.8rem; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .val-text { float: right; color: var(--accent-yellow); font-weight: bold; }
+
+        .status-box {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent-blue);
+            margin-top: 10px;
+            font-size: 0.85rem;
+        }
+
+        .region-tag {
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: white;
+        }
+        .tag-inside { background-color: var(--accent-green); }
+        .tag-outside { background-color: var(--accent-red); }
+
+        .model-answer {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #334155;
+            white-space: pre-wrap;
+        }
+
+        .math-block {
+            background: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div id="main-view">
+    <div id="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+    
+    <div id="solution-slide">
+        <div id="slide-header" onclick="toggleGuide()">
+            ▼ 풀이 및 가이드 보기 (클릭하여 펼치기/접기)
+        </div>
+        <div id="slide-content">
+            <div class="slide-section" id="slide-axis-sec" style="flex: 1.2;">
+                <div class="slide-title">k축 임계 지표 분석</div>
+                <svg id="axis-svg"></svg>
+                <p id="axis-guide-text" style="font-size: 0.75rem; color:#64748b; margin-top: 5px;"></p>
+            </div>
+            <div class="slide-section">
+                <div class="slide-title" id="guide-dynamic-title">단계별 논술형 가이드</div>
+                <div class="model-answer" id="guide-note-text"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="panel">
+    <h3 style="margin:0 0 15px 0; text-align:center; color:var(--accent-blue);">Vector Locus Master</h3>
+    
+    <div class="mode-switcher">
+        <div class="mode-btn active" id="btnMode1" onclick="switchMode(1)">1모드: 원리</div>
+        <div class="mode-btn" id="btnMode2" onclick="switchMode(2)">2모드: 탐구</div>
+    </div>
+
+    <div class="formula-box" id="formula-display">aPA + bPB + cPC = 0</div>
+
+    <div id="abc-controls">
+        <div class="control-group">
+            <label>계수 a (꼭짓점 A): <span class="val-text" id="aVal">4</span></label>
+            <input type="range" id="aRange" min="-100" max="100" step="0.5" value="4">
+        </div>
+        <div class="control-group">
+            <label>계수 b (꼭짓점 B): <span class="val-text" id="bVal">5</span></label>
+            <input type="range" id="bRange" min="-100" max="100" step="0.5" value="5">
+        </div>
+        <div class="control-group">
+            <label>계수 c (꼭짓점 C): <span class="val-text" id="cVal">3</span></label>
+            <input type="range" id="cRange" min="-100" max="100" step="0.5" value="3">
+        </div>
+    </div>
+
+    <div id="k-control-container" style="display: none;">
+        <hr style="border:0; height:1px; background:#e2e8f0; margin:15px 0;">
+        <div class="control-group">
+            <label style="color: var(--accent-blue);">계수 k (자취 이동): <span class="val-text" id="kVal">0</span></label>
+            <input type="range" id="kRange" min="-200" max="200" step="0.5" value="0">
+        </div>
+    </div>
+
+    <div class="status-box">
+        <b>상태 분석:</b>
+        <div id="condition-text" style="margin-top:4px; font-size:0.8rem;"></div>
+        <div id="region-display" style="margin-top:4px;"></div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const axisSvg = document.getElementById('axis-svg');
+
+    // 내부 연산용 기본 기하 구조 (무게중심을 기준으로 평행이동되어 렌더링됨)
+    const A = { x: 0, y: -130 };
+    const B = { x: -160, y: 120 };
+    const C = { x: 160, y: 120 };
+
+    const centroid = {
+        x: (A.x + B.x + C.x) / 3,
+        y: (A.y + B.y + C.y) / 3
+    };
+
+    let currentMode = 1; 
+
+    const inputs = {
+        k: document.getElementById('kRange'),
+        a: document.getElementById('aRange'),
+        b: document.getElementById('bRange'),
+        c: document.getElementById('cRange')
+    };
+
+    // 높이 연산 꼬임 문제를 완벽히 수정한 접기/펴기 토글 함수
+    function toggleGuide() {
+        const slide = document.getElementById('solution-slide');
+        slide.classList.toggle('expanded');
+        
+        // 애니메이션(0.25s)이 확실히 끝난 뒤 캔버스 크기를 재계산하도록 타이밍 수정
+        setTimeout(() => {
+            resize();
+        }, 260);
+    }
+
+    function switchMode(modeNum) {
+        currentMode = modeNum;
+        const btn1 = document.getElementById('btnMode1');
+        const btn2 = document.getElementById('btnMode2');
+        const kContainer = document.getElementById('k-control-container');
+        const axisSec = document.getElementById('slide-axis-sec');
+        const formulaDisp = document.getElementById('formula-display');
+
+        if (modeNum === 1) {
+            btn1.className = 'mode-btn active';
+            btn2.className = 'mode-btn';
+            kContainer.style.display = "none";
+            axisSec.style.display = "none";
+            inputs.k.value = 0; 
+            formulaDisp.innerText = "aPA + bPB + cPC = 0";
+        } else {
+            btn2.className = 'mode-btn active';
+            btn1.className = 'mode-btn';
+            kContainer.style.display = "block";
+            axisSec.style.display = "block";
+            
+            if (parseFloat(inputs.a.value) <= 0 || parseFloat(inputs.b.value) <= 0 || parseFloat(inputs.c.value) <= 0) {
+                inputs.a.value = 4; inputs.b.value = 5; inputs.c.value = 3;
+            }
+            formulaDisp.innerText = "aPA + bPB + cPC = kAB";
+        }
+        draw();
+    }
+
+    function resize() {
+        canvas.width = window.innerWidth - 380;
+        // 슬라이드 바의 실제 렌더링된 높이를 실시간 파악하여 캔버스 침범 방지
+        const slideHeight = document.getElementById('solution-slide').getBoundingClientRect().height;
+        canvas.height = window.innerHeight - slideHeight;
+        draw();
+    }
+
+    function getP(k, a, b, c) {
+        const sum = a + b + c;
+        if (Math.abs(sum) < 0.01) return null;
+        const u = (a + k) / sum;
+        const v = (b - k) / sum;
+        const w = c / sum;
+        return { x: u * A.x + v * B.x + w * C.x, y: u * A.y + v * B.y + w * C.y, u, v, w };
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const k = currentMode === 1 ? 0 : parseFloat(inputs.k.value);
+        const a = parseFloat(inputs.a.value);
+        const b = parseFloat(inputs.b.value);
+        const c = parseFloat(inputs.c.value);
+
+        document.getElementById('kVal').innerText = k.toFixed(1);
+        document.getElementById('aVal').innerText = a;
+        document.getElementById('bVal').innerText = b;
+        document.getElementById('cVal').innerText = c;
+
+        const P = getP(k, a, b, c);
+
+        // 중심축 고정 스케일링 엔진
+        let scale = 1.2; 
+        if (P) {
+            const maxD = Math.max(
+                Math.hypot(A.x - centroid.x, A.y - centroid.y),
+                Math.hypot(B.x - centroid.x, B.y - centroid.y),
+                Math.hypot(C.x - centroid.x, C.y - centroid.y),
+                Math.hypot(P.x - centroid.x, P.y - centroid.y)
+            );
+            const margin = 60; 
+            const maxAllowedRadius = Math.min(canvas.width, canvas.height) / 2 - margin;
+            if (maxD * scale > maxAllowedRadius) {
+                scale = maxAllowedRadius / maxD;
+            }
+        }
+
+        const tx = (pt) => (pt.x - centroid.x) * scale + canvas.width / 2;
+        const ty = (pt) => (pt.y - centroid.y) * scale + canvas.height / 2;
+
+        const tA = { x: tx(A), y: ty(A) }; 
+        const tB = { x: tx(B), y: ty(B) }; 
+        const tC = { x: tx(C), y: ty(C) };
+        const tP = P ? { x: tx(P), y: ty(P) } : null;
+
+        // 경계 연장선 그리기
+        const drawExt = (p1, p2) => {
+            const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+            ctx.beginPath(); ctx.setLineDash([5, 5]);
+            ctx.moveTo(p1.x - dx*40, p1.y - dy*40); ctx.lineTo(p2.x + dx*40, p2.y + dy*40);
+            ctx.strokeStyle = 'rgba(244, 63, 94, 0.35)'; ctx.lineWidth = 1.2; ctx.stroke(); ctx.setLineDash([]);
+        };
+        drawExt(tA, tB); drawExt(tB, tC); drawExt(tC, tA);
+
+        // [수정 완료] 1모드와 2모드 모두에서 7개 영역 부호 텍스트 맵이 항시 보이도록 변경
+        ctx.font = "bold 12px sans-serif"; ctx.fillStyle = "rgba(71, 85, 105, 0.75)"; ctx.textAlign = "center";
+        
+        ctx.fillText("삼각형 내부 (Inside)", (tA.x+tB.x+tC.x)/3, (tA.y+tB.y+tC.y)/3 - 8);
+        ctx.fillText("sgn(a) = sgn(b) = sgn(c)", (tA.x+tB.x+tC.x)/3, (tA.y+tB.y+tC.y)/3 + 10);
+
+        ctx.fillText("변 BC 너머 외부 (A 반대편)", (tB.x + tC.x)/2, (tB.y + 35));
+        ctx.fillText("a < 0, b > 0, c > 0", (tB.x + tC.x)/2, (tB.y + 53));
+
+        ctx.fillText("변 AC 너머 외부 (B 반대편)", (tA.x + tC.x)/2 + 100, (tA.y + tC.y)/2 - 15);
+        ctx.fillText("a > 0, b < 0, c > 0", (tA.x + tC.x)/2 + 100, (tA.y + tC.y)/2 + 3);
+
+        ctx.fillText("변 AB 너머 외부 (C 반대편)", (tA.x + tB.x)/2 - 100, (tA.y + tB.y)/2 - 15);
+        ctx.fillText("a > 0, b > 0, c < 0", (tA.x + tB.x)/2 - 100, (tA.y + tB.y)/2 + 3);
+
+        ctx.fillText("A 꼭짓점 배후 외각", tA.x, tA.y - 50);
+        ctx.fillText("a > 0, b < 0, c < 0", tA.x, tA.y - 32);
+
+        ctx.fillText("B 꼭짓점 배후 외각", tB.x - 85, tB.y + 25);
+        ctx.fillText("a < 0, b > 0, c < 0", tB.x - 85, tB.y + 43);
+
+        ctx.fillText("C 꼭짓점 배후 외각", tC.x + 85, tC.y + 25);
+        ctx.fillText("a < 0, b < 0, c > 0", tC.x + 85, tC.y + 43);
+
+        // 2모드: 자취 직선 그리기
+        if (currentMode === 2) {
+            const pStart = getP(-1000, a, b, c); const pEnd = getP(1000, a, b, c);
+            if (pStart && pEnd) {
+                ctx.beginPath(); ctx.moveTo(tx(pStart), ty(pStart)); ctx.lineTo(tx(pEnd), ty(pEnd));
+                ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 2; ctx.stroke();
+            }
+        }
+
+        // 삼각형 본체 그리기
+        ctx.beginPath(); ctx.moveTo(tA.x, tA.y); ctx.lineTo(tB.x, tB.y); ctx.lineTo(tC.x, tC.y); ctx.closePath();
+        ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 3; ctx.stroke();
+
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = "center";
+        ctx.fillText("A", tA.x, tA.y - 12); ctx.fillText("B", tB.x - 15, tB.y + 20); ctx.fillText("C", tC.x + 15, tC.y + 20);
+
+        // P점 렌더링 및 텍스트 피드백 수집
+        if (P) {
+            const inside = (P.u >= 0 && P.v >= 0 && P.w >= 0) || (P.u <= 0 && P.v <= 0 && P.w <= 0);
+            ctx.beginPath(); ctx.arc(tP.x, tP.y, 9, 0, Math.PI * 2);
+            ctx.fillStyle = inside ? '#16a34a' : '#dc2626'; ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+            ctx.fillStyle = inside ? '#16a34a' : '#dc2626'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = "left";
+            ctx.fillText(` P (k=${k.toFixed(1)})`, tP.x + 12, tP.y + 4);
+
+            let regName = inside ? "삼각형 내부" : (P.u < 0 ? "변 BC 너머 외부" : (P.v < 0 ? "변 AC 너머 외부" : "꼭짓점 배후 외각 구역"));
+            document.getElementById('region-display').innerHTML = `위치 판정: <span class="region-tag ${inside?'tag-inside':'tag-outside'}">${regName}</span>`;
+            document.getElementById('condition-text').innerText = `현재 좌표 지표: u=${P.u.toFixed(2)}, v=${P.v.toFixed(2)}, w=${P.w.toFixed(2)}`;
+        } else {
+            document.getElementById('condition-text').innerHTML = `<span style="color:var(--accent-red); font-weight:bold;">a+b+c=0 (정의 불가)</span>`;
+            document.getElementById('region-display').innerText = "평면상 연산 불능";
+        }
+
+        updateBottomSlides(k, a, b, c);
+    }
+
+    function updateBottomSlides(k, a, b, c) {
+        const axisGuide = document.getElementById('axis-guide-text');
+        const guideNote = document.getElementById('guide-note-text');
+        const titleSec = document.getElementById('guide-dynamic-title');
+
+        if (currentMode === 1) {
+            titleSec.innerText = "1모드 해설: 기본 계수(a, b, c) 조건에 따른 점 P의 위치 관계";
+            guideNote.innerHTML = `<b>[예외 상황 분석]</b>
+• <b>a, b, c 모두 0인 경우:</b> 항등식이 되므로 기하학적 위치를 정의하지 않는다.
+• <b>a, b, c 중 2개가 0인 경우:</b> P가 하나의 꼭짓점(A, B, C 중 하나)으로 그대로 결정된다.
+• <b>a, b, c 중 1개가 0인 경우:</b> 예컨대 a=0 이면 <span class="math-block">b·PB + c·PC = 0</span> 이 되므로, 점 P는 항상 <b>선분 BC 위</b>에만 존재한다.
+
+<b>[부호 관계 핵심 논증]</b>
+① <b>a, b, c > 0 인 경우 (모두 양수):</b> 
+   <span class="math-block">a·PA + b·PB + c·PC = a·PA + (b+c)·PD = 0</span> 으로 변형 가능. 점 D가 선분 BC를 c:b로 내분하는 점이 되므로, 점 P는 선분 AD를 (b+c):a로 내분하는 점이다. 따라서 **항상 삼각형 ABC의 내부**에 확실히 존재한다.
+② <b>3개 중 2개 양수, 1개 음수 인 경우:</b>
+   예를 들어 a < 0 이고 b, c > 0 이라면 위와 같은 변형식에서 <span class="math-block">(b+c)·PD = |a|·PA</span> 가 성립한다. 즉, 점 P는 BC 선분을 기준으로 **A와 완전히 반대편(변 BC 너머 외부 구역)**에 위치하게 된다.`;
+        } else {
+            titleSec.innerText = "2모드 풀이: 가변 계수 k 유입에 따른 자취 직선과 관통 조건";
+            axisGuide.innerText = `* 유효 관통 범위: k가 현재 설정된 임계치 -a(-${a}) 에서 b(${b}) 사이를 통과할 때만 내부(초록색 바)에 안착합니다.`;
+
+            const w = axisSvg.clientWidth || 450;
+            axisSvg.innerHTML = '';
+            
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", 40); line.setAttribute("y1", 20); line.setAttribute("x2", w-40); line.setAttribute("y2", 20);
+            line.setAttribute("stroke", "#cbd5e1"); line.setAttribute("stroke-width", "4"); axisSvg.appendChild(line);
+
+            const minK = -a; const maxK = b;
+            const limit = Math.max(Math.abs(minK), Math.abs(maxK), Math.abs(k), 10) + 5;
+            const mapX = (kv) => 40 + ((kv - (-limit)) / (limit * 2)) * (w - 80);
+            
+            const xMin = mapX(minK); const xMax = mapX(maxK); const xCurr = mapX(k);
+
+            if(xMin < xMax) {
+                const gBar = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                gBar.setAttribute("x1", xMin); gBar.setAttribute("y1", 20); gBar.setAttribute("x2", xMax); gBar.setAttribute("y2", 20);
+                gBar.setAttribute("stroke", "#22c55e"); gBar.setAttribute("stroke-width", "6"); axisSvg.appendChild(gBar);
+            }
+
+            const drawCircle = (cx, label) => {
+                const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                c.setAttribute("cx", cx); c.setAttribute("cy", 20); c.setAttribute("r", "4"); c.setAttribute("fill", "#0f172a");
+                const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                t.setAttribute("x", cx); t.setAttribute("y", 38); t.setAttribute("text-anchor", "middle"); t.setAttribute("font-size", "10px"); t.setAttribute("font-weight", "bold"); t.textContent = label;
+                axisSvg.appendChild(c); axisSvg.appendChild(t);
+            };
+            drawCircle(xMin, `k=-a (${minK})`); drawCircle(xMax, `k=b (${maxK})`);
+
+            const p = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            p.setAttribute("cx", xCurr); p.setAttribute("cy", 20); p.setAttribute("r", "6");
+            p.setAttribute("fill", k >= minK && k <= maxK ? "#16a34a" : "#dc2626");
+            p.setAttribute("stroke", "#fff"); p.setAttribute("stroke-width", "1.5"); axisSvg.appendChild(p);
+
+            guideNote.innerHTML = `<b>[③ 본 문제를 1모드의 구조적 꼴로 정리 및 변형]</b>
+• 주어진 방정식 <span class="math-block">a·PA + b·PB + c·PC = k·AB</span> 를 이항하여 정리하면:
+  <span class="math-block">(a+k)·PA + (b-k)·PB + c·PC = 0</span> 꼴로 변환된다.
+• 이를 시점 A기준으로 전부 대입하여 변형을 적용하면 다음과 같은 위치 벡터 수식을 얻는다:
+  <span class="math-block">AP = [ (b-k) / (a+b+c) ]·AB + [ c / (a+b+c) ]·AC</span>  (단, a+b+c ≠ 0)
+
+<b>[임계 한계 조건 도출 - 편의상 -a < b 라 가정]</b>
+• <b>k = b 또는 k = -a 일 때:</b> 점 P가 정확하게 삼각형의 경계 **변(선분 위)**에 정착한다.
+• <b>-a < k < b 일 때:</b> 점 P가 완벽하게 **삼각형의 내부** 공간을 관통하게 된다.
+• <b>k > b 일 때:</b> 삼각형 외국의 **변 AC 너머** 영역으로 탈출한다.
+• <b>k < -a 일 때:</b> 삼각형 외국의 **변 BC 너머** 영역으로 탈출한다.`;
+        }
+    }
+
+    Object.values(inputs).forEach(input => {
+        input.addEventListener('input', draw);
+        input.addEventListener('change', draw);
+    });
+    
+    window.addEventListener('resize', resize);
+    window.addEventListener('load', () => switchMode(1));
+    resize();
+</script>
+
+</body>
+</html>

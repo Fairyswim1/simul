@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3차원 확률 수조 및 n에 따른 확률 곡선도</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+KR:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 60vh;
+            border: 2px solid #000000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 확률 표시용 커스텀 플로팅 툴팁 */
+        #tooltip {
+            position: absolute;
+            display: none;
+            pointer-events: none;
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #000000;
+            border: 2px solid #000000;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            box-shadow: 4px 4px 0px #000000;
+            z-index: 50;
+        }
+
+        /* 무채색 슬라이더 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: #ffffff;
+            border: 2px solid #000000;
+            border-radius: 9999px;
+            height: 12px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #000000;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* 차트 영역 스타일 */
+        #chart-container {
+            width: 100%;
+            height: 300px;
+            border: 2px solid #000000;
+            border-radius: 8px;
+            background-color: #ffffff;
+            display: block;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <header class="border-b-2 border-black pb-4">
+            <h1 class="text-2xl md:text-4xl font-bold mb-2">3차원 공간 확률 수조 및 시퀀스 곡선 분석기</h1>
+            <p class="text-sm md:text-base font-medium">
+                전체 64개 대결 조합의 상성을 공간 구조로 관찰하고, 특정 대진의 시행 횟수(n)별 확률 추이를 동적으로 추적한다.
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-1 bg-white p-6 border-2 border-black rounded-xl flex flex-col justify-between">
+                <div>
+                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                        ⚙️ 입력 변수 설정
+                    </h2>
+
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-bold">앞면(H) 발생 확률 (p)</label>
+                            <span id="pValueDisplay" class="text-sm font-mono font-bold">0.5000</span>
+                        </div>
+                        <input type="range" id="pSlider" min="0" max="1" step="0.0001" value="0.5000" class="w-full mb-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setPresetP(0.5)" class="bg-white hover:bg-gray-100 text-xs font-bold py-2 px-2 rounded border-2 border-black transition">
+                                대칭 동전 (p=0.5)
+                            </button>
+                            <button onclick="setPresetP(0.8)" class="bg-white hover:bg-gray-100 text-xs font-bold py-2 px-2 rounded border-2 border-black transition">
+                                비대칭 동전 (p=0.8)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-bold">최대 시퀀스 길이 (n)</label>
+                            <span id="nValueDisplay" class="text-lg font-mono font-bold">5</span>
+                        </div>
+                        <input type="range" id="nSlider" min="1" max="50" step="1" value="5" class="w-full">
+                    </div>
+                    
+                    <div class="pt-4 border-t-2 border-black mb-6">
+                        <div class="flex flex-col gap-2 mt-4">
+                            <button id="playBtn" class="w-full bg-white hover:bg-gray-100 font-bold py-2.5 px-4 rounded-xl border-2 border-black transition text-center">
+                                ▶ 시퀀스 누적 가동 (Auto)
+                            </button>
+                            <button id="resetBtn" class="w-full bg-white hover:bg-gray-100 font-bold py-2.5 px-4 rounded-xl border-2 border-black transition text-center">
+                                매개변수 초기화
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t-2 border-black pt-4">
+                    <h3 class="text-sm font-bold mb-3">수조 질량 분포 (합 = 1.0)</h3>
+                    <div class="space-y-2 text-sm font-bold">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 bg-red-500 border border-black"></div>
+                            <span>Player B 승리 상한</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 bg-yellow-400 border border-black"></div>
+                            <span>상태 유지 (무승부)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 bg-blue-500 border border-black"></div>
+                            <span>Player A 승리 하한</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 relative">
+                <div id="canvas-container" class="cursor-move"></div>
+                <div id="tooltip"></div>
+                <div class="mt-2 text-xs font-bold text-center">드래그: 공간 회전 / 기둥 오버: 좌표별 확률 기여도 추출</div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 border-2 border-black rounded-xl space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b-2 border-black pb-3">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    📊 시퀀스 길이(n) 변화에 따른 기대 확률 곡선 (n: 1 ~ 50)
+                </h2>
+                <div class="flex items-center gap-2 font-bold text-sm">
+                    <span>지정 대진 트랙:</span>
+                    <select id="chartPatternA" class="bg-white border-2 border-black rounded px-2 py-1 cursor-pointer">
+                    </select>
+                    <span class="text-gray-500">vs</span>
+                    <select id="chartPatternB" class="bg-white border-2 border-black rounded px-2 py-1 cursor-pointer">
+                    </select>
+                </div>
+            </div>
+
+            <div class="relative">
+                <canvas id="chart-container"></canvas>
+            </div>
+            <div class="flex justify-center gap-6 text-xs font-bold">
+                <div class="flex items-center gap-1.5"><div class="w-6 h-0.5 border-t-2 border-blue-500"></div> Player A 승리 지표</div>
+                <div class="flex items-center gap-1.5"><div class="w-6 h-0.5 border-t-2 border-yellow-500"></div> 미수렴 지표 (Draw)</div>
+                <div class="flex items-center gap-1.5"><div class="w-6 h-0.5 border-t-2 border-red-500"></div> Player B 승리 지표</div>
+                <div class="flex items-center gap-1.5"><div class="w-6 h-0.5 border-t-2 border-dashed border-gray-400"></div> 현재 지정된 n 포인트</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const pSlider = document.getElementById('pSlider');
+        const pValueDisplay = document.getElementById('pValueDisplay');
+        const nSlider = document.getElementById('nSlider');
+        const nValueDisplay = document.getElementById('nValueDisplay');
+        const container = document.getElementById('canvas-container');
+        const tooltip = document.getElementById('tooltip');
+        
+        const playBtn = document.getElementById('playBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        
+        const chartPatternA = document.getElementById('chartPatternA');
+        const chartPatternB = document.getElementById('chartPatternB');
+        const chartCanvas = document.getElementById('chart-container');
+        let ctx = chartCanvas.getContext('2d');
+
+        let animationInterval = null;
+        const patterns = ["TTT", "TTH", "THT", "THH", "HTT", "HTH", "HHT", "HHH"];
+
+        // 표준 메서드를 통한 드롭다운 옵션 바인딩
+        patterns.forEach(p => {
+            const optA = document.createElement('option');
+            optA.value = p; optA.textContent = `A: ${p}`;
+            if(p === "TTH") optA.selected = true;
+            chartPatternA.appendChild(optA);
+
+            const optB = document.createElement('option');
+            optB.value = p; optB.textContent = `B: ${p}`;
+            if(p === "THH") optB.selected = true;
+            chartPatternB.appendChild(optB);
+        });
+        
+        // --- 3D 연산 공간 엔진 데이터 빌드 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(11, 11, 11);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 2, 0);
+        controls.update();
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight.position.set(10, 25, 10);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // 사방 대칭 라벨링 평면 생성
+        function createFloorTexture() {
+            const canvas = document.createElement('canvas');
+            const size = 2048; 
+            canvas.width = size; canvas.height = size;
+            const context = canvas.getContext('2d');
+            
+            context.fillStyle = '#ffffff'; context.fillRect(0, 0, size, size);
+            context.strokeStyle = '#000000'; context.lineWidth = 5;
+            
+            const step = size / 10; 
+            for(let i=0; i<=8; i++) {
+                let pos = (1 + i) * step;
+                context.beginPath(); context.moveTo(pos, step); context.lineTo(pos, size - step); context.stroke();
+                context.beginPath(); context.moveTo(step, pos); context.lineTo(size - step, pos); context.stroke();
+            }
+
+            context.fillStyle = '#000000'; context.font = 'bold 46px monospace';
+            context.textAlign = 'center'; context.textBaseline = 'middle';
+
+            for(let i=0; i<8; i++) {
+                let centerPos = (1.5 + i) * step;
+                context.fillText(patterns[i], centerPos, step - 50);
+                context.fillText(patterns[i], centerPos, size - step + 50);
+                context.fillText(patterns[i], step - 80, centerPos);
+                context.fillText(patterns[i], size - step + 80, centerPos);
+            }
+
+            context.font = 'bold 55px sans-serif';
+            context.fillText("X축 ── Player A 조합", size/2, step - 140);
+            context.save(); context.translate(step - 160, size/2); context.rotate(-Math.PI/2);
+            context.fillText("Y축 ── Player B 조합", 0, 0); context.restore();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            return texture;
+        }
+
+        const floorGeo = new THREE.PlaneGeometry(10, 10);
+        const floorMat = new THREE.MeshLambertMaterial({ map: createFloorTexture() });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        const boxGeo = new THREE.BoxGeometry(0.7, 1, 0.7);
+        boxGeo.translate(0, 0.5, 0);
+
+        const barGroup = new THREE.Group();
+        scene.add(barGroup);
+
+        const gridBoxes = [];
+        const raycastTargets = []; 
+        const MAX_HEIGHT = 5;
+
+        for(let i = 0; i < 8; i++) {
+            gridBoxes[i] = [];
+            for(let j = 0; j < 8; j++) {
+                const posX = -3.5 + i; const posZ = -3.5 + j;
+
+                const matA = new THREE.MeshLambertMaterial({ color: 0x3b82f6, transparent: true, opacity: 1.0 });
+                const matC = new THREE.MeshLambertMaterial({ color: 0xfacc15, transparent: true, opacity: 1.0 });
+                const matB = new THREE.MeshLambertMaterial({ color: 0xef4444, transparent: true, opacity: 1.0 });
+
+                const boxA = new THREE.Mesh(boxGeo, matA);
+                const boxC = new THREE.Mesh(boxGeo, matC);
+                const boxB = new THREE.Mesh(boxGeo, matB);
+
+                boxA.position.set(posX, 0, posZ);
+                boxC.position.set(posX, 0, posZ);
+                boxB.position.set(posX, 0, posZ);
+
+                boxA.castShadow = true; boxC.castShadow = true; boxB.castShadow = true; 
+
+                const meta = { i: i, j: j, patternA: patterns[i], patternB: patterns[j] };
+                boxA.userData = { ...meta, type: 'A' };
+                boxC.userData = { ...meta, type: 'C' };
+                boxB.userData = { ...meta, type: 'B' };
+
+                barGroup.add(boxA, boxC, boxB);
+                raycastTargets.push(boxA, boxC, boxB);
+
+                gridBoxes[i][j] = { meshA: boxA, meshC: boxC, meshB: boxB, targetA: 0, targetC: 1, targetB: 0 };
+            }
+        }
+
+        // --- 마우스 인터랙션 레이캐스터 모듈 ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2(-1000, -1000); 
+
+        container.addEventListener('mousemove', (e) => {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            tooltip.style.left = (e.clientX - rect.left + 15) + 'px';
+            tooltip.style.top = (e.clientY - rect.top + 15) + 'px';
+        });
+        container.addEventListener('mouseleave', () => { mouse.set(-1000, -1000); tooltip.style.display = 'none'; });
+
+        // --- 마르코프 시퀀스 확률 연산 알고리즘 ---
+        function calculateProbabilities(patternA, patternB, p, n) {
+            let states = { "": 1.0 };
+            let winA = 0; let winB = 0;
+
+            for (let step = 0; step < n; step++) {
+                let nextStates = {};
+                for (let s in states) {
+                    let prob = states[s]; if (prob === 0) continue;
+                    processTransition(s + "H", prob * p);
+                    processTransition(s + "T", prob * (1 - p));
+                }
+                function processTransition(newStr, transProb) {
+                    let endsA = newStr.endsWith(patternA);
+                    let endsB = newStr.endsWith(patternB);
+                    if (endsA && endsB) { winA += transProb / 2; winB += transProb / 2; } 
+                    else if (endsA) { winA += transProb; } 
+                    else if (endsB) { winB += transProb; } 
+                    else {
+                        let suffix = newStr.length >= 2 ? newStr.slice(-2) : newStr;
+                        nextStates[suffix] = (nextStates[suffix] || 0) + transProb;
+                    }
+                }
+                states = nextStates;
+            }
+            let draw = 1.0 - winA - winB; if (draw < 0) draw = 0;
+            return { a: winA, b: winB, c: draw };
+        }
+
+        // --- 2D 커스텀 캔버스 라인 그래프 모듈 ---
+        function drawProbabilityChart() {
+            const width = chartCanvas.clientWidth;
+            const height = chartCanvas.clientHeight;
+            
+            chartCanvas.width = width;
+            chartCanvas.height = height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const p = parseFloat(pSlider.value);
+            const currentN = parseInt(nSlider.value);
+            const patA = chartPatternA.value;
+            const patB = chartPatternB.value;
+
+            const paddingLeft = 60;
+            const paddingRight = 40;
+            const paddingTop = 30;
+            const paddingBottom = 40;
+
+            const graphWidth = width - paddingLeft - paddingRight;
+            const graphHeight = height - paddingTop - paddingBottom;
+
+            ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+            ctx.fillStyle = '#6b7280'; ctx.font = '11px monospace';
+            ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+
+            // Y축 범위선 표시 (0% ~ 100%)
+            for(let i = 0; i <= 4; i++) {
+                const ratio = i / 4;
+                const y = paddingTop + graphHeight * (1 - ratio);
+                ctx.beginPath(); ctx.moveTo(paddingLeft, y); ctx.lineTo(width - paddingRight, y); ctx.stroke();
+                ctx.fillText((ratio * 100).toFixed(0) + '%', paddingLeft - 10, y);
+            }
+
+            // X축 세그먼트 매핑
+            ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            for(let nIdx = 1; nIdx <= 50; nIdx++) {
+                if(nIdx === 1 || nIdx % 10 === 0 || nIdx === 50) {
+                    const x = paddingLeft + ((nIdx - 1) / 49) * graphWidth;
+                    ctx.beginPath(); ctx.moveTo(x, paddingTop); ctx.lineTo(x, height - paddingBottom); ctx.stroke();
+                    ctx.fillText(nIdx, x, height - paddingBottom + 8);
+                }
+            }
+
+            // 외곽 메인 프레임 축
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(paddingLeft, paddingTop);
+            ctx.lineTo(paddingLeft, height - paddingBottom);
+            ctx.lineTo(width - paddingRight, height - paddingBottom);
+            ctx.stroke();
+
+            const pointsA = []; const pointsC = []; const pointsB = [];
+            for(let nIdx = 1; nIdx <= 50; nIdx++) {
+                const res = calculateProbabilities(patA, patB, p, nIdx);
+                const x = paddingLeft + ((nIdx - 1) / 49) * graphWidth;
+                pointsA.push({ x: x, y: paddingTop + graphHeight * (1 - res.a) });
+                pointsC.push({ x: x, y: paddingTop + graphHeight * (1 - res.c) });
+                pointsB.push({ x: x, y: paddingTop + graphHeight * (1 - res.b) });
+            }
+
+            function drawLine(points, color) {
+                if(points.length === 0) return;
+                ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                for(let i = 1; i < points.length; i++) { ctx.lineTo(points[i].x, points[i].y); }
+                ctx.stroke();
+            }
+
+            drawLine(pointsA, '#3b82f6'); 
+            drawLine(pointsC, '#facc15'); 
+            drawLine(pointsB, '#ef4444'); 
+
+            // 지정 n값 점선 인디케이터 포지셔닝
+            const markerX = paddingLeft + ((currentN - 1) / 49) * graphWidth;
+            ctx.strokeStyle = '#9ca3af'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(markerX, paddingTop); ctx.lineTo(markerX, height - paddingBottom); ctx.stroke();
+            ctx.setLineDash([]); 
+
+            // 교점 서클 마커 드로잉
+            const currentRes = calculateProbabilities(patA, patB, p, currentN);
+            function drawMarkerCircle(probVal, color) {
+                const cy = paddingTop + graphHeight * (1 - probVal);
+                ctx.fillStyle = color; ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.arc(markerX, cy, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            }
+            drawMarkerCircle(currentRes.a, '#3b82f6');
+            drawMarkerCircle(currentRes.c, '#facc15');
+            drawMarkerCircle(currentRes.b, '#ef4444');
+        }
+
+        function updateSimulation() {
+            const p = parseFloat(pSlider.value);
+            const n = parseInt(nSlider.value);
+
+            pValueDisplay.innerText = p.toFixed(4);
+            nValueDisplay.innerText = n;
+
+            for(let i = 0; i < 8; i++) {
+                for(let j = 0; j < 8; j++) {
+                    const probs = calculateProbabilities(patterns[i], patterns[j], p, n);
+                    const b = gridBoxes[i][j];
+                    b.targetA = probs.a; b.targetC = probs.c; b.targetB = probs.b;
+                }
+            }
+            drawProbabilityChart();
+        }
+
+        window.setPresetP = function(val) { pSlider.value = val; updateSimulation(); }
+
+        pSlider.addEventListener('input', updateSimulation);
+        nSlider.addEventListener('input', updateSimulation);
+        chartPatternA.addEventListener('change', drawProbabilityChart);
+        chartPatternB.addEventListener('change', drawProbabilityChart);
+
+        // 인터벌 엔진 바인딩
+        playBtn.addEventListener('click', () => {
+            if (animationInterval) {
+                clearInterval(animationInterval); animationInterval = null;
+                playBtn.innerText = '▶ 시퀀스 누적 가동 (Auto)';
+            } else {
+                nSlider.value = 1; playBtn.innerText = '⏸ 실시간 계산 정지';
+                animationInterval = setInterval(() => {
+                    let currentN = parseInt(nSlider.value);
+                    if (currentN < 50) { nSlider.value = currentN + 1; updateSimulation(); } 
+                    else { clearInterval(animationInterval); animationInterval = null; playBtn.innerText = '▶ 시퀀스 누적 가동 (Auto)'; }
+                }, 120);
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            if (animationInterval) { clearInterval(animationInterval); animationInterval = null; playBtn.innerText = '▶ 시퀀스 누적 가동 (Auto)'; }
+            pSlider.value = 0.5000; nSlider.value = 5; updateSimulation();
+        });
+
+        // --- 메인 드로잉 렌더 룹 ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(raycastTargets);
+            let hoveredI = -1; let hoveredJ = -1;
+
+            if (intersects.length > 0) {
+                const hitMesh = intersects[0].object; const targetMeta = hitMesh.userData;
+                hoveredI = targetMeta.i; hoveredJ = targetMeta.j;
+
+                const currentP = parseFloat(pSlider.value);
+                const currentN = parseInt(nSlider.value);
+                const currentProbs = calculateProbabilities(targetMeta.patternA, targetMeta.patternB, currentP, currentN);
+
+                tooltip.style.display = 'block';
+                tooltip.innerHTML = `
+                    <div class="font-bold border-b border-black pb-1 mb-1 text-center bg-gray-100">A : ${targetMeta.patternA} vs B : ${targetMeta.patternB}</div>
+                    <div class="space-y-1 font-semibold">
+                        <div class="text-blue-600 flex justify-between gap-4"><span>■ Player A 승리 지표:</span> <span>${(currentProbs.a * 100).toFixed(2)}%</span></div>
+                        <div class="text-yellow-600 flex justify-between gap-4"><span>■ 미수렴 지표:</span> <span>${(currentProbs.c * 100).toFixed(2)}%</span></div>
+                        <div class="text-red-600 flex justify-between gap-4"><span>■ Player B 승리 지표:</span> <span>${(currentProbs.b * 100).toFixed(2)}%</span></div>
+                    </div>
+                `;
+            } else { tooltip.style.display = 'none'; }
+
+            // 선형 보간 모션 가동
+            for(let i = 0; i < 8; i++) {
+                for(let j = 0; j < 8; j++) {
+                    const b = gridBoxes[i][j];
+                    let curA = b.meshA.scale.y / MAX_HEIGHT; if(isNaN(curA) || curA === 0) curA = 0.0001;
+                    let curC = b.meshC.scale.y / MAX_HEIGHT; if(isNaN(curC) || curC === 0) curC = 0.0001;
+                    let curB = b.meshB.scale.y / MAX_HEIGHT; if(isNaN(curB) || curB === 0) curB = 0.0001;
+
+                    let nextA = curA + (Math.max(b.targetA, 0.0001) - curA) * 0.15;
+                    let nextC = curC + (Math.max(b.targetC, 0.0001) - curC) * 0.15;
+                    let nextB = curB + (Math.max(b.targetB, 0.0001) - curB) * 0.15;
+
+                    b.meshA.scale.set(1, nextA * MAX_HEIGHT, 1);
+                    b.meshC.position.y = nextA * MAX_HEIGHT;
+                    b.meshC.scale.set(1, nextC * MAX_HEIGHT, 1);
+                    b.meshB.position.y = (nextA + nextC) * MAX_HEIGHT;
+                    b.meshB.scale.set(1, nextB * MAX_HEIGHT, 1);
+
+                    let alpha = 1.0; 
+                    if (hoveredI !== -1) { if (hoveredI !== i || hoveredJ !== j) alpha = 0.08; }
+                    b.meshA.material.opacity = alpha; b.meshC.material.opacity = alpha; b.meshB.material.opacity = alpha;
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            const width = container.clientWidth; const height = container.clientHeight;
+            renderer.setSize(width, height);
+            camera.aspect = width / height; camera.updateProjectionMatrix();
+            drawProbabilityChart();
+        });
+
+        window.addEventListener('load', () => { updateSimulation(); });
+        updateSimulation();
+        animate();
+    </script>
+</body>
+</html>

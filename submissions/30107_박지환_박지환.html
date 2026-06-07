@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부등식 해 영역 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        input[type=range] {
+            accent-color: #3b82f6;
+        }
+        /* 수학 수식용 폰트 */
+        .math-font {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-4 md:p-8 min-h-screen">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 mb-2">항등부등식 영역 탐색기 (개선판)</h1>
+            <p class="text-slate-600 text-lg">
+                모든 실수 <span class="math-font font-semibold">θ</span>에 대하여, 
+                <span class="bg-slate-200 px-2 py-1 rounded font-mono text-sm mx-1">a cos(2θ) + b cos(θ) < 1</span>
+                을 만족하는 점 (a, b)의 범위를 시각화합니다.
+            </p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- 왼쪽 컨트롤 패널 -->
+            <div class="w-full lg:w-1/3 flex flex-col gap-4">
+                
+                <!-- 컨트롤 박스 -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="font-bold text-slate-700">θ (Theta) 각도: <span id="thetaVal" class="text-blue-600">0</span>°</label>
+                        <button id="playBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                            자동 재생
+                        </button>
+                    </div>
+                    <input type="range" id="thetaSlider" min="0" max="360" step="0.5" value="0" class="w-full mb-4">
+                    
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <p class="text-xs text-slate-500 mb-1">현재 θ에서의 직선 부등식:</p>
+                        <p id="eqText" class="font-mono text-sm font-medium text-slate-800 mb-2"></p>
+                        <p class="text-xs text-slate-500 mb-1">포락선(경계)과의 접점 좌표:</p>
+                        <p id="pointText" class="font-mono text-sm font-bold text-purple-600"></p>
+                    </div>
+                </div>
+
+                <!-- 범례 -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-700 mb-3">범례 (경계 미포함)</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-5 h-5 bg-blue-400 bg-opacity-30 border-2 border-blue-500 border-dashed rounded"></div>
+                            <span class="text-slate-600">최종 해 영역 <span class="text-xs text-red-500 font-bold">(등호 없음: 점선)</span></span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-5 h-5 bg-red-400 bg-opacity-20 border-2 border-red-500 border-dashed rounded"></div>
+                            <span class="text-slate-600">현재 θ가 만족해야 하는 영역</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 bg-purple-600 rounded-full mx-1"></div>
+                            <span class="text-slate-600">현재 직선이 경계를 만드는 접점</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 수식 설명 패널 -->
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex-grow">
+                    <h3 class="font-bold text-slate-700 mb-3">📐 최종 해 영역의 수식</h3>
+                    <p class="text-sm text-slate-600 mb-3 leading-relaxed">
+                        부등식을 <span class="math-font">x = cos(θ)</span>로 치환하면 교집합 영역은 다음 3가지 조건으로 이루어집니다. (<span class="math-font">x ∈ [-1, 1]</span>)
+                    </p>
+                    <ul class="space-y-3 text-sm text-slate-700">
+                        <li class="bg-slate-50 p-2 rounded border border-slate-100">
+                            <span class="font-semibold text-blue-700">① 우측 하단 선분 (x = 1, θ = 0°)</span><br>
+                            <span class="math-font text-base">a + b < 1</span> &nbsp; <span class="text-slate-400">=></span> &nbsp; <span class="math-font">b < 1 - a</span>
+                        </li>
+                        <li class="bg-slate-50 p-2 rounded border border-slate-100">
+                            <span class="font-semibold text-blue-700">② 우측 상단 선분 (x = -1, θ = 180°)</span><br>
+                            <span class="math-font text-base">a - b < 1</span> &nbsp; <span class="text-slate-400">=></span> &nbsp; <span class="math-font">b > a - 1</span>
+                        </li>
+                        <li class="bg-slate-50 p-2 rounded border border-slate-100">
+                            <span class="font-semibold text-purple-700">③ 좌측 타원 곡선 (포락선, -1 < x < 1)</span><br>
+                            <span class="math-font text-base">8a² + 8a + b² < 0</span><br>
+                            <span class="text-xs text-slate-500">(중심이 (-0.5, 0)인 타원의 내부)</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 오른쪽 캔버스 -->
+            <div class="w-full lg:w-2/3">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 aspect-square flex items-center justify-center relative overflow-hidden">
+                    <canvas id="graphCanvas" width="800" height="800" class="w-full h-full object-contain"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const thetaSlider = document.getElementById('thetaSlider');
+        const thetaVal = document.getElementById('thetaVal');
+        const playBtn = document.getElementById('playBtn');
+        const eqText = document.getElementById('eqText');
+        const pointText = document.getElementById('pointText');
+
+        const rect = { minX: -2, maxX: 2, minY: -2, maxY: 2 };
+        const scale = canvas.width / (rect.maxX - rect.minX); 
+
+        // 전체 해 영역 경계선 포인트 구하기
+        const solPoints = [];
+        // 타원 및 직선 상단 (b > 0)
+        for (let a = -1; a <= 1; a += 0.005) {
+            let b = (a <= -1/3) ? Math.sqrt(-8*a*a - 8*a) : (1 - a);
+            solPoints.push({ x: a, y: b });
+        }
+        // 타원 및 직선 하단 (b < 0)
+        for (let a = 1; a >= -1; a -= 0.005) {
+            let b = (a <= -1/3) ? -Math.sqrt(-8*a*a - 8*a) : (a - 1);
+            solPoints.push({ x: a, y: b });
+        }
+
+        function getHalfPlanePolygon(A, B, C, rect) {
+            const pts = [
+                {x: rect.minX, y: rect.minY}, {x: rect.maxX, y: rect.minY},
+                {x: rect.maxX, y: rect.maxY}, {x: rect.minX, y: rect.maxY}
+            ];
+            
+            const inside = (p) => A*p.x + B*p.y <= C + 1e-9;
+            const intersect = (p1, p2) => {
+                const v1 = A*p1.x + B*p1.y - C;
+                const v2 = A*p2.x + B*p2.y - C;
+                const t = v1 / (v1 - v2);
+                return { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+            };
+
+            const outPts = [];
+            for (let i = 0; i < pts.length; i++) {
+                const curr = pts[i];
+                const next = pts[(i+1) % pts.length];
+                if (inside(curr)) outPts.push(curr);
+                if (inside(curr) !== inside(next)) outPts.push(intersect(curr, next));
+            }
+            return outPts;
+        }
+
+        function drawGrid() {
+            ctx.setLineDash([]);
+            ctx.strokeStyle = "#e2e8f0"; 
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            for(let i = rect.minX; i <= rect.maxX; i += 0.5) {
+                ctx.moveTo(i * scale, rect.minY * scale);
+                ctx.lineTo(i * scale, rect.maxY * scale);
+                ctx.moveTo(rect.minX * scale, i * scale);
+                ctx.lineTo(rect.maxX * scale, i * scale);
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = "#94a3b8"; 
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(rect.minX * scale, 0); ctx.lineTo(rect.maxX * scale, 0);
+            ctx.moveTo(0, rect.minY * scale); ctx.lineTo(0, rect.maxY * scale);
+            ctx.stroke();
+        }
+
+        function drawSolutionArea() {
+            ctx.beginPath();
+            ctx.moveTo(solPoints[0].x * scale, solPoints[0].y * scale);
+            for (let i = 1; i < solPoints.length; i++) {
+                ctx.lineTo(solPoints[i].x * scale, solPoints[i].y * scale);
+            }
+            ctx.closePath();
+            
+            // 영역 채우기
+            ctx.fillStyle = "rgba(59, 130, 246, 0.25)"; 
+            ctx.fill();
+            
+            // 경계선 그리기 (미포함이므로 점선 처리)
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = "rgba(37, 99, 235, 0.9)"; 
+            ctx.setLineDash([8, 6]); // 점선 패턴 적용
+            ctx.stroke();
+            ctx.setLineDash([]); // 점선 해제
+        }
+
+        function drawThetaPlane(thetaRad) {
+            const A = Math.cos(2 * thetaRad);
+            const B = Math.cos(thetaRad);
+            const C = 1;
+            
+            const poly = getHalfPlanePolygon(A, B, C, rect);
+            
+            if (poly.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(poly[0].x * scale, poly[0].y * scale);
+                for (let i = 1; i < poly.length; i++) {
+                    ctx.lineTo(poly[i].x * scale, poly[i].y * scale);
+                }
+                ctx.closePath();
+                ctx.fillStyle = "rgba(239, 68, 68, 0.15)"; 
+                ctx.fill();
+            }
+            
+            let px, py;
+            if (Math.abs(A) > Math.abs(B)) {
+                px = C / A; py = 0;
+            } else {
+                px = 0; py = C / B;
+            }
+            
+            let dx = -B, dy = A;
+            let len = Math.sqrt(dx*dx + dy*dy);
+            dx /= len; dy /= len;
+            
+            // 현재 θ 직선 (점선)
+            ctx.beginPath();
+            ctx.moveTo((px - dx * 10) * scale, (py - dy * 10) * scale);
+            ctx.lineTo((px + dx * 10) * scale, (py + dy * 10) * scale);
+            ctx.strokeStyle = "rgba(239, 68, 68, 0.9)"; 
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // 해당 각도(직선)가 포락선 경계와 맞닿는 접점 계산 및 그리기
+        function drawTangentPoint(thetaRad) {
+            const x = Math.cos(thetaRad);
+            // 편미분을 통해 유도된 접점 좌표
+            const a = -1 / (2 * x * x + 1);
+            const b = (4 * x) / (2 * x * x + 1);
+
+            ctx.beginPath();
+            ctx.arc(a * scale, b * scale, 6, 0, Math.PI * 2);
+            ctx.fillStyle = "#9333ea"; // purple-600
+            ctx.fill();
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            return { a, b };
+        }
+
+        function drawLabels() {
+            ctx.fillStyle = "#64748b"; 
+            ctx.font = "14px Arial, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            for(let i = rect.minX; i <= rect.maxX; i++) {
+                if(i !== 0) {
+                    ctx.fillText(i, cx + i * scale, cy + 20); 
+                    ctx.fillText(i, cx - 20, cy - i * scale); 
+                }
+            }
+            ctx.fillText("0", cx - 12, cy + 15);
+            
+            ctx.fillStyle = "#0f172a"; 
+            ctx.font = "italic bold 22px 'Times New Roman', serif";
+            ctx.fillText("a", canvas.width - 25, cy + 25);
+            ctx.fillText("b", cx - 25, 25);
+        }
+
+        function updateTexts(thetaDeg, thetaRad, point) {
+            const A = Math.cos(2 * thetaRad).toFixed(2);
+            const B = Math.cos(thetaRad).toFixed(2);
+            
+            let aSign = A >= 0 ? "" : "-";
+            let bSign = B >= 0 ? " + " : " - ";
+            
+            eqText.innerHTML = `${aSign}${Math.abs(A)} <span class="math-font font-bold">a</span> ${bSign} ${Math.abs(B)} <span class="math-font font-bold">b</span> < 1`;
+            pointText.innerHTML = `(a, b) = (${point.a.toFixed(3)}, ${point.b.toFixed(3)})`;
+        }
+
+        function draw() {
+            const thetaDeg = parseFloat(thetaSlider.value);
+            const thetaRad = thetaDeg * Math.PI / 180;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(1, -1); 
+            
+            drawGrid();
+            drawSolutionArea();
+            drawThetaPlane(thetaRad);
+            const point = drawTangentPoint(thetaRad);
+            
+            ctx.restore(); 
+            
+            drawLabels();
+            updateTexts(thetaDeg, thetaRad, point);
+        }
+
+        thetaSlider.addEventListener('input', () => {
+            thetaVal.innerText = thetaSlider.value;
+            draw();
+        });
+
+        let isPlaying = false;
+        let animId = null;
+
+        function animate() {
+            let val = parseFloat(thetaSlider.value);
+            val += 0.5; // 부드러운 애니메이션
+            
+            // 360도에 도달하면 0으로 리셋 (cos 특성상 180~360 구간에서 자연스럽게 되돌아옴)
+            if (val > 360) val = 0; 
+            
+            thetaSlider.value = val;
+            thetaVal.innerText = val.toFixed(1);
+            draw();
+            
+            if (isPlaying) animId = requestAnimationFrame(animate);
+        }
+
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playBtn.innerText = "정지";
+                playBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                playBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+                animate();
+            } else {
+                playBtn.innerText = "자동 재생";
+                playBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                playBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                cancelAnimationFrame(animId);
+            }
+        });
+
+        draw();
+    </script>
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>벡터 자취 시뮬레이터 (Zoom 축소/확대 완결판)</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-top: 0; font-size: 24px; color: #333; }
+        .container {
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            flex-wrap: wrap; 
+            justify-content: center;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #fff;
+            max-width: 100%; 
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 320px;
+        }
+        .control-group {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #444;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            box-sizing: border-box;
+            margin: 0;
+        }
+        button {
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #aaa; cursor: not-allowed; }
+        
+        .insight-box {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #856404;
+        }
+        .insight-box strong { font-size: 16px; display: block; margin-bottom: 5px; }
+        .desc { font-size: 12px; color: #666; margin-top: 8px; display: block; line-height: 1.4; }
+        
+        .slider-wrapper {
+            position: relative;
+            padding-bottom: 25px;
+            margin-top: 5px;
+        }
+        .marker {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+        .marker-line {
+            width: 2px;
+            height: 8px;
+            background: #e74c3c;
+            margin: 0 auto;
+        }
+        .marker-text {
+            font-size: 11px;
+            color: #e74c3c;
+            font-weight: bold;
+            margin-top: 2px;
+        }
+        .small-btn {
+            padding: 6px 12px;
+            font-size: 13px;
+            background-color: #e67e22;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .small-btn:hover { background-color: #d35400; }
+        .zoom-label { color: #004085; }
+    </style>
+</head>
+<body>
+
+    <h1>포물선 벡터 자취 영역 S(k) 및 넓이 계산 시뮬레이션</h1>
+    
+    <div class="container">
+        <canvas id="mathCanvas" width="700" height="600"></canvas>
+        
+        <div class="controls">
+            <div class="insight-box" id="mathResultBox">
+                <strong>📊 현재 영역 넓이 분석</strong>
+                <span id="kRangeText">k 구간 판별 중...</span><br>
+                <span id="areaText" style="font-weight:bold; font-size:18px; color:#d35400;">S(k) = 0.0000</span>
+            </div>
+
+            <div class="control-group" style="background-color: #e8f4fd; border-color: #b6d4fe;">
+                <label class="zoom-label"><span>🔍 화면 확대/축소 (Zoom)</span> <span id="zoomVal">1.0x</span></label>
+                <input type="range" id="zoomSlider" min="0.1" max="20" step="0.1" value="1.0">
+                <span class="desc" style="color:#004085;">1배 이하로 내리면 화면이 축소(Zoom-out)됩니다.</span>
+            </div>
+
+            <div class="control-group">
+                <label><span>실수 k 값 (극한 관찰)</span> <span id="kVal">1.00</span></label>
+                <div class="slider-wrapper">
+                    <input type="range" id="kSlider" min="0.1" max="5" step="0.01" value="1.0">
+                    <div class="marker" style="left: 26.81%;">
+                        <div class="marker-line"></div>
+                        <div class="marker-text">&radic;2</div>
+                    </div>
+                </div>
+                <button id="setSqrt2Btn" class="small-btn">🎯 k = &radic;2 (임계값) 바로가기</button>
+                <span class="desc" style="color:#e74c3c; font-weight:bold; margin-top: 10px;">※ k = 1.41 (&radic;2) 을 기준으로 넓이 공식이 바뀝니다.</span>
+            </div>
+
+            <div class="control-group">
+                <label><span>점 P (포물선 위)</span> <span id="pVal">0.00</span></label>
+                <input type="range" id="pSlider" min="-1" max="1" step="0.01" value="0">
+            </div>
+
+            <div class="control-group">
+                <label><span>점 Q (선분 위)</span> <span id="qVal">0.00</span></label>
+                <input type="range" id="qSlider" min="0" max="1" step="0.01" value="0">
+            </div>
+
+            <button id="autoSweepBtn">▶ 영역 S(k) 채우기 애니메이션</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const canvas = document.getElementById('mathCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const pSlider = document.getElementById('pSlider');
+            const qSlider = document.getElementById('qSlider');
+            const kSlider = document.getElementById('kSlider');
+            const zoomSlider = document.getElementById('zoomSlider'); 
+            
+            const pValDisplay = document.getElementById('pVal');
+            const qValDisplay = document.getElementById('qVal');
+            const kValDisplay = document.getElementById('kVal');
+            const zoomValDisplay = document.getElementById('zoomVal'); 
+            
+            const autoSweepBtn = document.getElementById('autoSweepBtn');
+            const setSqrt2Btn = document.getElementById('setSqrt2Btn'); 
+            const rangeText = document.getElementById('kRangeText');
+            const areaText = document.getElementById('areaText');
+
+            let p = parseFloat(pSlider.value);
+            let q = parseFloat(qSlider.value);
+            let k = parseFloat(kSlider.value);
+            let zoomLevel = parseFloat(zoomSlider.value);
+            
+            let traceQ = []; 
+            let isSweeping = false;
+            let animationFrameId;
+
+            const originX = canvas.width / 4; 
+            const originY = canvas.height - 80; 
+
+            function getScale() {
+                let maxX = (1/k) + k * 1.5; 
+                let maxY = (1/k) + 0.5;     
+                
+                let scaleX = (canvas.width - originX - 50) / (maxX > 0 ? maxX : 1);
+                let scaleY = (originY - 50) / (maxY > 0 ? maxY : 1);
+                
+                let baseScale = Math.min(scaleX, scaleY, 200); 
+                return baseScale * zoomLevel; 
+            }
+
+            function toScreenX(mathX) { return originX + mathX * getScale(); }
+            function toScreenY(mathY) { return originY - mathY * getScale(); }
+
+            function drawRParabola(qValue, color, lineWidth) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lineWidth;
+                ctx.beginPath();
+                for (let i = 0; i <= 100; i++) {
+                    let a = -1 + i * 0.02; 
+                    let rx = (1/k) * a + k * qValue;
+                    let ry = (1/k) * (a * a);
+                    if (i === 0) ctx.moveTo(toScreenX(rx), toScreenY(ry));
+                    else ctx.lineTo(toScreenX(rx), toScreenY(ry));
+                }
+                ctx.stroke();
+            }
+
+            function updateMathInsight() {
+                const sqrt2 = Math.SQRT2; 
+                let area = 0;
+                if (k <= sqrt2 + 0.0001) {
+                    rangeText.innerHTML = `구간: <strong>0 &lt; k &le; &radic;2</strong> (포물선 겹침)`;
+                    area = 2 - (k * k) / 12;
+                } else {
+                    rangeText.innerHTML = `구간: <strong>k &gt; &radic;2</strong> (포물선 분리됨)`;
+                    area = 1 + 4 / (3 * k * k);
+                }
+                areaText.innerHTML = `S(${k.toFixed(2)}) = ${area.toFixed(4)}`;
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                ctx.strokeStyle = '#ccc';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, originY); ctx.lineTo(canvas.width, originY); 
+                ctx.moveTo(originX, 0); ctx.lineTo(originX, canvas.height); 
+                ctx.stroke();
+
+                let traceAlpha = Math.min(0.15 + k * 0.08, 0.7); 
+                let traceColor = `rgba(255, 99, 132, ${traceAlpha})`;
+                
+                traceQ.forEach(qVal => drawRParabola(qVal, traceColor, 2));
+
+                ctx.strokeStyle = 'rgba(52, 152, 219, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]); 
+                ctx.beginPath();
+                for (let i = 0; i <= 40; i++) {
+                    let x = -1 + i * 0.05; 
+                    let y = x * x;
+                    if (i === 0) ctx.moveTo(toScreenX(x), toScreenY(y));
+                    else ctx.lineTo(toScreenX(x), toScreenY(y));
+                }
+                ctx.stroke();
+                ctx.setLineDash([]); 
+
+                ctx.strokeStyle = '#2ecc71';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(toScreenX(0), toScreenY(0));
+                ctx.lineTo(toScreenX(1), toScreenY(0));
+                ctx.stroke();
+                
+                ctx.fillStyle = '#666';
+                ctx.font = "14px Arial";
+                ctx.fillText('O(0,0)', toScreenX(-0.1), toScreenY(-0.1));
+                ctx.fillText('A(1,0)', toScreenX(1), toScreenY(-0.1));
+                
+                drawRParabola(q, '#e74c3c', 2);
+
+                updateMathInsight();
+            }
+
+            pSlider.addEventListener('input', (e) => {
+                p = parseFloat(e.target.value);
+                pValDisplay.innerText = p.toFixed(2);
+                draw();
+            });
+
+            qSlider.addEventListener('input', (e) => {
+                q = parseFloat(e.target.value);
+                qValDisplay.innerText = q.toFixed(2);
+                draw();
+            });
+
+            kSlider.addEventListener('input', (e) => {
+                k = parseFloat(e.target.value);
+                kValDisplay.innerText = k.toFixed(2);
+                traceQ = []; 
+                if(isSweeping) stopSweep();
+                draw();
+            });
+
+            zoomSlider.addEventListener('input', (e) => {
+                zoomLevel = parseFloat(e.target.value);
+                zoomValDisplay.innerText = zoomLevel.toFixed(1) + "x";
+                draw(); 
+            });
+
+            setSqrt2Btn.addEventListener('click', () => {
+                k = Math.SQRT2; 
+                kSlider.value = k; 
+                kValDisplay.innerText = k.toFixed(2);
+                traceQ = []; 
+                if(isSweeping) stopSweep();
+                draw();
+            });
+
+            let sweepQ = 0;
+
+            function stopSweep() {
+                isSweeping = false;
+                pSlider.disabled = false;
+                qSlider.disabled = false;
+                autoSweepBtn.innerText = '▶ 영역 S(k) 채우기 애니메이션';
+                autoSweepBtn.style.backgroundColor = '#007bff';
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                }
+            }
+
+            function animateSweep() {
+                if (!isSweeping) return;
+                
+                let step = k > 2 ? 0.01 : 0.015;
+                sweepQ += step; 
+                
+                if (sweepQ > 1) {
+                    stopSweep();
+                    q = 1; 
+                    qSlider.value = q;
+                    qValDisplay.innerText = "1.00";
+                    draw();
+                    return;
+                }
+                
+                traceQ.push(sweepQ);
+                q = sweepQ; 
+                qSlider.value = q;
+                qValDisplay.innerText = q.toFixed(2);
+                
+                draw();
+                animationFrameId = requestAnimationFrame(animateSweep);
+            }
+
+            autoSweepBtn.addEventListener('click', () => {
+                if (isSweeping) {
+                    stopSweep();
+                } else {
+                    isSweeping = true;
+                    traceQ = []; 
+                    sweepQ = 0;
+                    pSlider.disabled = true; 
+                    qSlider.disabled = true;
+                    autoSweepBtn.innerText = '■ 정지';
+                    autoSweepBtn.style.backgroundColor = '#c0392b';
+                    animateSweep();
+                }
+            });
+
+            draw();
+        });
+    </script>
+</body>
+</html>

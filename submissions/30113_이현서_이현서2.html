@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>최소 비용 경로 최적화 시뮬레이터</title>
+    
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+            color: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1100px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+        }
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { margin: 0; color: #1e3a8a; font-size: 28px; font-weight: 800; }
+        
+        .cost-function-box {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e40af;
+            background: #eff6ff;
+            padding: 15px;
+            margin: 15px auto 25px auto;
+            border-radius: 8px;
+            border: 2px solid #bfdbfe;
+            display: inline-block;
+            text-align: center;
+            width: 90%;
+            max-width: 600px;
+        }
+
+        .main-layout { display: flex; gap: 30px; flex-wrap: wrap; }
+        .control-panel { flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 20px; }
+        .canvas-panel { flex: 1.4; min-width: 480px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        canvas { border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; }
+        
+        .input-group { background: #f1f5f9; padding: 18px; border-radius: 10px; border: 1px solid #cbd5e1; }
+        label { font-weight: 700; display: block; margin-bottom: 10px; color: #334155; }
+        .slider-container { display: flex; align-items: center; gap: 12px; }
+        input[type="range"] { flex: 1; cursor: pointer; }
+        input[type="number"] { width: 100px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; font-weight: 600; text-align: center; }
+        
+        .btn { color: white; border: none; padding: 12px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background-color: #2563eb; width: 100%; }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-primary.stop { background-color: #dc2626; }
+        .btn-primary.stop:hover { background-color: #b91c1c; }
+        .btn-secondary { background-color: #475569; width: 100%; }
+        .btn-secondary:hover { background-color: #334155; }
+        .btn-success { background-color: #059669; width: 100%; }
+        .btn-success:hover { background-color: #047857; }
+
+        .results { background: #f8fafc; border: 1px solid #e2e8f0; padding: 18px; border-radius: 10px; }
+        .results h3 { margin: 0 0 12px 0; color: #334155; font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; }
+        .result-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .result-item span.val { font-family: 'Courier New', Courier, monospace; font-weight: 700; color: #0f172a; }
+        
+        .status-badge { display: block; padding: 6px; border-radius: 6px; font-size: 13px; font-weight: 700; text-align: center; margin-top: 10px; }
+        .status-fixed { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .status-moving { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .status-slow { background-color: #fce7f3; color: #9d174d; border: 1px solid #fbcfe8; animation: pulse 1s infinite; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* 모달 팝업 스타일 */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); overflow-y: auto; }
+        .modal-content { background-color: #ffffff; margin: 4% auto; padding: 30px; border-radius: 14px; max-width: 780px; width: 85%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); position: relative; line-height: 1.7; }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; font-weight: bold; color: #94a3b8; cursor: pointer; }
+        .close-btn:hover { color: #334155; }
+        .modal-title { margin-top: 0; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 22px; }
+        .modal-body h4 { color: #0f172a; margin-top: 22px; margin-bottom: 8px; font-size: 16px; background: #f1f5f9; padding: 6px 10px; border-left: 4px solid #2563eb; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>최소 비용 경로 최적화 시뮬레이터</h1>
+        <div class="cost-function-box">
+            $$\text{비용 함수}(\text{Cost}) = AC + k \cdot CD + DB$$
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <div class="control-panel">
+            <div class="input-group">
+                <label>상수 $k$ 값 조절 ($0 < k \le 1$)</label>
+                <div class="slider-container">
+                    <input type="range" id="kRange" min="0.00001" max="1" step="0.00001" value="1">
+                    <input type="number" id="kNumber" min="0.00001" max="1" step="0.00001" value="1.00000">
+                </div>
+                <div id="statusBadge" class="status-badge status-fixed">원점 고정 상태</div>
+            </div>
+
+            <button id="animBtn" class="btn btn-primary">▶ $k$값 자동 변화 보기 (연속 초슬로우 모션)</button>
+            <button id="insightBtn" class="btn btn-secondary">💡 수학적 원리 인사이트 열람</button>
+            <button id="solutionBtn" class="btn btn-success">📝 문항별 정밀 해설 열람</button>
+
+            <div class="results">
+                <h3>실시간 최적 좌표 및 비용</h3>
+                <div class="result-item">
+                    <span>점 $C$의 좌표:</span>
+                    <span class="val" id="coordC">C(0.0000, 0)</span>
+                </div>
+                <div class="result-item">
+                    <span>점 $D$의 좌표:</span>
+                    <span class="val" id="coordD">D(0.0000, 0)</span>
+                </div>
+                <div class="result-item" style="border-top: 1px dashed #cbd5e1; padding-top:8px; margin-top:8px;">
+                    <span>최소 비용 최적화 값:</span>
+                    <span class="val" id="totalCost" style="color:#2563eb; font-size:16px;">0.0000</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-panel">
+            <canvas id="simCanvas" width="560" height="360"></canvas>
+        </div>
+    </div>
+</div>
+
+<div id="insightModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" id="closeInsight">&times;</span>
+        <h2 class="modal-title">💡 수학적 원리 인사이트</h2>
+        <div class="modal-body">
+            <p>본 문항은 변수 $k$의 변화에 따라 시스템의 행동 양식이 급격히 변하는 <strong>기하학적 임계 현상(Critical Phenomenon)</strong>을 다룹니다.</p>
+            
+            <h4>1. 스넬의 법칙과의 링크</h4>
+            <p>물리학에서 빛이 서로 다른 매질을 통과할 때 최단 시간을 만족하는 경로는 스넬의 법칙($\text{Snell's Law}$)을 따릅니다. 본 문제에서 $x$축 상의 이동 비용 가중치 $k$는 일종의 상대적 굴절률 또는 매질 저항으로 볼 수 있으며, 최적 경로 조건에서 선분 $AC$가 $x$축과 이루는 사각 $\theta$와 $\cos \theta = k$라는 아름다운 평형 관계를 이룹니다.</p>
+
+            <h4>2. 상전이(Phase Transition)와 임계값</h4>
+            <p>점 $A(-10, 2)$의 기하학적 위치로 인해 선분이 누울 수 있는 최대 각도의 코사인 값은 $\frac{10}{\sqrt{10^2+2^2}} = \frac{5}{\sqrt{26}} \approx 0.9806$입니다. 이 값을 기점으로 시스템의 성격이 완전히 분리됩니다.</p>
+            <ul>
+                <li>$k \ge \frac{5}{\sqrt{26}}$ 일 때: $CD$ 구간의 비용적 저항이 너무 크기 때문에 해당 구간을 $0$으로 압축하고 원점에서 두 점이 합쳐지는 것이 전체 비용을 아끼는 길입니다.</li>
+                <li>$k < \frac{5}{\sqrt{26}}$ 일 때: $CD$ 구간의 경제성이 확보되므로 두 점이 원점으로부터 분리되어 외곽으로 팽창하기 시작합니다.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div id="solutionModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" id="closeSolution">&times;</span>
+        <h2 class="modal-title">📝 문항별 정밀 해설</h2>
+        <div class="modal-body" style="max-height: 520px; overflow-y: auto; padding-right: 10px;">
+            
+            <h4>[문항 1] $AC + CD + DB$가 최소가 되는 점 $C, D$의 좌표</h4>
+            <p>이 문항은 가중치 $k=1$인 상황입니다. 점 $C(x_C, 0)$와 $D(x_D, 0)$에 대해 일반성을 잃지 않고 $x_C \le x_D$라 가정할 수 있습니다. 이때 비용 함수는 다음과 같습니다.</p>
+            $$\text{Cost} = AC + CD + DB = \sqrt{(x_C+10)^2 + 2^2} + (x_D - x_C) + \sqrt{(10-x_D)^2 + 2^2}$$
+            <p>임의의 경로에서 $x_C \le x_D$일 때, 점 $B(10, 2)$를 $x$축에 대해 대칭이동시킨 점을 $B'(10, -2)$라 하면 $DB = DB'$가 성립합니다. 따라서 전체 비용은 $AC + CD + DB'$가 됩니다. 삼각부등식에 의해 이 경로는 평면상의 두 점 $A(-10, 2)$와 $B'(10, -2)$를 잇는 직선 경로보다 언제나 크거나 같습니다.</p>
+            $$AC + CD + DB' \ge AB' = \sqrt{(10 - (-10))^2 + (-2 - 2)^2} = \sqrt{400 + 16} = 4\sqrt{26}$$
+            <p>등호가 성립하는 최단 경로는 직선 $AB'$가 $x$축과 만나는 교점 위에서 형성됩니다. 직선 $AB'$의 방정식은 $y = -\frac{1}{5}x$이므로 $x$축과의 교점($y=0$)은 원점 $(0,0)$입니다. 따라서 $C$와 $D$가 모두 원점에서 합쳐질 때 최소가 됩니다.</p>
+            $$\therefore C(0, 0), \quad D(0, 0)$$
+
+            <h4>[문항 2] 최소 비용을 갖는 점 $C, D$가 항상 원점에 대해 대칭임 설명</h4>
+            <p>비용 함수를 두 변수 $x_C, x_D$ ($x_C \le x_D$)에 대한 다변수 함수 $f(x_C, x_D)$로 정의합니다.</p>
+            $$f(x_C, x_D) = \sqrt{(x_C+10)^2 + 4} + k(x_D - x_C) + \sqrt{(10-x_D)^2 + 4}$$
+            <p><strong>Case 1) $x_C < x_D$ 인 경우 (내부 극점 존재 시)</strong><br>
+            함수가 최솟값을 가지려면 각 변수에 대한 편미분 계수가 $0$이어야 하므로 다음 일계조건을 만족해야 합니다.</p>
+            $$\frac{\partial f}{\partial x_C} = \frac{x_C+10}{\sqrt{(x_C+10)^2 + 4}} - k = 0 \implies \frac{x_C+10}{\sqrt{(x_C+10)^2 + 4}} = k$$
+            $$\frac{\partial f}{\partial x_D} = k - \frac{10-x_D}{\sqrt{(10-x_D)^2 + 4}} = 0 \implies \frac{10-x_D}{\sqrt{(10-x_D)^2 + 4}} = k$$
+            <p>함수 $g(t) = \frac{t}{\sqrt{t^2+4}}$는 $t > 0$ 영역에서 도함수가 양수이므로 일대일 대응인 단조 증가 함수입니다. 따라서 두 식의 결과가 모두 $k$로 같으므로 내부 인자가 같아야 합니다.</p>
+            $$x_C + 10 = 10 - x_D \implies x_C = -x_D$$
+            <p>이는 두 점이 원점 $O(0,0)$에 대해 대칭 위치에 있음을 입증합니다.</p>
+            <p><strong>Case 2) $x_C = x_D = x_0$ 인 경우 (두 점이 겹치는 경우)</strong><br>
+            $CD=0$이 되므로 비용 함수는 $2\sqrt{(x_0+10)^2 + 4} + 2\sqrt{(10-x_0)^2 + 4}$ 형태의 일변수 함수가 되며, 이는 기하학적 대칭성에 의해 오직 $x_0 = 0$ 즉, 원점 $C(0,0), D(0,0)$에서 최소화됩니다. 원점 자체는 원점 대칭 조건을 만족합니다.</p>
+            <p>따라서 모든 최소 비용 상태에서 점 $C$와 점 $D$는 항상 원점에 대하여 대칭입니다.</p>
+
+            <h4>[문항 3] 상수 $k$를 1부터 줄여나갈 때, 점 $C, D$가 움직이기 시작하는 임계 $k$ 값</h4>
+            <p>문항 2의 대칭성 결론에 따라 $D(x, 0), C(-x, 0)$ ($x \ge 0$)로 치환하면 비용 함수는 $x$에 대한 일변수 함수 $F(x)$로 단순화됩니다.</p>
+            $$F(x) = 2\sqrt{(10-x)^2 + 4} + 2kx \quad (x \ge 0)$$
+            <p>이 함수의 도함수를 구하면 다음과 같습니다.</p>
+            $$F'(x) = 2 \cdot \frac{-(10-x)}{\sqrt{(10-x)^2 + 4}} + 2k = 2\left( k - \frac{10-x}{\sqrt{(10-x)^2 + 4}} \right)$$
+            <p>함수 $h(x) = \frac{10-x}{\sqrt{(10-x)^2 + 4}}$는 $0 \le x \le 10$ 범위에서 $x$가 증가할 때 분자는 감소하고 분모는 증가하므로 전체적으로 엄격한 단조 감소 함수입니다. 즉, $-h(x)$는 단조 증가하므로 도함수 $F'(x)$는 $x$에 대해 엄격하게 증가하는 함수가 됩니다.</p>
+            <p>만약 $x=0$에서의 미분계수가 $0$ 이상($F'(0) \ge 0$)이라면, 모든 $x > 0$ 영역에서 $F'(x) > 0$이 되므로 함수 $F(x)$는 완전한 단조 증가 함수가 되어 최솟값은 경계인 $x=0$(원점 고정)에 머무르게 됩니다. 반대로 $F'(0) < 0$이 되는 순간 극소점이 $x>0$ 영역으로 밀려나며 점들이 움직이기 시작합니다. 따라서 움직임이 시작되는 임계 경계는 $F'(0) = 0$인 순간입니다.</p>
+            $$F'(0) = 2\left( k - \frac{10}{\sqrt{10^2 + 4}} \right) = 2\left( k - \frac{10}{\sqrt{104}} \right) = 2\left( k - \frac{5}{\sqrt{26}} \right) = 0$$
+            $$\therefore k = \frac{5}{\sqrt{26}} = \frac{5\sqrt{26}}{26} \approx 0.98058$$
+        </div>
+    </div>
+</div>
+
+<script>
+    const kRange = document.getElementById('kRange');
+    const kNumber = document.getElementById('kNumber');
+    const animBtn = document.getElementById('animBtn');
+    const coordC = document.getElementById('coordC');
+    const coordD = document.getElementById('coordD');
+    const totalCost = document.getElementById('totalCost');
+    const statusBadge = document.getElementById('statusBadge');
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const insightBtn = document.getElementById('insightBtn');
+    const solutionBtn = document.getElementById('solutionBtn');
+    const insightModal = document.getElementById('insightModal');
+    const solutionModal = document.getElementById('solutionModal');
+    const closeInsight = document.getElementById('closeInsight');
+    const closeSolution = document.getElementById('closeSolution');
+
+    const KCrit = 5 / Math.sqrt(26); // 약 0.98058067569
+    const A = { x: -10, y: 2 };
+    const B = { x: 10, y: 2 };
+
+    const scale = 22; 
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height * 0.65; 
+
+    let isAnimating = false;
+    let animDirection = -1; 
+    let animId = null;
+    let simK = 1.0; // 양자화 바인딩 오류를 막기 위한 초정밀 내부 고정 플로트 변수
+
+    function toScreenX(mathX) { return centerX + mathX * scale; }
+    function toScreenY(mathY) { return centerY - mathY * scale; }
+
+    function update(k) {
+        let cX, dX, cost;
+
+        if (k >= KCrit) {
+            cX = 0; dX = 0;
+            cost = 4 * Math.sqrt(26);
+            statusBadge.textContent = "원점 고정 상태 (k ≥ 0.9806)";
+            statusBadge.className = "status-badge status-fixed";
+        } else {
+            const factor = (2 * k) / Math.sqrt(1 - k * k);
+            cX = -10 + factor;
+            dX = 10 - factor;
+            cost = 20 * k + 4 * Math.sqrt(1 - k * k);
+            statusBadge.textContent = "외곽 이동 상태 (k < 0.9806)";
+            statusBadge.className = "status-badge status-moving";
+        }
+
+        if (isAnimating && Math.abs(k - KCrit) < 0.02) {
+            statusBadge.textContent = `🔬 임계점 고정밀 연속 슬로우 구간 (k ≒ 0.9806)`;
+            statusBadge.className = "status-badge status-slow";
+        }
+
+        coordC.textContent = `C(${cX.toFixed(4)}, 0)`;
+        coordD.textContent = `D(${dX.toFixed(4)}, 0)`;
+        totalCost.textContent = cost.toFixed(4);
+
+        draw(k, cX, dX);
+    }
+
+    function draw(k, cX, dX) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(20, centerY); ctx.lineTo(canvas.width - 20, centerY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(centerX, 20); ctx.lineTo(centerX, canvas.height - 20); ctx.stroke();
+
+        ctx.fillStyle = '#64748b'; ctx.font = '12px sans-serif';
+        ctx.fillText('x', canvas.width - 15, centerY + 15);
+        ctx.fillText('y', centerX - 15, 25);
+        ctx.fillText('O', centerX - 15, centerY + 15);
+        ctx.fillText('-10', toScreenX(-10) - 8, centerY + 15);
+        ctx.fillText('10', toScreenX(10) - 5, centerY + 15);
+
+        const sA = { x: toScreenX(A.x), y: toScreenY(A.y) };
+        const sB = { x: toScreenX(B.x), y: toScreenY(B.y) };
+        const sC = { x: toScreenX(cX), y: toScreenY(0) };
+        const sD = { x: toScreenX(dX), y: toScreenY(0) };
+
+        ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(sA.x, sA.y); ctx.lineTo(sC.x, sC.y); ctx.stroke();
+        ctx.strokeStyle = '#10b981';
+        ctx.beginPath(); ctx.moveTo(sC.x, sC.y); ctx.lineTo(sD.x, sD.y); ctx.stroke();
+        ctx.strokeStyle = '#2563eb';
+        ctx.beginPath(); ctx.moveTo(sD.x, sD.y); ctx.lineTo(sB.x, sB.y); ctx.stroke();
+
+        const points = [
+            { pt: sA, name: `A(-10, 2)`, color: '#1e3a8a', align: 'right', dx: -8, dy: -5 },
+            { pt: sB, name: `B(10, 2)`, color: '#1e3a8a', align: 'left', dx: 8, dy: -5 },
+            { pt: sC, name: 'C', color: '#047857', align: 'center', dx: 0, dy: 18 },
+            { pt: sD, name: 'D', color: '#047857', align: 'center', dx: 0, dy: 18 }
+        ];
+
+        points.forEach(p => {
+            ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.pt.x, p.pt.y, 6, 0, 2 * Math.PI); ctx.fill();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = '#0f172a'; ctx.font = 'bold 13px sans-serif';
+            ctx.textAlign = p.align; ctx.fillText(p.name, p.pt.x + p.dx, p.pt.y + p.dy);
+        });
+
+        if (cX < dX) {
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(sC.x, sC.y, 22, Math.PI, Math.PI + Math.atan2(sA.y - sC.y, sA.x - sC.x), true); ctx.stroke();
+            ctx.fillStyle = '#475569'; ctx.font = 'italic 12px sans-serif'; ctx.fillText('θ', sC.x - 30, sC.y - 6);
+            ctx.beginPath(); ctx.arc(sD.x, sD.y, 22, 0, Math.atan2(sB.y - sD.y, sB.x - sD.x), true); ctx.stroke();
+            ctx.fillText("θ'", sD.x + 25, sD.y - 6);
+        }
+    }
+
+    // 애니메이션 제어부: 양자화 멈춤 현상 차단 및 임계점 통과 속도 연속성 보장
+    function animate() {
+        if (!isAnimating) return;
+
+        let dist = Math.abs(simK - KCrit);
+        let speedFactor = 1.0;
+        
+        if (dist < 0.03) {
+            // 임계점 근처에서 최대 100배 감속하되 최소 기저 속도를 0.01로 유지하여 정지 현상 차단
+            speedFactor = 0.01 + (dist / 0.03) * 0.99; 
+        }
+
+        simK += animDirection * 0.0006 * speedFactor;
+
+        if (simK <= 0.05) { simK = 0.05; animDirection = 1; }
+        else if (simK >= 1.0) { simK = 1.0; animDirection = -1; }
+
+        kRange.value = simK;
+        kNumber.value = simK.toFixed(5);
+        update(simK);
+
+        animId = requestAnimationFrame(animate);
+    }
+
+    kRange.addEventListener('input', (e) => {
+        let val = parseFloat(e.target.value);
+        simK = val;
+        kNumber.value = val.toFixed(5);
+        update(val);
+    });
+
+    kNumber.addEventListener('input', (e) => {
+        let val = parseFloat(e.target.value);
+        if (isNaN(val)) return;
+        if (val <= 0) val = 0.00001; if (val > 1) val = 1;
+        simK = val;
+        kRange.value = val;
+        update(val);
+    });
+
+    animBtn.addEventListener('click', () => {
+        isAnimating = !isAnimating;
+        if (isAnimating) {
+            animBtn.textContent = '■ 정지하기';
+            animBtn.classList.add('stop');
+            animate();
+        } else {
+            animBtn.textContent = '▶ k값 자동 변화 보기 (연속 초슬로우 모션)';
+            animBtn.classList.remove('stop');
+            cancelAnimationFrame(animId);
+        }
+    });
+
+    function openModal(modal) {
+        modal.style.display = "block";
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise([modal]);
+        }
+    }
+
+    insightBtn.onclick = () => { openModal(insightModal); }
+    solutionBtn.onclick = () => { openModal(solutionModal); }
+    closeInsight.onclick = () => { insightModal.style.display = "none"; }
+    closeSolution.onclick = () => { solutionModal.style.display = "none"; }
+    
+    window.onclick = (e) => {
+        if (e.target == insightModal) insightModal.style.display = "none";
+        if (e.target == solutionModal) solutionModal.style.display = "none";
+    }
+
+    update(1.0);
+</script>
+
+</body>
+</html>

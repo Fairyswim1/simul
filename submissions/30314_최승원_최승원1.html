@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>수학 영역 및 면적 분석 시뮬레이터 (버전 2)</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #1e293b; margin-bottom: 5px; font-size: 24px; }
+        .subtitle { color: #64748b; margin-top: 0; margin-bottom: 20px; }
+        .main-container { display: flex; gap: 20px; max-width: 1100px; width: 100%; justify-content: center; }
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; }
+        .control-box { width: 100%; max-width: 1060px; background: white; padding: 15px 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; }
+        .slider-group { display: flex; align-items: center; gap: 15px; width: 60%; }
+        input[type="range"] { flex-grow: 1; height: 6px; border-radius: 5px; background: #cbd5e1; }
+        .btn-group { display: flex; gap: 10px; }
+        button { padding: 8px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-start { background: #10b981; color: white; }
+        .btn-start:hover { background: #059669; }
+        .btn-stop { background: #ef4444; color: white; }
+        .btn-stop:hover { background: #dc2626; }
+        canvas { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+        .data-display { width: 100%; margin-top: 15px; padding: 12px; background: #f1f5f9; border-radius: 8px; box-sizing: border-box; }
+        .data-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: left; font-size: 14px; }
+        .data-item { font-weight: 500; color: #334155; }
+        .highlight { font-weight: bold; font-size: 16px; color: #2563eb; }
+        .critical-alert { color: #ef4444 !important; font-size: 18px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<h1>수학 세미나 I - 영역 및 면적 분석 프로그램</h1>
+<p class="subtitle">직선 y=a의 변화에 따른 정적분 영역의 면적 S(a) 조건 도출 도구</p>
+
+<div class="control-box">
+    <div class="slider-group">
+        <label style="font-weight: bold; color: #1e293b;">상수 a 조절:</label>
+        <input type="range" id="sliderA" min="1.50" max="2.50" step="0.001" value="1.70">
+        <span id="valA" class="highlight">1.700</span>
+    </div>
+    <div class="btn-group">
+        <button class="btn-start" id="btnPlay">▶ 자동 재생</button>
+        <button class="btn-stop" id="btnPause">■ 정지</button>
+    </div>
+</div>
+
+<div class="main-container">
+    <div class="panel">
+        <h3 style="margin: 0 0 10px 0; color: #334155;">[메인 궤적 및 정적분 영역]</h3>
+        <canvas id="mainCanvas" width="500" height="380"></canvas>
+        <div class="data-display">
+            <div class="data-grid">
+                <div class="data-item">교점 x₁ 좌표: <span id="lblX1" style="color:#0f172a; font-weight:bold;">-</span></div>
+                <div class="data-item">교점 x₂ 좌표: <span id="lblX2" style="color:#0f172a; font-weight:bold;">-</span></div>
+                <div class="data-item" style="grid-column: span 2; border-top: 1px solid #cbd5e1; padding-top: 5px;">
+                    교점 간 거리 (x₂ - x₁): <span id="lblDiff" class="highlight">-</span> 
+                    <span style="font-size:11px; color:#64748b; font-weight:normal;">(목표치: 2.000)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3 style="margin: 0 0 10px 0; color: #334155;">[a값에 따른 면적 S(a) 변화 곡선]</h3>
+        <canvas id="subCanvas" width="500" height="380"></canvas>
+        <div class="data-display">
+            <div class="data-grid" style="grid-template-columns: 1fr;">
+                <div class="data-item" style="text-align: center;">현재 총 면적 S(a) 합계: <span id="lblArea" class="highlight" style="color:#10b981;">-</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const mainCanvas = document.getElementById('mainCanvas');
+    const mCtx = mainCanvas.getContext('2d');
+    const subCanvas = document.getElementById('subCanvas');
+    const sCtx = subCanvas.getContext('2d');
+
+    const sliderA = document.getElementById('sliderA');
+    const valA = document.getElementById('valA');
+    const lblX1 = document.getElementById('lblX1');
+    const lblX2 = document.getElementById('lblX2');
+    const lblDiff = document.getElementById('lblDiff');
+    const lblArea = document.getElementById('lblArea');
+    
+    const btnPlay = document.getElementById('btnPlay');
+    const btnPause = document.getElementById('btnPause');
+
+    let animationId = null;
+    let animDirection = 1;
+    let currentA = 1.70; // 브라우저 스냅 오차를 막기 위한 독립 제어용 변수
+
+    function f(x) {
+        if (x <= 1) return 0;
+        return Math.log(2) * x / Math.log(x);
+    }
+
+    const mMinX = 1.5, mMaxX = 6.5;
+    const mMinY = 1.0, mMaxY = 3.0;
+    function toMainX(x) { return ((x - mMinX) / (mMaxX - mMinX)) * mainCanvas.width; }
+    function toMainY(y) { return mainCanvas.height - ((y - mMinY) / (mMaxY - mMinY)) * mainCanvas.height; }
+
+    const sMinA = 1.5, sMaxA = 2.5;
+    const sMinS = 0.3, sMaxS = 1.3;
+    function toSubX(a) { return ((a - sMinA) / (sMaxA - sMinA)) * subCanvas.width; }
+    function toSubY(s) { return subCanvas.height - ((s - sMinS) / (sMaxS - sMinS)) * subCanvas.height; }
+
+    function calculateTotalArea(a) {
+        let total = 0;
+        const N = 400;
+        const dx = (6 - 2) / N;
+        for(let i=0; i<=N; i++) {
+            let x = 2 + i * dx;
+            let diff = Math.abs(f(x) - a);
+            let weight = (i === 0 || i === N) ? 1 : (i % 2 === 1 ? 4 : 2);
+            total += diff * weight;
+        }
+        return (total * dx) / 3;
+    }
+
+    function updateSimulation() {
+        valA.innerText = currentA.toFixed(3);
+        sliderA.value = currentA;
+
+        const f_e = Math.log(2) * Math.E; 
+        const f_6 = Math.log(2) * 6 / Math.log(6); 
+
+        let x1_text = "-", x2_text = "-", diff_text = "-";
+        let x1 = NaN, x2 = NaN;
+
+        if (currentA < f_e) {
+            x1_text = "교점 없음 (극솟값 미만)";
+            x2_text = "교점 없음 (극솟값 미만)";
+        } else {
+            if (currentA <= 2.0) {
+                let left = 2.0, right = Math.E;
+                for(let i=0; i<40; i++) {
+                    let mid = (left + right) / 2;
+                    if(f(mid) > currentA) left = mid;
+                    else right = mid;
+                }
+                x1 = (left + right) / 2;
+                x1_text = x1.toFixed(4);
+            } else {
+                x1_text = "정의역 외 (x < 2)";
+            }
+
+            if (currentA <= f_6) {
+                let left = Math.E, right = 6.0;
+                for(let i=0; i<40; i++) {
+                    let mid = (left + right) / 2;
+                    if(f(mid) < currentA) left = mid;
+                    else right = mid;
+                }
+                x2 = (left + right) / 2;
+                x2_text = x2.toFixed(4);
+            } else {
+                x2_text = "정의역 외 (x > 6)";
+            }
+        }
+
+        if (!isNaN(x1) && !isNaN(x2)) {
+            let diff = x2 - x1;
+            diff_text = diff.toFixed(4);
+            if(Math.abs(diff - 2.0) < 0.005) {
+                lblDiff.classList.add('critical-alert');
+            } else {
+                lblDiff.classList.remove('critical-alert');
+            }
+        } else {
+            lblDiff.classList.remove('critical-alert');
+        }
+
+        lblX1.innerText = x1_text;
+        lblX2.innerText = x2_text;
+        lblDiff.innerText = diff_text;
+
+        const currentArea = calculateTotalArea(currentA);
+        lblArea.innerText = currentArea.toFixed(5);
+
+        mCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        
+        mCtx.strokeStyle = '#e2e8f0';
+        mCtx.lineWidth = 1;
+        for(let x=2; x<=6; x++) {
+            mCtx.beginPath(); mCtx.moveTo(toMainX(x), 0); mCtx.lineTo(toMainX(x), mainCanvas.height); mCtx.stroke();
+        }
+        for(let y=1.0; y<=3.0; y+=0.5) {
+            mCtx.beginPath(); mCtx.moveTo(0, toMainY(y)); mCtx.lineTo(mainCanvas.width, toMainY(y)); mCtx.stroke();
+        }
+
+        for (let px = 0; px < mainCanvas.width; px++) {
+            let x = mMinX + (px / mainCanvas.width) * (mMaxX - mMinX);
+            if (x >= 2 && x <= 6) {
+                let fx = f(x);
+                let yStart = toMainY(Math.max(fx, currentA));
+                let yEnd = toMainY(Math.min(fx, currentA));
+                
+                if(fx > currentA) {
+                    mCtx.fillStyle = 'rgba(249, 115, 22, 0.25)';
+                } else {
+                    mCtx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+                }
+                mCtx.fillRect(px, yStart, 1, yEnd - yStart);
+            }
+        }
+
+        mCtx.strokeStyle = '#1e293b';
+        mCtx.lineWidth = 3;
+        mCtx.beginPath();
+        let first = true;
+        for (let px = 0; px <= mainCanvas.width; px++) {
+            let x = mMinX + (px / mainCanvas.width) * (mMaxX - mMinX);
+            if (x >= 2 && x <= 6) {
+                let y = f(x);
+                if (first) { mCtx.moveTo(px, toMainY(y)); first = false; }
+                else { mCtx.lineTo(px, toMainY(y)); }
+            }
+        }
+        mCtx.stroke();
+
+        mCtx.strokeStyle = '#2563eb';
+        mCtx.lineWidth = 2.5;
+        mCtx.beginPath();
+        mCtx.moveTo(toMainX(2), toMainY(currentA));
+        mCtx.lineTo(toMainX(6), toMainY(currentA));
+        mCtx.stroke();
+
+        if(!isNaN(x1)) {
+            mCtx.strokeStyle = '#ef4444'; mCtx.lineWidth = 1.5; mCtx.setLineDash([4, 4]);
+            mCtx.beginPath(); mCtx.moveTo(toMainX(x1), toMainY(currentA)); mCtx.lineTo(toMainX(x1), toMainY(1.0)); mCtx.stroke();
+            mCtx.setLineDash([]);
+            mCtx.fillStyle = '#ef4444'; mCtx.beginPath(); mCtx.arc(toMainX(x1), toMainY(currentA), 5, 0, 2*Math.PI); mCtx.fill();
+        }
+        if(!isNaN(x2)) {
+            mCtx.strokeStyle = '#ef4444'; mCtx.lineWidth = 1.5; mCtx.setLineDash([4, 4]);
+            mCtx.beginPath(); mCtx.moveTo(toMainX(x2), toMainY(currentA)); mCtx.lineTo(toMainX(x2), toMainY(1.0)); mCtx.stroke();
+            mCtx.setLineDash([]);
+            mCtx.fillStyle = '#ef4444'; mCtx.beginPath(); mCtx.arc(toMainX(x2), toMainY(currentA), 5, 0, 2*Math.PI); mCtx.fill();
+        }
+
+        mCtx.fillStyle = '#475569';
+        mCtx.font = 'bold 12px sans-serif';
+        mCtx.fillText("x=2", toMainX(2)-10, mainCanvas.height - 12);
+        mCtx.fillText("x=6", toMainX(6)-10, mainCanvas.height - 12);
+        mCtx.fillText("y=f(x)", toMainX(5.6), toMainY(f(5.6))-12);
+
+        sCtx.clearRect(0, 0, subCanvas.width, subCanvas.height);
+        
+        sCtx.strokeStyle = '#e2e8f0';
+        sCtx.lineWidth = 1;
+        for(let sa=1.5; sa<=2.5; sa+=0.1) {
+            sCtx.beginPath(); sCtx.moveTo(toSubX(sa), 0); sCtx.lineTo(toSubX(sa), subCanvas.height); sCtx.stroke();
+        }
+        for(let ss=0.3; ss<=1.3; ss+=0.2) {
+            sCtx.beginPath(); sCtx.moveTo(0, toSubY(ss)); sCtx.lineTo(subCanvas.width, toSubY(ss)); sCtx.stroke();
+        }
+
+        sCtx.strokeStyle = '#94a3b8';
+        sCtx.lineWidth = 2;
+        sCtx.beginPath();
+        let sFirst = true;
+        for(let px=0; px<=subCanvas.width; px++) {
+            let sa = sMinA + (px / subCanvas.width) * (sMaxA - sMinA);
+            let sVal = calculateTotalArea(sa);
+            if(sFirst) { sCtx.moveTo(px, toSubY(sVal)); sFirst = false; }
+            else { sCtx.lineTo(px, toSubY(sVal)); }
+        }
+        sCtx.stroke();
+
+        sCtx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        sCtx.lineWidth = 1.5;
+        sCtx.setLineDash([3, 3]);
+        sCtx.beginPath(); sCtx.moveTo(toSubX(2.0), 0); sCtx.lineTo(toSubX(2.0), subCanvas.height); sCtx.stroke();
+        sCtx.setLineDash([]);
+
+        sCtx.fillStyle = '#ef4444';
+        sCtx.beginPath();
+        sCtx.arc(toSubX(currentA), toSubY(currentArea), 7, 0, 2*Math.PI);
+        sCtx.fill();
+
+        sCtx.fillStyle = '#475569';
+        sCtx.font = 'bold 11px sans-serif';
+        sCtx.fillText("a=1.5", toSubX(1.5)+5, subCanvas.height - 10);
+        sCtx.fillText("a=2.0 (최소점)", toSubX(2.0)-35, subCanvas.height - 10);
+        sCtx.fillText("a=2.5", toSubX(2.5)-35, subCanvas.height - 10);
+        sCtx.fillText("S(a) 면적 결과", toSubX(1.55), toSubY(1.1));
+    }
+
+    function playAnimation() {
+        currentA += 0.002 * animDirection;
+        
+        if (currentA >= 2.45) {
+            currentA = 2.45;
+            animDirection = -1;
+        } else if (currentA <= 1.55) {
+            currentA = 1.55;
+            animDirection = 1;
+        }
+        
+        updateSimulation();
+        animationId = requestAnimationFrame(playAnimation);
+    }
+
+    function stopAnimation() {
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+    }
+
+    sliderA.addEventListener('input', () => {
+        stopAnimation();
+        currentA = parseFloat(sliderA.value);
+        updateSimulation();
+    });
+
+    btnPlay.addEventListener('click', () => {
+        stopAnimation(); 
+        playAnimation();
+    });
+
+    btnPause.addEventListener('click', () => {
+        stopAnimation();
+    });
+
+    window.onload = updateSimulation;
+</script>
+</body>
+</html>

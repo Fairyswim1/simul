@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S(a) 정적분 시뮬레이션</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; background-color: #f8f9fa; }
+        #left-panel { flex: 2; padding: 20px; display: flex; flex-direction: column; }
+        #right-panel { flex: 1; padding: 30px; background-color: #ffffff; border-left: 1px solid #dee2e6; display: flex; flex-direction: column; gap: 20px; }
+        #plot { flex: 1; width: 100%; }
+        .control-group { padding: 15px; background: #f1f3f5; border-radius: 8px; }
+        input[type=range] { width: 100%; margin: 10px 0; }
+        .value-display { font-size: 1.2em; font-weight: bold; color: #007bff; }
+        .formula { background: #e9ecef; padding: 10px; border-radius: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+<div id="left-panel">
+    <h2>f(x) = x ln 2 / ln x 와 y = a 사이의 영역</h2>
+    <div id="plot"></div>
+</div>
+<div id="right-panel">
+    <h2>설정 및 결과</h2>
+    <div class="control-group">
+        <label for="a-slider">상수 <b>a</b> 조절:</label>
+        <input type="range" id="a-slider" min="1.8" max="2.5" step="0.001" value="2.0">
+        <div>현재 a 값: <span id="a-value" class="value-display">2.000</span></div>
+    </div>
+    <div class="control-group">
+        <div>계산된 면적 <b>S(a)</b>:</div>
+        <div id="s-value" class="value-display" style="color: #d63384;">0.0000</div>
+    </div>
+    <div class="formula">S(a) = ∫₂⁶ |a - f(x)| dx</div>
+</div>
+<script>
+    const aSlider = document.getElementById('a-slider');
+    const aValue = document.getElementById('a-value');
+    const sValue = document.getElementById('s-value');
+    function f(x) { return (x * Math.log(2)) / Math.log(x); }
+    const xData = [];
+    for (let x = 2; x <= 6; x += 0.01) { xData.push(x); }
+    const fData = xData.map(f);
+    function updatePlot() {
+        const a = parseFloat(aSlider.value);
+        aValue.innerText = a.toFixed(3);
+        let area = 0;
+        for (let i = 0; i < xData.length - 1; i++) {
+            const midX = (xData[i] + xData[i+1]) / 2;
+            area += Math.abs(a - f(midX)) * 0.01;
+        }
+        sValue.innerText = area.toFixed(4);
+        const traceF = { x: xData, y: fData, mode: 'lines', name: 'f(x)', line: { color: '#007bff', width: 3 } };
+        const traceA = { x: [2, 6], y: [a, a], mode: 'lines', name: 'y = a', line: { color: '#ff7f0e', dash: 'dash' } };
+        const traceFill = { x: [...xData, ...xData.slice().reverse()], y: [...fData, ...xData.slice().reverse().map(() => a)], fill: 'toself', fillcolor: 'rgba(214, 51, 132, 0.3)', line: { color: 'transparent' }, name: 'S(a)' };
+        Plotly.newPlot('plot', [traceFill, traceF, traceA], { xaxis: { title: 'x' }, yaxis: { title: 'y', range: [1.5, 2.6] } });
+    }
+    aSlider.addEventListener('input', updatePlot);
+    window.onload = updatePlot;
+</script>
+</body>
+</html>

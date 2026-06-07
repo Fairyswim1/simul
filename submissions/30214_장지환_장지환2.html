@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고도화된 주머니와 공 배치 시뮬레이터 (262가지)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .pocket-gradient {
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        }
+        .ball-shadow {
+            box-shadow: inset -4px -4px 6px rgba(0,0,0,0.4), 0 4px 6px rgba(0,0,0,0.1);
+        }
+        /* 스크롤바 커스텀 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h1 class="text-2xl font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span>🎯</span> 주머니와 공 배치 시뮬레이터
+                </h1>
+                <div class="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-1">
+                    <p><strong>[기본 조건]</strong> 주머니 10개(일렬), 구별 없는 공 8개, 주머니당 최대 공 2개 이하</p>
+                    <p><strong>(가)</strong> 공이 1개인 주머니는 총 <strong>4개 또는 6개</strong>여야 합니다.</p>
+                    <p><strong>(나)</strong> 공이 2개인 주머니의 <strong>양옆(이웃) 주머니는 반드시 비어있어야(0개)</strong> 합니다.</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-4 text-sm font-semibold">
+                    <span id="ball-badge" class="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200">
+                        남은 공: 8 / 8개
+                    </span>
+                    <span id="case-badge" class="bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg border border-amber-200">
+                        1개 주머니: 0개
+                    </span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="undo()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 font-medium rounded-lg text-sm transition shadow-sm">
+                        ↩ 되돌리기 (Undo)
+                    </button>
+                    <button onclick="resetSimulator()" class="px-4 py-2 bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white font-medium rounded-lg text-sm transition shadow-sm">
+                        🔄 초기화
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-slate-200/60 p-6 rounded-2xl border border-slate-300/40 flex justify-between gap-2 overflow-x-auto">
+                <div id="pockets-container" class="flex justify-between w-full min-w-[700px] gap-2"></div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h3 class="text-lg font-bold text-slate-900 mb-4">실시간 조건 검증</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div id="chk-total" class="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium">
+                        <span class="status-icon">❌</span> <span class="status-text">공 8개 모두 사용</span>
+                    </div>
+                    <div id="chk-max" class="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium">
+                        <span class="status-icon">✔</span> <span class="status-text">각 주머니 공 2개 이하</span>
+                    </div>
+                    <div id="chk-cond-a" class="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium">
+                        <span class="status-icon">❌</span> <span class="status-text">조건 (가) 만족 (1개 주머니가 4개 혹은 6개)</span>
+                    </div>
+                    <div id="chk-cond-b" class="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200 text-sm font-medium">
+                        <span class="status-icon">✔</span> <span class="status-text">조건 (나) 만족 (2개 주머니 이웃에 공 없음)</span>
+                    </div>
+                </div>
+                <div id="final-banner" class="p-4 rounded-xl text-center font-bold text-lg bg-slate-100 text-slate-600 border border-slate-200">
+                    주머니를 클릭하여 공을 배치해 보세요! (0 → 1 → 2 → 0)
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col h-[calc(100vh-4rem)] min-h-[600px]">
+            <div class="mb-4">
+                <h3 class="text-lg font-bold text-slate-900 mb-1">수학적 해 전체 보기</h3>
+                <p id="total-cases-text" class="text-xs text-slate-500">계산 중...</p>
+            </div>
+
+            <div class="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl mb-4 text-xs font-semibold">
+                <button onclick="filterAnswers('all')" id="btn-filter-all" class="py-2 rounded-lg bg-white shadow-sm text-blue-600 transition">전체</button>
+                <button onclick="filterAnswers('case1')" id="btn-filter-case1" class="py-2 rounded-lg text-slate-600 hover:bg-white/50 transition">Case 1</button>
+                <button onclick="filterAnswers('case2')" id="btn-filter-case2" class="py-2 rounded-lg text-slate-600 hover:bg-white/50 transition">Case 2</button>
+            </div>
+
+            <div id="answer-list" class="flex-1 overflow-y-auto space-y-2 pr-1 text-sm font-mono">
+                </div>
+        </div>
+
+    </div>
+
+    <script>
+        const N = 10;
+        const TARGET_BALLS = 8;
+        
+        let pocketStates = Array(N).fill(0);
+        let historyStack = [];
+        let allAnswers = []; 
+        let currentFilter = 'all';
+
+        // 1. 모든 경우의 수를 계산하는 백트래킹 알고리즘 (262가지 정답 추출)
+        function generateAllAnswers() {
+            allAnswers = [];
+            
+            function backtrack(idx, currentArray) {
+                if (idx === N) {
+                    let sum = currentArray.reduce((a, b) => a + b, 0);
+                    if (sum !== TARGET_BALLS) return;
+
+                    let countOne = currentArray.filter(x => x === 1).length;
+                    let isCase1 = (countOne === 4);
+                    let isCase2 = (countOne === 6);
+                    if (!isCase1 && !isCase2) return;
+
+                    // 조건 나 검증 (2번 주머니의 양옆이 0인지)
+                    for (let i = 0; i < N; i++) {
+                        if (currentArray[i] === 2) {
+                            if (i > 0 && currentArray[i-1] > 0) return;
+                            if (i < N - 1 && currentArray[i+1] > 0) return;
+                        }
+                    }
+
+                    allAnswers.push({
+                        array: [...currentArray],
+                        case: isCase1 ? 1 : 2
+                    });
+                    return;
+                }
+
+                for (let val = 0; val <= 2; val++) {
+                    currentArray.push(val);
+                    backtrack(idx + 1, currentArray);
+                    currentArray.pop();
+                }
+            }
+
+            backtrack(0, []);
+        }
+
+        // 2. 초기화 및 가동
+        function initSimulator() {
+            generateAllAnswers();
+            renderPockets();
+            
+            // 버튼 및 텍스트 상단에 실제 계산된 카운트(150, 112, 262) 동적 반영
+            const total = allAnswers.length;
+            const c1 = allAnswers.filter(a => a.case === 1).length;
+            const c2 = allAnswers.filter(a => a.case === 2).length;
+            
+            document.getElementById('btn-filter-all').innerText = `전체 (${total})`;
+            document.getElementById('btn-filter-case1').innerText = `Case 1 (${c1})`;
+            document.getElementById('btn-filter-case2').innerText = `Case 2 (${c2})`;
+            document.getElementById('total-cases-text').innerText = `조건을 만족하는 모든 경우의 수(${total}가지)입니다. 항목을 클릭하면 즉시 주머니에 적용됩니다.`;
+
+            renderAnswerList();
+            updateUI();
+        }
+
+        function renderPockets() {
+            const container = document.getElementById('pockets-container');
+            container.innerHTML = '';
+            
+            for (let i = 0; i < N; i++) {
+                const wrapper = document.createElement('div');
+                wrapper.className = "flex flex-col items-center flex-1 min-w-[55px]";
+
+                const label = document.createElement('span');
+                label.className = "text-xs font-bold text-slate-500 mb-2";
+                label.innerText = `${i + 1}`;
+
+                const pocket = document.createElement('div');
+                pocket.id = `pocket-${i}`;
+                pocket.onclick = () => handlePocketClick(i);
+                pocket.className = "w-full h-28 border-x-4 border-b-4 border-slate-600 rounded-b-2xl pocket-gradient flex flex-col-reverse items-center justify-start pb-2 gap-1.5 relative cursor-pointer hover:shadow-md hover:scale-105 transition-all duration-200 select-none";
+
+                wrapper.appendChild(label);
+                wrapper.appendChild(pocket);
+                container.appendChild(wrapper);
+            }
+        }
+
+        // 3. 주머니 클릭 제어
+        function handlePocketClick(idx) {
+            saveHistory();
+            let current = pocketStates[idx];
+            pocketStates[idx] = (current + 1) % 3; // 0 -> 1 -> 2 -> 0 순환
+            updateUI();
+        }
+
+        function saveHistory() {
+            historyStack.push([...pocketStates]);
+            if (historyStack.length > 30) historyStack.shift();
+        }
+
+        function undo() {
+            if (historyStack.length === 0) {
+                alert("되돌릴 작업이 없습니다.");
+                return;
+            }
+            pocketStates = historyStack.pop();
+            updateUI();
+        }
+
+        function resetSimulator() {
+            saveHistory();
+            pocketStates = Array(N).fill(0);
+            updateUI();
+        }
+
+        function applyAnswer(arrayStr) {
+            saveHistory();
+            pocketStates = JSON.parse(arrayStr);
+            updateUI();
+        }
+
+        // 4. 실시간 상태 업데이트 및 시각화 가이드
+        function updateUI() {
+            let usedBalls = pocketStates.reduce((a, b) => a + b, 0);
+            let countOne = pocketStates.filter(x => x === 1).length;
+            
+            let lockedIndices = new Set();
+            let violatedIndices = new Set();
+
+            for (let i = 0; i < N; i++) {
+                if (pocketStates[i] === 2) {
+                    if (i > 0) lockedIndices.add(i - 1);
+                    if (i < N - 1) lockedIndices.add(i + 1);
+
+                    if (i > 0 && pocketStates[i-1] > 0) violatedIndices.add(i);
+                    if (i < N - 1 && pocketStates[i+1] > 0) violatedIndices.add(i);
+                }
+            }
+
+            for (let i = 0; i < N; i++) {
+                const pocket = document.getElementById(`pocket-${i}`);
+                pocket.innerHTML = ''; 
+
+                const numLabel = document.createElement('span');
+                numLabel.className = "absolute top-1 text-xs font-black text-slate-300";
+                numLabel.innerText = pocketStates[i];
+                pocket.appendChild(numLabel);
+
+                for (let b = 0; b < pocketStates[i]; b++) {
+                    const ball = document.createElement('div');
+                    ball.className = "w-5 h-5 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 ball-shadow transform transition-all duration-300 scale-100 animate-[bounce_0.3s_ease-out_1]";
+                    pocket.appendChild(ball);
+                }
+
+                pocket.className = pocket.className.replace(/bg-red-\d+|bg-amber-\d+|border-red-\d+/g, '').trim();
+                
+                if (violatedIndices.has(i)) {
+                    pocket.classList.add('bg-red-50', 'border-red-500');
+                } else if (lockedIndices.has(i)) {
+                    if (pocketStates[i] > 0) {
+                        pocket.classList.add('bg-red-100', 'border-red-400');
+                    } else {
+                        pocket.classList.add('bg-amber-50/80');
+                        const lockSign = document.createElement('div');
+                        lockSign.className = "absolute inset-0 flex items-center justify-center text-amber-500/40 text-lg font-bold pointer-events-none";
+                        lockSign.innerText = "🔒";
+                        pocket.appendChild(lockSign);
+                    }
+                }
+            }
+
+            document.getElementById('ball-badge').innerText = `남은 공: ${TARGET_BALLS - usedBalls} / ${TARGET_BALLS}개`;
+            document.getElementById('case-badge').innerText = `1개 주머니: ${countOne}개`;
+            
+            if(usedBalls > TARGET_BALLS) {
+                document.getElementById('ball-badge').className = "bg-rose-50 text-rose-700 px-3 py-1.5 rounded-lg border border-rose-200 text-sm font-semibold";
+            } else {
+                document.getElementById('ball-badge').className = "bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 text-sm font-semibold";
+            }
+
+            const chkTotal = usedBalls === TARGET_BALLS;
+            const chkCondA = countOne === 4 || countOne === 6;
+            const chkCondB = violatedIndices.size === 0;
+
+            updateCheckRow('chk-total', chTotal, `공 8개 모두 사용 (현재 ${usedBalls}개 배치)`);
+            updateCheckRow('chk-cond-a', chkCondA, `조건 (가) 만족 (1개 주머니가 4개 혹은 6개 / 현재 ${countOne}개)`);
+            updateCheckRow('chk-cond-b', chkCondB, chkCondB ? `조건 (나) 만족 (2개 주머니 이웃에 공 없음)` : `조건 (나) 위반 (2번 주머니 이웃 확인)`);
+
+            const banner = document.getElementById('final-banner');
+            if (chkTotal && chkCondA && chkCondB) {
+                banner.className = "p-4 rounded-xl text-center font-bold text-lg bg-emerald-500 text-white border border-emerald-600 shadow-sm transition-all animate-pulse";
+                banner.innerText = "🎉 축하합니다! 조건에 맞는 배치를 성공적으로 구성하셨습니다! 🎯";
+                highlightActiveListRow(JSON.stringify(pocketStates));
+            } else {
+                banner.className = "p-4 rounded-xl text-center font-bold text-lg bg-slate-100 text-slate-600 border border-slate-200";
+                banner.innerText = "상단의 네 가지 조건 표시등이 모두 초록색(✔)이 되도록 조작해 보세요.";
+                highlightActiveListRow(null);
+            }
+        }
+
+        function updateCheckRow(id, isSuccess, text) {
+            const row = document.getElementById(id);
+            const icon = row.querySelector('.status-icon');
+            const txt = row.querySelector('.status-text');
+            
+            txt.innerText = text;
+            if (isSuccess) {
+                icon.innerText = '✔';
+                row.className = "flex items-center gap-2 p-3 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-200 text-sm font-medium transition-all";
+            } else {
+                icon.innerText = '❌';
+                row.className = "flex items-center gap-2 p-3 bg-slate-50 text-slate-400 rounded-xl border border-slate-200 text-sm font-medium transition-all";
+            }
+        }
+
+        // 5. 우측 정답 리스트 생성
+        function renderAnswerList() {
+            const container = document.getElementById('answer-list');
+            container.innerHTML = '';
+
+            let idx = 1;
+            allAnswers.forEach(ans => {
+                const item = document.createElement('div');
+                item.id = `ans-row-${JSON.stringify(ans.array)}`;
+                item.setAttribute('data-case', ans.case);
+                item.onclick = () => applyAnswer(JSON.stringify(ans.array));
+                item.className = "p-2.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl cursor-pointer flex items-center justify-between font-medium text-slate-700 transition duration-150 active:scale-[0.99]";
+                
+                const badgeColor = ans.case === 1 ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-purple-50 text-purple-600 border-purple-200';
+                const badgeText = ans.case === 1 ? 'Case 1' : 'Case 2';
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400 font-sans font-bold w-6 text-right mr-1">${idx++}</span>
+                        <span>[${ans.array.join(', ')}]</span>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 font-sans font-bold rounded-md border ${badgeColor}">${badgeText}</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function filterAnswers(mode) {
+            currentFilter = mode;
+            const container = document.getElementById('answer-list');
+            const rows = container.children;
+            
+            const buttons = ['all', 'case1', 'case2'];
+            buttons.forEach(b => {
+                const btn = document.getElementById(`btn-filter-${b}`);
+                if (b === mode) {
+                    btn.className = "py-2 rounded-lg bg-white shadow-sm text-blue-600 transition";
+                } else {
+                    btn.className = "py-2 rounded-lg text-slate-600 hover:bg-white/50 transition";
+                }
+            });
+
+            for (let row of rows) {
+                const c = row.getAttribute('data-case');
+                if (mode === 'all' || (mode === 'case1' && c === '1') || (mode === 'case2' && c === '2')) {
+                    row.style.display = 'flex';
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+        }
+
+        function highlightActiveListRow(currentStr) {
+            allAnswers.forEach(ans => {
+                const row = document.getElementById(`ans-row-${JSON.stringify(ans.array)}`);
+                if(row) {
+                    row.className = row.className.replace(/bg-blue-600|text-white|border-blue-700/g, '').trim();
+                    if(!row.className.includes('bg-slate-50')) {
+                        row.classList.add('bg-slate-50', 'text-slate-700', 'border-slate-200');
+                    }
+                }
+            });
+
+            if(!currentStr) return;
+
+            const activeRow = document.getElementById(`ans-row-${currentStr}`);
+            if(activeRow) {
+                activeRow.classList.remove('bg-slate-50', 'text-slate-700', 'border-slate-200');
+                activeRow.classList.add('bg-blue-600', 'text-white', 'border-blue-700');
+                activeRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        window.onload = initSimulator;
+    </script>
+</body>
+</html>

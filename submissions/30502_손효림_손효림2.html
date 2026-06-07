@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동전 뒤집기 수열 탐구 시뮬레이터</title>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --primary: #3b82f6;
+            --primary-hover: #1d4ed8;
+            --success: #10b981;
+            --fail: #ef4444;
+            --text: #1e293b;
+            --border: #cbd5e1;
+            --highlight: #f59e0b;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 26px;
+            color: #1e3a8a;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 20px;
+            max-width: 1300px;
+            width: 100%;
+        }
+
+        @media (max-width: 1000px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+            box-sizing: border-box;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+            color: #1e40af;
+        }
+
+        /* 동전 및 애니메이션 스타일 */
+        .coin-area {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 25px 0;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px dashed var(--border);
+        }
+
+        .coin-wrapper {
+            text-align: center;
+        }
+
+        .coin {
+            width: 95px;
+            height: 95px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), border 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            user-select: none;
+        }
+
+        .coin.front {
+            background: #ffffff;
+            color: #334155;
+            border: 5px solid #cbd5e1;
+        }
+
+        .coin.back {
+            background: #64748b;
+            color: #ffffff;
+            border: 5px solid #475569;
+        }
+
+        .coin.flipping {
+            transform: scale(1.18) rotateY(180deg);
+            border-color: var(--highlight) !important;
+            box-shadow: 0 0 15px var(--highlight);
+        }
+
+        .coin-label {
+            margin-top: 10px;
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        .coin-count {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        /* 상태 텍스트 */
+        .status-text {
+            font-size: 18px;
+            text-align: center;
+            font-weight: bold;
+            margin: 15px 0;
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: white;
+            background: #94a3b8;
+            margin-left: 8px;
+        }
+        .status-badge.success { background-color: var(--success); }
+        .status-badge.fail { background-color: var(--fail); }
+
+        /* 버튼 양식 */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 11px 14px;
+            border: none;
+            border-radius: 6px;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+            font-size: 13px;
+        }
+
+        button:hover { background: var(--primary-hover); }
+        button:disabled {
+            background: #cbd5e1 !important;
+            color: #94a3b8 !important;
+            cursor: not-allowed !important;
+            opacity: 0.7;
+        }
+        button.secondary { background: #475569; }
+        button.secondary:hover { background: #334155; }
+        button.accent { background: #7c3aed; }
+        button.accent:hover { background: #6d28d9; }
+
+        select {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            background: #eff6ff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            border: 1px solid #bfdbfe;
+        }
+
+        /* 진행 기록 로그창 */
+        .log-box {
+            height: 180px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: #334155;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .log-box .log-start { color: #0284c7; font-weight: bold; }
+        .log-box .log-step { color: #d97706; }
+        .log-box .log-success { color: #059669; font-weight: bold; }
+        .log-box .log-fail { color: #dc2626; font-weight: bold; }
+
+        /* 동적 버튼 수열 설정 영역 */
+        .seq-builder-container {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .seq-slot-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .seq-slot {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            min-width: 110px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .seq-slot-label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        .seq-btn-group {
+            display: flex;
+            gap: 4px;
+        }
+
+        .seq-btn {
+            padding: 4px 6px;
+            font-size: 11px;
+            background: #e2e8f0;
+            color: #334155;
+            border-radius: 4px;
+        }
+        .seq-btn:hover { background: #cbd5e1; }
+        .seq-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* 테이블 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 10px 12px;
+            text-align: center;
+        }
+
+        th { background: #f8fafc; color: #334155; }
+        
+        .badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+        }
+        .badge.front { background: #e2e8f0; color: #1e293b; border: 1px solid #cbd5e1; }
+        .badge.back { background: #64748b; }
+
+        .prob-display {
+            font-size: 15px;
+            font-weight: bold;
+            margin: 15px 0;
+            padding: 12px;
+            background: #ecfdf5;
+            border-left: 4px solid var(--success);
+            border-radius: 0 8px 8px 0;
+            color: #065f46;
+            line-height: 1.4;
+        }
+
+        .analysis-output {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 13.5px;
+            max-height: 300px;
+            overflow-y: auto;
+            border-left: 4px solid #7c3aed;
+        }
+
+        /* 탐색 버튼 래퍼 가변리드용 */
+        .search-btn-container {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+        .search-btn-container button {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>동전 뒤집기 수열 탐구 시뮬레이터</h1>
+</header>
+
+<div class="container">
+    
+    <div class="card">
+        <h2>◀ 동전 제어 및 실시간 애니메이션</h2>
+        
+        <div style="margin-bottom:10px; font-size:13px; font-weight:bold; color:#475569;">
+            ※ 동전을 직접 클릭하여 초기 상태를 설정하거나 아래 랜덤 버튼을 이용하세요.
+        </div>
+
+        <div class="coin-area">
+            <div class="coin-wrapper">
+                <div id="coin10" class="coin front" onclick="handleManualToggle(10)">10원</div>
+                <div class="coin-label">10원</div>
+                <div id="count10" class="coin-count">뒤집음: 0회 (짝)</div>
+            </div>
+            <div class="coin-wrapper">
+                <div id="coin100" class="coin front" onclick="handleManualToggle(100)">100원</div>
+                <div class="coin-label">100원</div>
+                <div id="count100" class="coin-count">뒤집음: 0회 (짝)</div>
+            </div>
+            <div class="coin-wrapper">
+                <div id="coin500" class="coin front" onclick="handleManualToggle(500)">500원</div>
+                <div class="coin-label">500원</div>
+                <div id="count500" class="coin-count">뒤집음: 0회 (짝)</div>
+            </div>
+        </div>
+
+        <div class="status-text">
+            현재 상태: <span id="stateText" style="color:#1e3a8a;">앞-앞-앞</span> 
+            <span id="successBadge" class="status-badge">판정 대기</span>
+        </div>
+
+        <div class="btn-grid" style="grid-template-columns: 1fr 1fr;">
+            <button id="btnRandom" class="secondary" onclick="setValidRandomState()">조건에 맞는 랜덤 초기 상태 생성</button>
+            <button id="btnExecute" onclick="runSequenceAnimation()">현재 상태에서 수열 실행</button>
+        </div>
+
+        <h3 style="font-size:14px; margin-top:20px; margin-bottom:8px; color:#334155;">📋 실시간 진행 기록 (Live Log)</h3>
+        <div id="logBox" class="log-box">시뮬레이터가 준비되었습니다.</div>
+    </div>
+
+    <div class="card">
+        <h2>▶ 문제 탐구 및 제어 센터</h2>
+        
+        <div class="radio-group">
+            <label><strong>목표 조건 선택:</strong></label><br>
+            <label><input type="radio" name="targetRule" value="same" checked onchange="onRuleOrInputChanged()"> (*) 모두 같음 (앞앞앞/뒤뒤뒤 제외 6가지 배치)</label><br>
+            <label><input type="radio" name="targetRule" value="allFront" onchange="onRuleOrInputChanged()"> (**) 모두 앞면 (앞앞앞 제외 7가지 배치)</label>
+        </div>
+
+        <div class="flex-inputs" style="align-items: center; margin-bottom: 15px;">
+            <label style="font-size:13px; font-weight:bold; white-space:nowrap;">성공 판단 기준 범위 (n):</label>
+            <select id="nSelect" onchange="onNSelectChanged()" style="flex: 1;">
+                <option value="1">n = 1 (1번 이내)</option>
+                <option value="2" selected>n = 2 (2번 이내)</option>
+                <option value="3">n = 3 (3번 이내)</option>
+                <option value="4">n = 4 (4번 이내)</option>
+                <option value="5">n = 5 (5번 이내)</option>
+                <option value="7">n = 7 (7번 이내)</option>
+            </select>
+        </div>
+
+        <div class="seq-builder-container">
+            <div style="font-size:13px; font-weight:bold; color:#1e40af;">뒤집기 수열 설정 (버튼 제어):</div>
+            <div id="seqSlotRow" class="seq-slot-row">
+                </div>
+        </div>
+
+        <div id="probDisplay" class="prob-display">
+            조건 분석 진행 중...
+        </div>
+
+        <div class="search-btn-container">
+            <button id="btnSearchOpt" class="accent" onclick="searchOptimal2Step()">2번 이내 최대 확률 탐색</button>
+            <button id="btnSearchSure" class="accent" onclick="searchSureSuccessSeq()">확률 1이 되는 최소 n 탐색</button>
+        </div>
+
+        <div id="analysisOutput" class="analysis-output" style="display:none;"></div>
+    </div>
+
+    <div class="card full-width">
+        <h2>▼ 현재 목표 조건에서 심판이 고를 수 있는 가능한 초기 상태 분석표</h2>
+        <table id="analysisTable">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">가능한 초기 상태<br>(10, 100, 500)</th>
+                    <th style="width: 40%;">수열 적용 과정 (앞에서부터 n개 항 반영)</th>
+                    <th style="width: 12%;">최초 성공 시점</th>
+                    <th style="width: 13%;">n번 이내 성공 여부</th>
+                    <th style="width: 20%;">이 초기 상태에서 성공/실패 이유</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    // 동전 상태 관리 (0: 앞면, 1: 뒷면)
+    let currentCoins = { 10: 0, 100: 0, 500: 0 };
+    let flipCounts = { 10: 0, 100: 0, 500: 0 };
+    let isRunning = false; 
+
+    // 사용자가 버튼으로 선택한 수열 상태 배열
+    let selectedSequence = [500, 10]; 
+
+    const statesList = [
+        {10:0, 100:0, 500:0}, 
+        {10:0, 100:0, 500:1}, 
+        {10:0, 100:1, 500:0}, 
+        {10:0, 100:1, 500:1}, 
+        {10:1, 100:0, 500:0}, 
+        {10:1, 100:0, 500:1}, 
+        {10:1, 100:1, 500:0}, 
+        {10:1, 100:1, 500:1}  
+    ];
+
+    window.onload = function() {
+        buildSequenceSlots();
+        setValidRandomState();
+        updateSearchButtonsVisibility();
+        evaluateAllStates();
+    };
+
+    function getTargetRule() {
+        const radios = document.getElementsByName('targetRule');
+        for (let r of radios) {
+            if (r.checked) return r.value;
+        }
+        return 'same';
+    }
+
+    function isGoal(state, rule) {
+        if (rule === 'same') {
+            return (state[10] === state[100] && state[100] === state[500]);
+        } else {
+            return (state[10] === 0 && state[100] === 0 && state[500] === 0);
+        }
+    }
+
+    function getJudgesInitialStates(rule) {
+        return statesList.filter(st => !isGoal(st, rule));
+    }
+
+    // 규칙 변경이나 수열 변경 시 작동
+    function onRuleOrInputChanged() {
+        if(isRunning) return;
+        document.getElementById('analysisOutput').style.display = "none"; // 출력창 리셋
+        updateSearchButtonsVisibility();
+        evaluateAllStates();
+    }
+
+    // n값 설정이 바뀔 때 슬롯 재구축
+    function onNSelectChanged() {
+        if(isRunning) return;
+        buildSequenceSlots();
+        evaluateAllStates();
+    }
+
+    // 조건에 따라 "2번 이내 최대 확률 탐색" 버튼 숨기기/보이기 기능 추가
+    function updateSearchButtonsVisibility() {
+        const rule = getTargetRule();
+        const optBtn = document.getElementById('btnSearchOpt');
+        if (rule === 'allFront') {
+            optBtn.style.display = 'none'; // (**) 모두 앞면일 때는 버튼 숨김
+        } else {
+            optBtn.style.display = 'inline-block'; // (*) 모두 같음일 때는 버튼 보임
+        }
+    }
+
+    // n의 크기에 맞춰서 동적으로 버튼 선택기UI를 렌더링하는 함수
+    function buildSequenceSlots() {
+        const limitN = parseInt(document.getElementById('nSelect').value);
+        const container = document.getElementById('seqSlotRow');
+        container.innerHTML = '';
+
+        while(selectedSequence.length < limitN) {
+            selectedSequence.push(10); 
+        }
+        if(selectedSequence.length > limitN) {
+            selectedSequence = selectedSequence.slice(0, limitN);
+        }
+
+        for (let i = 0; i < limitN; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'seq-slot';
+
+            const label = document.createElement('div');
+            label.className = 'seq-slot-label';
+            label.innerText = `${i + 1}번째 뒤집기`;
+            slot.appendChild(label);
+
+            const btnGroup = document.createElement('div');
+            btnGroup.className = 'seq-btn-group';
+
+            [10, 100, 500].forEach(coinVal => {
+                const btn = document.createElement('button');
+                btn.className = 'seq-btn';
+                if(selectedSequence[i] === coinVal) btn.classList.add('active');
+                btn.innerText = coinVal;
+                
+                btn.onclick = () => {
+                    if(isRunning) return;
+                    selectedSequence[i] = coinVal;
+                    Array.from(btnGroup.children).forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    evaluateAllStates();
+                };
+                btnGroup.appendChild(btn);
+            });
+
+            slot.appendChild(btnGroup);
+            container.appendChild(slot);
+        }
+    }
+
+    function formatState(st) {
+        const f = (v) => v === 0 ? "앞" : "뒤";
+        return `${f(st[10])}-${f(st[100])}-${f(st[500])}`;
+    }
+
+    function writeLog(text, type="") {
+        const logBox = document.getElementById('logBox');
+        let spanClass = "";
+        if(type === "start") spanClass = "log-start";
+        else if(type === "step") spanClass = "log-step";
+        else if(type === "success") spanClass = "log-success";
+        else if(type === "fail") spanClass = "log-fail";
+
+        logBox.innerHTML += `<br><span class="${spanClass}">${text}</span>`;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function setValidRandomState() {
+        if (isRunning) return;
+        const rule = getTargetRule();
+        const validStates = getJudgesInitialStates(rule);
+        
+        const randomPicked = validStates[Math.floor(Math.random() * validStates.length)];
+        
+        currentCoins = { ...randomPicked };
+        flipCounts = { 10: 0, 100: 0, 500: 0 };
+        
+        document.getElementById('logBox').innerHTML = `<span class="log-start">[초기화] 심판이 문제 조건에 맞춰 유효한 초기 상태를 무작위로 배치했습니다.</span>`;
+        updateCoinDOM();
+    }
+
+    function handleManualToggle(coinKey) {
+        if (isRunning) return;
+        currentCoins[coinKey] = currentCoins[coinKey] === 0 ? 1 : 0;
+        flipCounts[coinKey]++;
+        writeLog(`[수동 조작] ${coinKey}원 동전 뒤집음 -> 현재 상태: ${formatState(currentCoins)}`);
+        updateCoinDOM();
+    }
+
+    function updateCoinDOM() {
+        const keys = [10, 100, 500];
+        keys.forEach(k => {
+            const el = document.getElementById('coin' + k);
+            const cntEl = document.getElementById('count' + k);
+            
+            if (currentCoins[k] === 0) {
+                el.className = "coin front";
+            } else {
+                el.className = "coin back";
+            }
+            cntEl.innerText = `뒤집음: ${flipCounts[k]}회 (${flipCounts[k] % 2 === 0 ? '짝' : '홀'})`;
+        });
+
+        document.getElementById('stateText').innerText = formatState(currentCoins);
+        
+        const badge = document.getElementById('successBadge');
+        if (isGoal(currentCoins, getTargetRule())) {
+            badge.innerText = "성공(목표도달)";
+            badge.className = "status-badge success";
+        } else {
+            badge.innerText = "미달성";
+            badge.className = "status-badge fail";
+        }
+    }
+
+    function setLockControls(lock) {
+        isRunning = lock;
+        document.getElementById('btnExecute').disabled = lock;
+        document.getElementById('btnRandom').disabled = lock;
+        document.getElementById('btnSearchOpt').disabled = lock;
+        document.getElementById('btnSearchSure').disabled = lock;
+        document.getElementById('nSelect').disabled = lock;
+        
+        const seqBtns = document.querySelectorAll('.seq-btn');
+        seqBtns.forEach(b => b.disabled = lock);
+    }
+
+    function runSequenceAnimation() {
+        if (isRunning) return;
+        const rule = getTargetRule();
+
+        if (selectedSequence.length === 0) {
+            alert("설정된 수열이 없습니다.");
+            return;
+        }
+
+        setLockControls(true);
+        
+        let step = 0;
+        const startStateStr = formatState(currentCoins);
+        writeLog(`=========================================`, "start");
+        writeLog(`[시작] 초기 상태: ${startStateStr} / 목표: ${rule === 'same' ? '(*) 모두 같음' : '(**) 모두 앞면'}`, "start");
+        writeLog(`[입력 수열] [${selectedSequence.join(', ')}] 실행을 시작합니다.`, "start");
+
+        if (isGoal(currentCoins, rule)) {
+            writeLog(`[종료] 시작 상태가 이미 목표 상태입니다!`, "success");
+            setLockControls(false);
+            return;
+        }
+
+        function nextStepAnimation() {
+            if (step >= selectedSequence.length) {
+                writeLog(`[종료] 입력 수열 안에서 목표 상태를 완수하지 못했습니다.`, "fail");
+                setLockControls(false);
+                return;
+            }
+
+            const targetCoin = selectedSequence[step];
+            const beforeStateStr = formatState(currentCoins);
+            
+            const coinEl = document.getElementById('coin' + targetCoin);
+            coinEl.classList.add('flipping');
+
+            setTimeout(() => {
+                currentCoins[targetCoin] = currentCoins[targetCoin] === 0 ? 1 : 0;
+                flipCounts[targetCoin]++;
+                updateCoinDOM();
+
+                const afterStateStr = formatState(currentCoins);
+                step++;
+
+                if (isGoal(currentCoins, rule)) {
+                    writeLog(`[${step}단계] ${targetCoin}원 뒤집기: ${beforeStateStr} → ${afterStateStr} / ★ 성공!`, "success");
+                    coinEl.classList.remove('flipping');
+                    setLockControls(false);
+                } else {
+                    writeLog(`[${step}단계] ${targetCoin}원 뒤집기: ${beforeStateStr} → ${afterStateStr} / 아직 미달성`, "step");
+                    
+                    setTimeout(() => {
+                        coinEl.classList.remove('flipping');
+                        nextStepAnimation();
+                    }, 500);
+                }
+            }, 400);
+        }
+
+        nextStepAnimation();
+    }
+
+    function evaluateAllStates() {
+        const rule = getTargetRule();
+        const limitN = parseInt(document.getElementById('nSelect').value);
+        
+        const activeSeq = selectedSequence.slice(0, limitN);
+
+        const targetStates = getJudgesInitialStates(rule);
+        const tbody = document.querySelector('#analysisTable tbody');
+        tbody.innerHTML = '';
+
+        let successCount = 0;
+
+        targetStates.forEach(initState => {
+            let simState = { ...initState };
+            let history = [formatState(simState)];
+            let firstSuccessIdx = -1;
+
+            for (let i = 0; i < activeSeq.length; i++) {
+                const coin = activeSeq[i];
+                simState[coin] = simState[coin] === 0 ? 1 : 0;
+                history.push(formatState(simState));
+
+                if (isGoal(simState, rule)) {
+                    firstSuccessIdx = i + 1;
+                    break;
+                }
+            }
+
+            const isPassed = (firstSuccessIdx !== -1 && firstSuccessIdx <= limitN);
+            if (isPassed) successCount++;
+
+            const row = document.createElement('tr');
+
+            const tdInit = document.createElement('td');
+            tdInit.innerHTML = formatState(initState).split('-').map(s => `<span class="badge ${s==='앞'?'front':'back'}">${s}</span>`).join(' ');
+            row.appendChild(tdInit);
+
+            const tdProc = document.createElement('td');
+            tdProc.style.fontFamily = "monospace";
+            tdProc.innerText = history.join(' → ');
+            row.appendChild(tdProc);
+
+            const tdTime = document.createElement('td');
+            tdTime.innerText = firstSuccessIdx === -1 ? "없음" : `${firstSuccessIdx}번째`;
+            if(isPassed) tdTime.style.color = "var(--success)";
+            row.appendChild(tdTime);
+
+            const tdPass = document.createElement('td');
+            tdPass.innerHTML = isPassed ? `<span style="color:var(--success); font-weight:bold;">○ 성공</span>` : `<span style="color:var(--fail); font-weight:bold;">X 실패</span>`;
+            row.appendChild(tdPass);
+
+            const tdReason = document.createElement('td');
+            tdReason.style.textAlign = "left";
+            if (isPassed) {
+                tdReason.innerText = `${firstSuccessIdx}번째 작업에서 성공 조건에 도달함.`;
+                tdReason.style.color = "#047857";
+            } else {
+                tdReason.innerText = `${limitN}번 뒤집은 뒤에도 목표 상태가 아님.`;
+                tdReason.style.color = "#b91c1c";
+            }
+            row.appendChild(tdReason);
+
+            tbody.appendChild(row);
+        });
+
+        const total = targetStates.length;
+        const probDisplay = document.getElementById('probDisplay');
+        const fraction = `${successCount}/${total}`;
+        const pct = ((successCount / total) * 100).toFixed(1);
+
+        // LaTeX 마크업($ 기호) 완벽히 제거
+        probDisplay.innerHTML = `🎯 <strong>[확률 분석 요약]</strong><br>
+        - 목표 조건: ${rule === 'same' ? '(*) 모두 같음' : '(**) 모두 앞면'}<br>
+        - 심판이 고를 수 있는 초기 상태: <strong>${total}가지</strong><br>
+        - 설정한 범위(n = ${limitN}) 내에 성공한 상태: <strong>${successCount}가지</strong><br>
+        - 최종 성공 확률: <span style="font-size:18px; color:var(--success); font-weight:900;">${fraction}</span> (${pct}%)`;
+    }
+
+    function searchOptimal2Step() {
+        if(isRunning) return;
+        const rule = getTargetRule();
+        
+        // 만약 강제로 누르는 예외 차단
+        if (rule === 'allFront') return;
+
+        const targetStates = getJudgesInitialStates(rule);
+        const coins = [10, 100, 500];
+        
+        let pool = [];
+        coins.forEach(c1 => pool.push([c1]));
+        coins.forEach(c1 => {
+            coins.forEach(c2 => {
+                pool.push([c1, c2]);
+            });
+        });
+
+        let highestProb = -1;
+        let bestSuites = [];
+
+        pool.forEach(seq => {
+            let win = 0;
+            targetStates.forEach(state => {
+                let sim = { ...state };
+                for (let i = 0; i < seq.length; i++) {
+                    sim[seq[i]] = sim[seq[i]] === 0 ? 1 : 0;
+                    if (isGoal(sim, rule)) {
+                        win++;
+                        break;
+                    }
+                }
+            });
+            const p = win / targetStates.length;
+            if (p > highestProb) {
+                highestProb = p;
+                bestSuites = [{seq, win}];
+            } else if (p === highestProb) {
+                bestSuites.push({seq, win});
+            }
+        });
+
+        const outDiv = document.getElementById('analysisOutput');
+        outDiv.style.display = "block";
+        
+        const totalCount = targetStates.length;
+        let html = `<strong>🎯 [2번 이내 최대 확률 수열 탐색 결과]</strong><br>`;
+        html += `최대 성공 확률: <span style="color:var(--success); font-weight:bold;">${bestSuites[0].win}/${totalCount}</span><br>`;
+        html += `최적의 수열 리스트 (클릭 시 입력기에 자동 주입 및 동기화됩니다):<br><div style="margin-top:5px;">`;
+
+        bestSuites.forEach(item => {
+            const seqStr = item.seq.join(', ');
+            html += `<button class="secondary" style="padding:4px 8px; margin:3px; font-size:12px;" onclick="applyFoundSeq([${item.seq.join(',')}], 2)">${seqStr}</button> `;
+        });
+        html += `</div>`;
+
+        outDiv.innerHTML = html;
+        applyFoundSeq(bestSuites[0].seq, 2);
+    }
+
+    function searchSureSuccessSeq() {
+        if(isRunning) return;
+        const rule = getTargetRule();
+        const targetStates = getJudgesInitialStates(rule);
+        const coins = [10, 100, 500];
+
+        let found = false;
+        let queue = [[]];
+        let currentN = 1;
+
+        while (currentN <= 8 && !found) {
+            let nextQueue = [];
+            for (let seq of queue) {
+                for (let c of coins) {
+                    let nextSeq = [...seq, c];
+                    nextQueue.push(nextSeq);
+
+                    let safeCount = 0;
+                    targetStates.forEach(state => {
+                        let sim = { ...state };
+                        for(let i=0; i<nextSeq.length; i++){
+                            sim[nextSeq[i]] = sim[nextSeq[i]] === 0 ? 1 : 0;
+                            if(isGoal(sim, rule)){
+                                safeCount++;
+                                break;
+                            }
+                        }
+                    });
+
+                    if (safeCount === targetStates.length) {
+                        found = true;
+                        renderSureSuccessResult(nextQueue, nextSeq, currentN, rule, targetStates);
+                        return;
+                    }
+                }
+            }
+            queue = nextQueue;
+            currentN++;
+        }
+
+        if(!found) {
+            alert("확률 1을 만족하는 수열을 찾을 수 없습니다.");
+        }
+    }
+
+    // 텍스트에서 특수기호($) 전면 제거 완료
+    function renderSureSuccessResult(nextQueue, winnerSeq, nValue, rule, targetStates) {
+        const outDiv = document.getElementById('analysisOutput');
+        outDiv.style.display = "block";
+
+        let html = `<strong>⚡ [확률 1(100%) 최소 n 탐색 성공]</strong><br>`;
+        html += `최소 만족 차수: <span style="font-size:16px; color:var(--success); font-weight:bold;">n = ${nValue}</span><br>`;
+        html += `대표 추천 수열: <strong style="color:#7c3aed;">${winnerSeq.join(', ')}</strong><br><br>`;
+        html += `<span style="font-size:12px; color:#475569;">▼ 해당 수열의 초기 상태별 성공 궤적 요약:</span>`;
+        
+        html += `<table style="font-size:11px; margin-top:5px; background:white;">
+                    <thead>
+                        <tr><th>초기 상태</th><th>상태 변화 전개식</th><th>성공 시점</th></tr>
+                    </thead>
+                    <tbody>`;
+        
+        targetStates.forEach(state => {
+            let sim = { ...state };
+            let path = [formatState(sim)];
+            let winIdx = -1;
+            for(let i=0; i<winnerSeq.length; i++){
+                sim[winnerSeq[i]] = sim[winnerSeq[i]] === 0 ? 1 : 0;
+                path.push(formatState(sim));
+                if(isGoal(sim, rule)) {
+                    winIdx = i + 1;
+                    break;
+                }
+            }
+            html += `<tr>
+                <td>${formatState(state)}</td>
+                <td style="font-family:monospace; text-align:left;">${path.join('→')}</td>
+                <td style="color:var(--success); font-weight:bold;">${winIdx}회차</td>
+            </tr>`;
+        });
+        
+        html += `</tbody></table>`;
+        outDiv.innerHTML = html;
+
+        applyFoundSeq(winnerSeq, nValue);
+    }
+
+    function applyFoundSeq(seqArray, nVal) {
+        document.getElementById('nSelect').value = nVal.toString();
+        selectedSequence = [...seqArray];
+        buildSequenceSlots();
+        evaluateAllStates();
+    }
+</script>
+
+</body>
+</html>

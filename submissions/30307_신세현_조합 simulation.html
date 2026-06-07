@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이중 추출 및 무한급수 확률 시뮬레이터</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Pretendard', 'Malgun Gothic', sans-serif; }
+        body { margin: 0; background-color: #f1f5f9; color: #1e293b; padding: 20px; }
+        h1 { text-align: center; color: #0f172a; margin-bottom: 20px; font-size: 24px; }
+        
+        /* 탭 메뉴 */
+        .tabs { display: flex; justify-content: center; margin-bottom: 20px; gap: 10px; }
+        .tab-btn {
+            background: #e2e8f0; border: none; padding: 12px 24px; border-radius: 8px;
+            font-size: 15px; font-weight: bold; cursor: pointer; transition: 0.2s; color: #475569;
+        }
+        .tab-btn.active { background: #3b82f6; color: white; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3); }
+        
+        /* 메인 컨테이너 */
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .section { display: none; }
+        .section.active { display: block; }
+        
+        /* UI 컨트롤 패널 */
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: #f8fafc; padding: 16px; border-radius: 12px; }
+        button.action-btn {
+            background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px;
+            font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        button.action-btn:hover { background: #059669; }
+        button.reset-btn { background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        
+        /* 시뮬레이션 애니메이션 영역 (상자 및 공) */
+        .visual-area { margin: 20px 0; text-align: center; min-height: 150px; }
+        .boxes { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+        .box { 
+            width: 50px; height: 50px; background: #e2e8f0; border-radius: 8px; display: flex; 
+            align-items: center; justify-content: center; font-weight: bold; color: #475569; transition: 0.3s;
+        }
+        .box.selected { background: #f59e0b; color: white; transform: scale(1.1); box-shadow: 0 0 15px rgba(245, 158, 11, 0.5); }
+        
+        .balls { display: flex; justify-content: center; gap: 15px; margin-top: 15px; }
+        .ball { width: 40px; height: 40px; border-radius: 50%; background: #cbd5e1; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        .ball.red { background: #ef4444; box-shadow: inset -5px -5px 10px rgba(0,0,0,0.2); }
+        .ball.blue { background: #3b82f6; box-shadow: inset -5px -5px 10px rgba(0,0,0,0.2); }
+        
+        /* 결과 통계 패널 */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .stat-card { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; text-align: center; }
+        .stat-title { font-size: 14px; color: #64748b; margin-bottom: 8px; }
+        .stat-val { font-size: 28px; font-weight: 900; color: #0f172a; }
+        .stat-val.target { color: #3b82f6; }
+        .stat-val.empirical { color: #10b981; }
+
+        /* 문항 3 전용 컨트롤 */
+        .slider-group { width: 100%; display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+        .slider-group label { font-weight: bold; width: 150px; }
+        input[type="range"] { flex-grow: 1; accent-color: #8b5cf6; }
+        
+        /* 차트 캔버스 컨테이너 */
+        .chart-container { position: relative; height: 400px; width: 100%; margin-top: 20px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<h1>상자 선택 및 복원 추출 확률 시뮬레이터</h1>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(1)">문항 (1) 모두 빨간 공</button>
+    <button class="tab-btn" onclick="switchTab(2)">문항 (2) 빨간 공 짝수 개</button>
+    <button class="tab-btn" onclick="switchTab(3)">문항 (3) N→∞ 극한과 정적분</button>
+</div>
+
+<div class="container">
+    
+    <div id="section-discrete" class="section active">
+        <h2 id="discrete-title">문항 (1) N=10, m=3일 때 모두 빨간 공을 뽑을 확률</h2>
+        <p style="color: #64748b;">상자를 하나 선택(확률 1/N)하고, 그 상자 안에서 복원 추출을 3번 반복합니다.</p>
+        
+        <div class="controls">
+            <button class="action-btn" onclick="runDiscrete(1)">1회 애니메이션 추출</button>
+            <button class="action-btn" style="background:#3b82f6;" onclick="runDiscrete(1000)">1,000회 고속 추출</button>
+            <button class="action-btn" style="background:#8b5cf6;" onclick="runDiscrete(10000)">10,000회 고속 추출</button>
+            <button class="reset-btn" onclick="resetDiscrete()">기록 초기화</button>
+        </div>
+
+        <div class="visual-area">
+            <div id="box-container" class="boxes">
+                </div>
+            <div id="status-text" style="font-weight: bold; margin: 10px 0; min-height: 20px;"></div>
+            <div id="ball-container" class="balls">
+                <div class="ball">?</div><div class="ball">?</div><div class="ball">?</div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-title">총 시행 횟수</div>
+                <div class="stat-val" id="total-trials">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">이론적 확률 (수학적 계산)</div>
+                <div class="stat-val target" id="theo-prob">0.3025</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">통계적 확률 (시뮬레이션)</div>
+                <div class="stat-val empirical" id="emp-prob">0.0000</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="section-continuous" class="section">
+        <h2>문항 (3) N이 무한대로 갈 때의 극한값 (정적분 변환)</h2>
+        <p style="color: #64748b;">N을 키워가며 듬성듬성한 확률(막대그래프)이 연속된 함수(선그래프, 정적분)로 변하는 것을 관찰하세요.</p>
+        
+        <div class="controls" style="flex-direction: column; align-items: stretch;">
+            <div class="slider-group">
+                <label>상자의 개수 (N): <span id="n-val" style="color:#8b5cf6;">10</span></label>
+                <input type="range" id="n-slider" min="10" max="200" step="1" value="10">
+            </div>
+            <div class="slider-group">
+                <label>추출 횟수 (m): <span id="m-val" style="color:#8b5cf6;">3</span></label>
+                <input type="range" id="m-slider" min="1" max="10" step="1" value="3">
+            </div>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="stat-card">
+                <div class="stat-title">이산 확률의 합 (급수)</div>
+                <div class="stat-val" id="sum-prob" style="color: #f59e0b;">0.0000</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">수렴하는 정적분 값 (극한)</div>
+                <div class="stat-val" id="int-prob" style="color: #8b5cf6;">0.5000</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="limitChart"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- 전역 상태 관리 ---
+    let currentMode = 1; // 1: 모두 빨강, 2: 빨강 짝수
+    let trials = 0;
+    let successes = 0;
+    const N_DISCRETE = 10;
+    const M_DISCRETE = 3;
+
+    // --- DOM 요소 ---
+    const boxContainer = document.getElementById('box-container');
+    const ballContainer = document.getElementById('ball-container');
+    const statusText = document.getElementById('status-text');
+
+    // 1~10번 상자 초기화 함수
+    function initBoxes() {
+        boxContainer.innerHTML = '';
+        for (let i = 1; i <= N_DISCRETE; i++) {
+            const box = document.createElement('div');
+            box.className = 'box';
+            box.id = `box-${i}`;
+            box.innerText = `상자${i}`;
+            boxContainer.appendChild(box);
+        }
+    }
+
+    // --- 이산 시뮬레이션 로직 (문항 1, 2) ---
+    function switchTab(tabId) {
+        // UI 탭 전환
+        document.querySelectorAll('.tab-btn').forEach((btn, idx) => {
+            btn.classList.toggle('active', idx + 1 === tabId);
+        });
+        
+        document.getElementById('section-discrete').classList.toggle('active', tabId === 1 || tabId === 2);
+        document.getElementById('section-continuous').classList.toggle('active', tabId === 3);
+
+        if (tabId === 1 || tabId === 2) {
+            currentMode = tabId;
+            resetDiscrete();
+            document.getElementById('discrete-title').innerText = tabId === 1 
+                ? "문항 (1) N=10, m=3일 때 모두 빨간 공을 뽑을 확률" 
+                : "문항 (2) N=10, m=3일 때 빨간 공이 짝수 개(0포함)일 확률";
+            
+            // 이론적 확률 설정
+            // 문항 1: 1/10 * (1/10^3 + 2/10^3 ... + 1) = 0.3025
+            // 문항 2: 0, 2개일 확률 합 = 0.4500
+            document.getElementById('theo-prob').innerText = tabId === 1 ? "0.3025" : "0.4500";
+        }
+        
+        if (tabId === 3) {
+            updateChart(); // 차트 초기 렌더링
+        }
+    }
+
+    // 단일 추출 (애니메이션) 및 대량 추출 처리
+    function runDiscrete(count) {
+        if (count === 1) {
+            // 애니메이션 모드
+            runAnimation();
+        } else {
+            // 고속 대량 시뮬레이션
+            for (let i = 0; i < count; i++) {
+                let k = Math.floor(Math.random() * N_DISCRETE) + 1;
+                let redCount = 0;
+                for (let j = 0; j < M_DISCRETE; j++) {
+                    if (Math.random() < k / N_DISCRETE) redCount++;
+                }
+                checkSuccess(redCount);
+            }
+            updateStats();
+        }
+    }
+
+    // 1회 추출 애니메이션
+    function runAnimation() {
+        // 이전 하이라이트 초기화
+        document.querySelectorAll('.box').forEach(b => b.classList.remove('selected'));
+        ballContainer.innerHTML = '<div class="ball">?</div><div class="ball">?</div><div class="ball">?</div>';
+        
+        // 상자 무작위 선택
+        const k = Math.floor(Math.random() * N_DISCRETE) + 1;
+        statusText.innerText = `1단계: 상자 ${k}가 선택되었습니다. (빨간 공 확률: ${k}/10)`;
+        document.getElementById(`box-${k}`).classList.add('selected');
+
+        // 공 뽑기 지연 실행
+        setTimeout(() => {
+            let redCount = 0;
+            ballContainer.innerHTML = '';
+            for (let j = 0; j < M_DISCRETE; j++) {
+                const isRed = Math.random() < k / N_DISCRETE;
+                if (isRed) redCount++;
+                
+                const ball = document.createElement('div');
+                ball.className = `ball ${isRed ? 'red' : 'blue'}`;
+                ball.innerText = isRed ? '빨' : '파';
+                ballContainer.appendChild(ball);
+            }
+            
+            const success = checkSuccess(redCount);
+            statusText.innerHTML += ` <br>2단계: 빨간 공 ${redCount}개 추출. 
+                <span style="color:${success ? '#10b981' : '#ef4444'}">${success ? '조건 만족!' : '조건 불만족'}</span>`;
+            updateStats();
+        }, 800);
+    }
+
+    // 조건 판별 및 카운트 증가
+    function checkSuccess(redCount) {
+        let isSuccess = false;
+        if (currentMode === 1 && redCount === M_DISCRETE) isSuccess = true;
+        if (currentMode === 2 && redCount % 2 === 0) isSuccess = true;
+        
+        trials++;
+        if (isSuccess) successes++;
+        return isSuccess;
+    }
+
+    // 통계 업데이트
+    function updateStats() {
+        document.getElementById('total-trials').innerText = trials.toLocaleString();
+        document.getElementById('emp-prob').innerText = trials === 0 ? "0.0000" : (successes / trials).toFixed(4);
+    }
+
+    // 초기화
+    function resetDiscrete() {
+        trials = 0;
+        successes = 0;
+        document.querySelectorAll('.box').forEach(b => b.classList.remove('selected'));
+        ballContainer.innerHTML = '<div class="ball">?</div><div class="ball">?</div><div class="ball">?</div>';
+        statusText.innerText = '';
+        updateStats();
+    }
+
+
+    // ==================== 문항 (3) Chart.js 극한 로직 ====================
+    let limitChart;
+
+    // 수학적 확률 분포 함수 (짝수 개 빨간 공)
+    // f(x) = 1/2 * [1 + (1 - 2x)^m]
+    function f(x, m) {
+        return 0.5 * (1 + Math.pow(1 - 2 * x, m));
+    }
+
+    // 극한(정적분) 값 공식: 1/2 * (1 + (1 - (-1)^(m+1)) / (2(m+1)))
+    function calculateIntegral(m) {
+        return 0.5 * (1 + (1 - Math.pow(-1, m + 1)) / (2 * (m + 1)));
+    }
+
+    function updateChart() {
+        const N = parseInt(document.getElementById('n-slider').value);
+        const m = parseInt(document.getElementById('m-slider').value);
+        
+        document.getElementById('n-val').innerText = N;
+        document.getElementById('m-val').innerText = m;
+
+        const labels = [];
+        const barData = [];
+        const lineData = [];
+        let discreteSum = 0;
+
+        // 이산 확률 (막대그래프) 계산
+        for (let k = 1; k <= N; k++) {
+            const x = k / N;
+            const prob = f(x, m);
+            labels.push((x).toFixed(2));
+            barData.push(prob);
+            discreteSum += prob * (1 / N); // 급수의 합 (넓이)
+        }
+
+        // 연속 함수 (선그래프) 계산 (부드러운 곡선을 위해 100개 포인트)
+        for (let i = 0; i < N; i++) {
+            const x = (i + 1) / N;
+            lineData.push(f(x, m));
+        }
+
+        const integralValue = calculateIntegral(m);
+        
+        document.getElementById('sum-prob').innerText = discreteSum.toFixed(4);
+        document.getElementById('int-prob').innerText = integralValue.toFixed(4);
+
+        if (limitChart) limitChart.destroy();
+
+        const ctx = document.getElementById('limitChart').getContext('2d');
+        limitChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        type: 'line',
+                        label: '연속 함수 곡선 f(x) (N→∞ 극한)',
+                        data: lineData,
+                        borderColor: '#ef4444',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        type: 'bar',
+                        label: `이산 확률 분포 (N=${N})`,
+                        data: barData,
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1,
+                        barPercentage: 1.0,
+                        categoryPercentage: 1.0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        max: 1.0,
+                        title: { display: true, text: '짝수 개의 빨간 공을 뽑을 확률 P(x)' }
+                    },
+                    x: {
+                        title: { display: true, text: '상자의 비율 x = k/N' }
+                    }
+                },
+                animation: { duration: 0 } // 슬라이더 조절 시 부드러운 전환을 위해 애니메이션 끔
+            }
+        });
+    }
+
+    // 슬라이더 이벤트 리스너 등록
+    document.getElementById('n-slider').addEventListener('input', updateChart);
+    document.getElementById('m-slider').addEventListener('input', updateChart);
+
+    // 초기 실행
+    initBoxes();
+    resetDiscrete();
+</script>
+
+</body>
+</html>

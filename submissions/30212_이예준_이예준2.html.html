@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>타원과 원의 내외접 평행사변형 시뮬레이터</title>
+    <style>
+        body { 
+            font-family: 'Malgun Gothic', sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background-color: #f8fafc; 
+            margin: 20px; 
+            color: #334155;
+        }
+        .container { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+            width: 850px; 
+        }
+        h2 { margin-top: 0; color: #1e293b; }
+        canvas { 
+            border: 1px solid #e2e8f0; 
+            border-radius: 8px; 
+            background-color: #ffffff; 
+            cursor: grab; 
+        }
+        canvas:active { cursor: grabbing; }
+        .controls { 
+            display: flex;
+            justify-content: space-between;
+            gap: 20px; 
+            margin-bottom: 20px; 
+            padding: 15px; 
+            background: #f1f5f9; 
+            border-radius: 8px; 
+        }
+        .slider-group { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 5px; 
+            width: 48%;
+        }
+        .value-display { 
+            font-weight: bold; 
+            color: #2563eb; 
+            font-size: 1.1em;
+        }
+        .formula-box {
+            padding: 10px; 
+            background: #e2e8f0; 
+            border-radius: 6px; 
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            text-align: center;
+        }
+        .info-panel { 
+            margin-top: 15px; 
+            padding: 15px; 
+            background: #eff6ff; 
+            border-left: 4px solid #3b82f6; 
+            border-radius: 4px;
+            font-size: 14.5px; 
+            line-height: 1.6; 
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>타원 C<sub>1</sub>과 원 C<sub>0</sub> 내외접 평행사변형 시뮬레이터</h2>
+    
+    <div class="controls">
+        <div class="slider-group">
+            <label>타원 장반경 (<i>a</i>) : <span id="a-val" class="value-display">2.00</span></label>
+            <input type="range" id="a-slider" min="1.2" max="4.0" step="0.01" value="2.0">
+            <span style="font-size: 12px; color: #64748b;">* 슬라이더를 움직여 <i>a</i> 값을 변경해보세요.</span>
+        </div>
+        <div class="slider-group">
+            <label>계산된 단반경 (<i>b</i>) : <span id="b-val" class="value-display">1.15</span></label>
+            <div class="formula-box">
+                1/a&sup2; + 1/b&sup2; = 1
+            </div>
+        </div>
+    </div>
+
+    <canvas id="simCanvas" width="800" height="650"></canvas>
+
+    <div class="info-panel">
+        <strong>💡 관찰 포인트</strong><br>
+        1. <b>원과 타원의 관계</b>: 안쪽의 <span style="color:#16a34a; font-weight:bold;">초록색 원(반지름 1)</span>과 바깥쪽의 <span style="color:#2563eb; font-weight:bold;">파란색 타원</span>을 확인하세요.<br>
+        2. <b>도형의 변화</b>: 타원 위의 <span style="color:#ef4444; font-weight:bold;">빨간 점 P</span>를 마우스로 잡고 돌려보세요.<br>
+        3. <b>기하학적 성질</b>: 점 P가 어디에 있든, 형성된 <span style="color:#d97706; font-weight:bold;">주황색 평행사변형(마름모)</span>은 항상 타원에 내접하고 원에 외접합니다.
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const aSlider = document.getElementById('a-slider');
+    const aDisp = document.getElementById('a-val');
+    const bDisp = document.getElementById('b-val');
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    // a의 최댓값이 4이므로, 화면에 꽉 차게 보이도록 스케일 조정 (800 / 2 / 4.5 = 약 88)
+    const scale = 85; 
+
+    let a = parseFloat(aSlider.value);
+    let b = a / Math.sqrt(a * a - 1);
+    let theta = Math.PI / 4; 
+    let isDragging = false;
+
+    function updateParams() {
+        a = parseFloat(aSlider.value);
+        b = a / Math.sqrt(a * a - 1);
+        aDisp.textContent = a.toFixed(2);
+        bDisp.textContent = b.toFixed(2);
+        draw();
+    }
+
+    function getEllipsePoint(angle) {
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        // 극좌표계 거리 공식: r = 1 / sqrt(cos²θ/a² + sin²θ/b²)
+        const r = 1 / Math.sqrt((cos * cos) / (a * a) + (sin * sin) / (b * b));
+        return { x: r * cos, y: r * sin };
+    }
+
+    function drawPointWithLabel(pt, label, color) {
+        const sx = centerX + pt.x * scale;
+        const sy = centerY - pt.y * scale; // 캔버스는 y축이 아래로 증가하므로 빼줌
+
+        // 점 그리기
+        ctx.beginPath();
+        ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        // 좌표 텍스트 설정
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 13px Arial';
+        
+        // 텍스트가 도형과 덜 겹치도록 사분면에 따라 오프셋 적용
+        let offsetX = pt.x >= 0 ? 12 : -85;
+        let offsetY = pt.y >= 0 ? -12 : 20;
+
+        ctx.fillText(`${label}(${pt.x.toFixed(2)}, ${pt.y.toFixed(2)})`, sx + offsetX, sy + offsetY);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. x, y 축 그리기
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY); ctx.lineTo(canvas.width, centerY);
+        ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height);
+        ctx.stroke();
+
+        // 2. 원 C0 그리기 (반지름 1)
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, scale, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.1)'; // 연한 초록색 배경
+        ctx.fill();
+        ctx.strokeStyle = '#22c55e'; // 뚜렷한 초록색 선
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 3. 타원 C1 그리기
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, a * scale, b * scale, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = '#3b82f6'; // 뚜렷한 파란색 선
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 4. 마름모 꼭짓점 계산 (P, Q는 90도 차이, R, S는 원점 대칭)
+        const P = getEllipsePoint(theta);
+        const Q = getEllipsePoint(theta + Math.PI / 2);
+        const R = { x: -P.x, y: -P.y };
+        const S = { x: -Q.x, y: -Q.y };
+
+        // 5. 마름모(평행사변형) 그리기
+        ctx.beginPath();
+        ctx.moveTo(centerX + P.x * scale, centerY - P.y * scale);
+        ctx.lineTo(centerX + Q.x * scale, centerY - Q.y * scale);
+        ctx.lineTo(centerX + R.x * scale, centerY - R.y * scale);
+        ctx.lineTo(centerX + S.x * scale, centerY - S.y * scale);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.15)'; // 연한 주황색
+        ctx.fill();
+        ctx.strokeStyle = '#d97706'; // 진한 주황색
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 6. 점과 좌표 표시
+        drawPointWithLabel(P, 'P', '#ef4444'); // P는 빨간색
+        drawPointWithLabel(Q, 'Q', '#475569'); // 나머지는 짙은 회색
+        drawPointWithLabel(R, 'R', '#475569');
+        drawPointWithLabel(S, 'S', '#475569');
+
+        // 범례 텍스트
+        ctx.fillStyle = '#334155';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText("초록색 원: x² + y² = 1", 15, 30);
+        ctx.fillText(`파란색 타원: x²/${(a*a).toFixed(2)} + y²/${(b*b).toFixed(2)} = 1`, 15, 55);
+    }
+
+    // 마우스 드래그 이벤트 처리
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (e.clientX - rect.left - centerX) / scale;
+        const mouseY = (centerY - (e.clientY - rect.top)) / scale;
+        const P = getEllipsePoint(theta);
+        
+        // 클릭한 곳이 점 P 근처인지 확인
+        if (Math.hypot(mouseX - P.x, mouseY - P.y) < 0.3) {
+            isDragging = true;
+        }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left - centerX;
+        const mouseY = centerY - (e.clientY - rect.top);
+        
+        // 마우스 각도로 theta 업데이트
+        theta = Math.atan2(mouseY, mouseX);
+        draw();
+    });
+
+    window.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('mouseleave', () => isDragging = false);
+    
+    aSlider.addEventListener('input', updateParams);
+
+    // 초기 화면 그리기
+    draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>함수 f(x)의 극값과 넓이 시뮬레이터 (수식 렌더링 수정판)</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f7f9; margin: 0; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+        .control-panel { background: #eef2f7; padding: 20px; border-radius: 10px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .slider-box { display: flex; align-items: center; gap: 20px; }
+        input[type="range"] { flex-grow: 1; cursor: pointer; }
+        .val-display { font-weight: bold; color: #007bff; min-width: 80px; }
+        .status-badge { padding: 5px 15px; border-radius: 20px; font-size: 0.9em; font-weight: bold; }
+        .status-ok { background: #d4edda; color: #155724; }
+        .status-no { background: #f8d7da; color: #721c24; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
+        .info-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; background: #fff; }
+        #plot { width: 100%; height: 500px; }
+        /* 수식을 위한 스타일 */
+        .math-expr { font-family: 'Times New Roman', serif; font-style: italic; font-size: 1.05em; }
+        .exact-result { font-size: 1.3em; font-weight: bold; color: #d35400; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>함수 <span class="math-expr">f(x)</span> 분석 시뮬레이터</h1>
+
+    <div class="control-panel">
+        <div class="slider-box">
+            <label><b>각도 <span class="math-expr">θ</span> 조절:</b></label>
+            <input type="range" id="thetaSlider" min="0" max="360" value="225" step="0.5">
+            <span class="val-display" id="thetaText">225°</span>
+            <span id="statusBadge" class="status-badge">조건 확인 중...</span>
+        </div>
+        <div style="font-size: 0.9em; color: #666; line-height: 1.6;">
+            * <span class="math-expr">f(x) = e<sup>2x</sup> + 4(sinθ + cosθ)e<sup>x</sup> + 2x</span><br>
+            * <span class="math-expr">f'(x) = 2e<sup>2x</sup> + 4(sinθ + cosθ)e<sup>x</sup> + 2 = 0</span>의 해가 <span class="math-expr">e<sup>x</sup> = t > 0</span>에서 서로 다른 두 실근을 가져야 함.
+        </div>
+    </div>
+
+    <div id="plot"></div>
+
+    <div class="info-grid">
+        <div class="info-card">
+            <h3>(1) & (2) 실시간 데이터</h3>
+            <p>계수 <span class="math-expr">k = sinθ + cosθ</span> : <span id="kVal"></span></p>
+            <p>극댓값 위치 <span class="math-expr">x<sub>1</sub></span> : <span id="x1Val"></span> (A: <span id="aVal"></span>)</p>
+            <p>극솟값 위치 <span class="math-expr">x<sub>2</sub></span> : <span id="x2Val"></span> (B: <span id="bVal"></span>)</p>
+            <p><b>합 <span class="math-expr">A + B</span> : <span id="abSum" style="color:red; font-size: 1.2em;"></span></b></p>
+        </div>
+        <div class="info-card">
+            <h3>(3) 엄밀한 정적분 넓이 계산</h3>
+            <p>최소 조건: <span class="math-expr">θ = 225°</span> 일 때 <span class="math-expr">k = -√2</span></p>
+            <p>부정적분 <span class="math-expr">F(x) = ½e<sup>2x</sup> + 4ke<sup>x</sup> + x<sup>2</sup></span> 적용</p>
+            <p>계산된 정확한 넓이 <span class="math-expr">|F(x<sub>2</sub>) - F(x<sub>1</sub>)|</span> :</p>
+            <p class="exact-result"><span id="areaVal"></span></p>
+            <p style="font-size: 0.85em; color: #888;">* 100분할 근사가 아닌, 정적분 기본 정리에 의한 정확한 연산 결과입니다.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const slider = document.getElementById('thetaSlider');
+    const thetaText = document.getElementById('thetaText');
+    const statusBadge = document.getElementById('statusBadge');
+
+    function update() {
+        const deg = parseFloat(slider.value);
+        const rad = deg * Math.PI / 180;
+        thetaText.innerText = deg.toFixed(1) + "°";
+
+        const k = Math.sin(rad) + Math.cos(rad);
+        document.getElementById('kVal').innerText = k.toFixed(5);
+
+        const isValid = (k < -1);
+
+        if (isValid) {
+            statusBadge.innerText = "극댓값/극솟값 존재 (조건 만족)";
+            statusBadge.className = "status-badge status-ok";
+            
+            const D = Math.sqrt(k*k - 1);
+            const t1 = -k - D; 
+            const t2 = -k + D; 
+            
+            const x1 = Math.log(t1);
+            const x2 = Math.log(t2);
+
+            const f = (x) => Math.exp(2*x) + 4*k*Math.exp(x) + 2*x;
+            const A = f(x1);
+            const B = f(x2);
+
+            document.getElementById('x1Val').innerText = x1.toFixed(4);
+            document.getElementById('x2Val').innerText = x2.toFixed(4);
+            document.getElementById('aVal').innerText = A.toFixed(4);
+            document.getElementById('bVal').innerText = B.toFixed(4);
+            document.getElementById('abSum').innerText = (A + B).toFixed(4);
+
+            drawPlot(deg, k, x1, x2, isValid);
+            
+            // 엄밀한 해석적 정적분 (Analytical Integration)
+            const F = (x) => 0.5 * Math.exp(2*x) + 4 * k * Math.exp(x) + Math.pow(x, 2);
+            const exactArea = Math.abs(F(x2) - F(x1));
+            
+            // 이론적 참값 출력
+            document.getElementById('areaVal').innerText = exactArea.toFixed(6) + " (≈ 6√2 혹은 √72)";
+
+        } else {
+            statusBadge.innerText = "극값 없음 (조건 미충족)";
+            statusBadge.className = "status-badge status-no";
+            document.getElementById('kVal').innerText = k.toFixed(5);
+            document.getElementById('x1Val').innerText = "N/A";
+            document.getElementById('x2Val').innerText = "N/A";
+            document.getElementById('aVal').innerText = "N/A";
+            document.getElementById('bVal').innerText = "N/A";
+            document.getElementById('abSum').innerText = "N/A";
+            document.getElementById('areaVal').innerText = "N/A";
+            drawPlot(deg, k, 0, 0, false);
+        }
+    }
+
+    function drawPlot(deg, k, x1, x2, isValid) {
+        const xArr = [];
+        const yArr = [];
+        const f = (x) => Math.exp(2*x) + 4*k*Math.exp(x) + 2*x;
+
+        for (let x = -3; x <= 3; x += 0.05) {
+            xArr.push(x);
+            yArr.push(f(x));
+        }
+
+        const traces = [{
+            x: xArr, y: yArr, mode: 'lines', name: 'f(x)', line: {color: '#2c3e50', width: 3}
+        }];
+
+        if (isValid) {
+            traces.push({
+                x: [x1, x2], y: [f(x1), f(x2)], mode: 'markers+text',
+                name: '극점', text: ['A(극대)', 'B(극소)'], textposition: 'top center',
+                marker: {color: 'red', size: 10}
+            });
+
+            const xFill = [];
+            const yFill = [];
+            for (let x = x1; x <= x2; x += 0.02) {
+                xFill.push(x);
+                yFill.push(f(x));
+            }
+            xFill.push(x2, x1);
+            yFill.push(0, 0);
+
+            traces.push({
+                x: xFill, y: yFill, fill: 'toself', fillcolor: 'rgba(255, 165, 0, 0.3)',
+                line: {color: 'transparent'}, name: '적분 영역'
+            });
+        }
+
+        const layout = {
+            title: `f(x) 그래프 (θ = ${deg}°)`,
+            xaxis: { title: 'x', range: [-3, 3], zeroline: true },
+            yaxis: { title: 'y', zeroline: true },
+            showlegend: false,
+            margin: { t: 50, b: 50, l: 50, r: 50 }
+        };
+
+        Plotly.newPlot('plot', traces, layout);
+    }
+
+    slider.addEventListener('input', update);
+    update();
+</script>
+
+</body>
+</html>

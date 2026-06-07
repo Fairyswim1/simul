@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>수학 기출문제 시뮬레이터 (최종 완성본)</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f4f4f9; padding: 20px; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 30px; width: 850px; }
+        canvas { border: 1px solid #ccc; background-color: #fff; display: block; margin: 15px auto; border-radius: 4px; }
+        .controls { text-align: center; margin-bottom: 15px; background: #fdfdfd; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        h3 { text-align: center; color: #2c3e50; margin-top: 0; font-size: 1.4em; }
+        input[type=range] { width: 300px; vertical-align: middle; }
+        strong { color: #e74c3c; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h3>상황 (1): 접선 삼각형 넓이 g(t) 시각화 및 좌표 검증</h3>
+    <div class="controls">
+        <label for="tSlider"><strong>t 값 조절</strong> (-0.57 ~ 0.57): </label>
+        <input type="range" id="tSlider" min="-0.57" max="0.57" step="0.01" value="0.28">
+        <span id="tValue" style="display:inline-block; width: 40px; font-weight: bold;">0.28</span>
+        <p style="margin-top: 15px; font-size: 1.1em;">계산된 삼각형 넓이 g(t): <strong id="gValue">1.926</strong></p>
+    </div>
+    <canvas id="canvas1" width="700" height="400"></canvas>
+</div>
+
+<div class="container">
+    <h3>상황 (2): 선분 위의 정수점 개수 Tn 시각화 및 좌표 출력</h3>
+    <div class="controls">
+        <label for="nSlider"><strong>n 값 조절</strong> (1 ~ 3): </label>
+        <input type="range" id="nSlider" min="1" max="3" step="1" value="1">
+        <span id="nValue" style="display:inline-block; width: 20px; font-weight: bold;">1</span>
+        <p style="margin-top: 15px; font-size: 1.1em;">구간 내 정수점 개수 Tn: <strong id="tnValue">3</strong> <span style="color:#7f8c8d;">(공식 4n²-1 검증: <span id="formulaValue">3</span>)</span></p>
+    </div>
+    <canvas id="canvas2" width="700" height="450"></canvas>
+</div>
+
+<script>
+    // Canvas 1 (g(t)) - 상황 1
+    const ctx1 = document.getElementById('canvas1').getContext('2d');
+    const tSlider = document.getElementById('tSlider');
+    const tValue = document.getElementById('tValue');
+    const gValue = document.getElementById('gValue');
+    
+    function f(x) { return 1 / (x * x + 1); }
+    
+    function drawCanvas1() {
+        ctx1.clearRect(0, 0, 700, 400);
+        const t = parseFloat(tSlider.value);
+        tValue.innerText = t.toFixed(2);
+        
+        // Transform coordinates
+        const cx = 350, cy = 350, scale = 100;
+        const tx = (x) => cx + x * scale;
+        const ty = (y) => cy - y * scale;
+        
+        // Draw axes with light grid
+        ctx1.strokeStyle = '#e0e0e0'; ctx1.lineWidth = 1;
+        ctx1.beginPath(); ctx1.moveTo(0, cy); ctx1.lineTo(700, cy);
+        ctx1.moveTo(cx, 0); ctx1.lineTo(cx, 400); ctx1.stroke();
+        
+        // Draw f(x) curve
+        ctx1.beginPath();
+        for(let px = -5; px <= 5; px += 0.05) {
+            ctx1.lineTo(tx(px), ty(f(px)));
+        }
+        ctx1.strokeStyle = '#34495e'; ctx1.lineWidth = 1.5; ctx1.stroke();
+        
+        // Calculate a, b
+        const a = -t + Math.sqrt(t * t + 1);
+        const b = -t - Math.sqrt(t * t + 1);
+        
+        // x-intercepts
+        const x_int_a = a / 2 + 1 / (2 * a);
+        const x_int_b = b / 2 + 1 / (2 * b);
+        
+        // Draw Triangle Fill
+        ctx1.beginPath();
+        ctx1.moveTo(tx(t), ty(f(t)));
+        ctx1.lineTo(tx(x_int_a), ty(0));
+        ctx1.lineTo(tx(x_int_b), ty(0));
+        ctx1.closePath();
+        ctx1.fillStyle = 'rgba(243, 156, 18, 0.25)'; // Yellowish fill
+        ctx1.fill();
+        ctx1.strokeStyle = 'rgba(243, 156, 18, 0.8)';
+        ctx1.lineWidth = 1;
+        ctx1.stroke();
+        
+        // Draw Points & Text Labels (요청하신 디테일 추가 부분)
+        ctx1.font = '13px Arial';
+        
+        // Point B (a)
+        ctx1.fillStyle = '#e74c3c';
+        ctx1.beginPath(); ctx1.arc(tx(a), ty(f(a)), 4, 0, Math.PI*2); ctx1.fill();
+        ctx1.fillStyle = '#2c3e50';
+        ctx1.fillText("B", tx(a) - 15, ty(f(a)) - 10);
+
+        // Point C (b)
+        ctx1.fillStyle = '#e74c3c';
+        ctx1.beginPath(); ctx1.arc(tx(b), ty(f(b)), 4, 0, Math.PI*2); ctx1.fill();
+        ctx1.fillStyle = '#2c3e50';
+        ctx1.fillText("C", tx(b) + 5, ty(f(b)) - 10);
+
+        // Point A (t)
+        ctx1.fillStyle = '#c0392b';
+        ctx1.beginPath(); ctx1.arc(tx(t), ty(f(t)), 5, 0, Math.PI*2); ctx1.fill();
+        ctx1.fillStyle = '#000';
+        ctx1.font = 'bold 14px Arial';
+        ctx1.fillText(`A (${t.toFixed(2)}, ${f(t).toFixed(2)})`, tx(t) - 40, ty(f(t)) - 15);
+        
+        // Update Area Text
+        const g = 2 / Math.sqrt(t * t + 1);
+        gValue.innerText = g.toFixed(3);
+    }
+    
+    tSlider.addEventListener('input', drawCanvas1);
+    drawCanvas1();
+
+
+    // Canvas 2 (Tn) - 상황 2
+    const ctx2 = document.getElementById('canvas2').getContext('2d');
+    const nSlider = document.getElementById('nSlider');
+    const nValue = document.getElementById('nValue');
+    const tnValue = document.getElementById('tnValue');
+    const formulaValue = document.getElementById('formulaValue');
+    
+    function drawCanvas2() {
+        ctx2.clearRect(0, 0, 700, 450);
+        const n = parseInt(nSlider.value);
+        nValue.innerText = n;
+        
+        // Dynamic scaling based on n
+        const radius2 = 40 * Math.pow(n, 4);
+        const radius = Math.sqrt(radius2);
+        const scale = 200 / radius; 
+        const cx = 350, cy = 225;
+        
+        const tx = (x) => cx + x * scale;
+        const ty = (y) => cy - y * scale;
+        
+        // Draw axes
+        ctx2.strokeStyle = '#e0e0e0'; ctx2.lineWidth = 1;
+        ctx2.beginPath(); ctx2.moveTo(0, cy); ctx2.lineTo(700, cy);
+        ctx2.moveTo(cx, 0); ctx2.lineTo(cx, 450); ctx2.stroke();
+        
+        // Draw Circle
+        ctx2.beginPath(); ctx2.arc(cx, cy, radius * scale, 0, Math.PI*2);
+        ctx2.strokeStyle = '#3498db'; ctx2.lineWidth = 1.5; ctx2.stroke();
+        
+        // Draw Line y = -3x + 10n
+        ctx2.beginPath();
+        const startX = -radius, endX = radius;
+        ctx2.moveTo(tx(startX), ty(-3 * startX + 10 * n));
+        ctx2.lineTo(tx(endX), ty(-3 * endX + 10 * n));
+        ctx2.strokeStyle = '#27ae60'; ctx2.lineWidth = 1.5; ctx2.stroke();
+        
+        // Intersections
+        const rootTerm = Math.sqrt(4 * Math.pow(n, 4) - n * n);
+        const x1 = 3 * n - rootTerm;
+        const x2 = 3 * n + rootTerm;
+        
+        // Draw Points on segment and Text Coordinates (요청하신 디테일 추가 부분)
+        let count = 0;
+        for(let intX = Math.ceil(x1); intX <= Math.floor(x2); intX++) {
+            const intY = -3 * intX + 10 * n;
+            
+            // Draw red dot
+            ctx2.fillStyle = '#e74c3c';
+            ctx2.beginPath(); ctx2.arc(tx(intX), ty(intY), 4.5, 0, Math.PI*2); ctx2.fill();
+            
+            // Draw coordinate text (x, y)
+            ctx2.fillStyle = '#2c3e50';
+            // n이 커지면 점이 촘촘해지므로 폰트 크기 자동 조절
+            const fontSize = n === 1 ? 13 : (n === 2 ? 11 : 9);
+            ctx2.font = `${fontSize}px Arial`;
+            ctx2.fillText(`(${intX}, ${intY})`, tx(intX) + 6, ty(intY) - 4);
+            
+            count++;
+        }
+        
+        // Update Texts
+        tnValue.innerText = count;
+        formulaValue.innerText = 4 * n * n - 1;
+    }
+    
+    nSlider.addEventListener('input', drawCanvas2);
+    drawCanvas2();
+</script>
+</body>
+</html>

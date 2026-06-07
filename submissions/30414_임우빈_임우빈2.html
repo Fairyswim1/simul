@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>최단 경로 최적화 종합 시뮬레이터</title>
+    
+    <!-- Tailwind CSS (스타일링) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM (리액트 코어 라이브러리) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel (브라우저에서 JSX 문법을 실시간으로 변환) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- 리액트 앱이 렌더링될 영역 -->
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+          // 상태 변수
+          const [c, setC] = useState(-3);
+          const [d, setD] = useState(3);
+          const [k, setK] = useState(0.95);
+          const [autoZoom, setAutoZoom] = useState(true);
+          const [isSymmetric, setIsSymmetric] = useState(false);
+          const [isFixedInterval, setIsFixedInterval] = useState(false);
+
+          // 이론적 최적값 계산 로직
+          const kCrit = 5 / Math.sqrt(26); // 약 0.98058
+          let cOpt = 0;
+          if (k < kCrit) {
+            cOpt = (2 * k) / Math.sqrt(1 - k * k) - 10;
+          }
+          const dOpt = -cOpt;
+
+          // 비용 함수 계산 로직
+          const calcCost = (cx, dx, w) => {
+            return Math.sqrt((cx + 10) ** 2 + 4) + w * (dx - cx) + Math.sqrt((dx - 10) ** 2 + 4);
+          };
+
+          const manualCost = calcCost(c, d, k);
+          const optimalCost = calcCost(cOpt, dOpt, k);
+
+          // 대칭 토글 핸들러
+          const handleSymmetricToggle = () => {
+            const newSymmetric = !isSymmetric;
+            setIsSymmetric(newSymmetric);
+            if (newSymmetric) {
+              setIsFixedInterval(false);
+              setD(-c);
+            }
+          };
+
+          // 간격 유지 토글 핸들러
+          const handleFixedIntervalToggle = () => {
+            const newFixed = !isFixedInterval;
+            setIsFixedInterval(newFixed);
+            if (newFixed) {
+              setIsSymmetric(false);
+            }
+          };
+
+          // 슬라이더 핸들러
+          const handleCChange = (e) => {
+            let val = parseFloat(e.target.value);
+            if (isFixedInterval) {
+              const L = d - c;
+              val = Math.max(-10, Math.min(10 - L, val));
+              setC(val);
+              setD(val + L);
+            } else if (isSymmetric) {
+              setC(val);
+              setD(-val);
+            } else {
+              setC(val);
+              if (val > d) setD(val);
+            }
+          };
+
+          const handleDChange = (e) => {
+            let val = parseFloat(e.target.value);
+            if (isFixedInterval) {
+              const L = d - c;
+              val = Math.max(-10 + L, Math.min(10, val));
+              setD(val);
+              setC(val - L);
+            } else if (isSymmetric) {
+              setD(val);
+              setC(-val);
+            } else {
+              setD(val);
+              if (val < c) setC(val);
+            }
+          };
+
+          // 캔버스 렌더링을 위한 좌표 매핑 로직
+          const canvasWidth = 800;
+          const canvasHeight = 350;
+          
+          const isZoomActive = autoZoom && k >= 0.95 && k <= 1.0;
+          const scale = isZoomActive ? 120 : 32;
+          const canvasCx = 0;
+          const canvasCy = isZoomActive ? 0.5 : 1;
+
+          const getX = (x) => canvasWidth / 2 + (x - canvasCx) * scale;
+          const getY = (y) => canvasHeight / 2 - (y - canvasCy) * scale;
+
+          // 그래프 공통 설정
+          const graphWidth = 350;
+          const graphHeight = 110;
+
+          // 그래프 1: 대칭성 검증 로직
+          const currentL = d - c;
+          const currentM = (c + d) / 2;
+
+          const calcMidpointCost = (m) => calcCost(m - currentL / 2, m + currentL / 2, k);
+          const minCostGraph1 = calcMidpointCost(0);
+          const maxCostGraph1 = Math.max(calcMidpointCost(-8), calcMidpointCost(8));
+          
+          const pad1 = Math.max(0.2, (maxCostGraph1 - minCostGraph1) * 0.2);
+          const graph1MinY = minCostGraph1 - pad1 / 2;
+          const graph1MaxY = maxCostGraph1 + pad1;
+
+          const getGraph1X = (m) => ((m + 8) / 16) * graphWidth;
+          const getGraph1Y = (cost) => graphHeight - ((cost - graph1MinY) / (graph1MaxY - graph1MinY)) * graphHeight;
+
+          let costPath1 = "";
+          for (let i = -8; i <= 8; i += 0.2) {
+            const mc = calcMidpointCost(i);
+            costPath1 += `${i === -8 ? 'M' : 'L'} ${getGraph1X(i)} ${getGraph1Y(mc)} `;
+          }
+
+          // 그래프 2: c 위치 최적화 로직
+          const minCostY = 19;
+          const maxCostY = 25;
+
+          const getGraph2X = (xVal) => ((xVal + 10) / 10) * graphWidth;
+          const getGraph2Y = (cost) => graphHeight - ((cost - minCostY) / (maxCostY - minCostY)) * graphHeight;
+
+          let costPath2 = "";
+          for (let i = -10; i <= 0; i += 0.2) {
+            const symCost = calcCost(i, -i, k);
+            costPath2 += `${i === -10 ? 'M' : 'L'} ${getGraph2X(i)} ${getGraph2Y(symCost)} `;
+          }
+
+          return (
+            <div className="flex flex-col items-center justify-center w-full min-h-screen p-2 md:p-6 text-gray-800 font-sans">
+              {/* 메인 컨테이너 (너비를 화면 꽉 차게 확장) */}
+              <div className="w-full max-w-[1600px] bg-white rounded-2xl shadow-xl p-4 md:p-6 flex flex-col">
+                <h1 className="text-xl md:text-2xl font-extrabold mb-4 text-center text-gray-900 border-b pb-3">최단 경로 최적화 종합 시뮬레이터</h1>
+                
+                {/* 3단 분할 그리드 레이아웃 (가로 정렬) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                  
+                  {/* 좌측: 기하학 캔버스 (6칸 차지 = 50%) */}
+                  <div className="lg:col-span-6 relative border border-gray-300 rounded-xl bg-gray-50 overflow-hidden shadow-inner flex flex-col justify-center min-h-[300px] p-2">
+                    <div className="absolute top-3 left-3 flex gap-2 z-10">
+                      <label className="flex items-center gap-1.5 bg-white/90 backdrop-blur px-2.5 py-1 rounded-md shadow border border-gray-200 text-xs font-semibold cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={autoZoom} 
+                          onChange={() => setAutoZoom(!autoZoom)}
+                          className="w-3.5 h-3.5 text-blue-600 rounded"
+                        />
+                        자동 확대 (임계점)
+                      </label>
+                      {isZoomActive && (
+                        <span className="bg-blue-100 text-blue-800 text-[11px] px-2 py-1 rounded border border-blue-200 animate-pulse font-bold">
+                          확대 모드 (k={k.toFixed(3)})
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* SVG ViewBox 설정으로 창 크기에 맞게 자동 스케일링 */}
+                    <svg viewBox={`0 0 ${canvasWidth} ${canvasHeight}`} className="w-full h-auto max-h-[550px]">
+                      {/* 그리드 */}
+                      <line x1={0} y1={getY(0)} x2={canvasWidth} y2={getY(0)} stroke="#cbd5e1" strokeWidth={2} />
+                      <line x1={getX(0)} y1={0} x2={getX(0)} y2={canvasHeight} stroke="#cbd5e1" strokeWidth={2} />
+                      
+                      {/* 눈금선 */}
+                      {[-10, -5, 5, 10].map(val => (
+                        <g key={val}>
+                          <line x1={getX(val)} y1={getY(0)-5} x2={getX(val)} y2={getY(0)+5} stroke="#94a3b8" strokeWidth={2} />
+                          <text x={getX(val)} y={getY(0)+20} fontSize="13" fill="#64748b" textAnchor="middle">{val}</text>
+                        </g>
+                      ))}
+
+                      {/* 오버레이: 이론적 최적 경로 (붉은 점선) */}
+                      <polyline 
+                        points={`${getX(-10)},${getY(2)} ${getX(cOpt)},${getY(0)} ${getX(dOpt)},${getY(0)} ${getX(10)},${getY(2)}`} 
+                        stroke="rgba(239, 68, 68, 0.6)" strokeWidth={4} strokeDasharray="8,4" fill="none" 
+                      />
+                      
+                      {/* 오버레이: 수동 탐색 경로 (검은 실선) */}
+                      <polyline 
+                        points={`${getX(-10)},${getY(2)} ${getX(c)},${getY(0)} ${getX(d)},${getY(0)} ${getX(10)},${getY(2)}`} 
+                        stroke="#1e293b" strokeWidth={2.5} fill="none" 
+                      />
+                      <line x1={getX(c)} y1={getY(0)} x2={getX(d)} y2={getY(0)} stroke="#3b82f6" strokeWidth={4} />
+
+                      {/* 고정점 A, B */}
+                      <circle cx={getX(-10)} cy={getY(2)} r={5} fill="#1e293b" />
+                      <text x={getX(-10)} y={getY(2)-12} fontSize="15" fontWeight="bold" textAnchor="middle">A(-10, 2)</text>
+                      <circle cx={getX(10)} cy={getY(2)} r={5} fill="#1e293b" />
+                      <text x={getX(10)} y={getY(2)-12} fontSize="15" fontWeight="bold" textAnchor="middle">B(10, 2)</text>
+
+                      {/* 최적점 C_opt, D_opt 표시 */}
+                      <circle cx={getX(cOpt)} cy={getY(0)} r={7} fill="none" stroke="#ef4444" strokeWidth={2} />
+                      <circle cx={getX(dOpt)} cy={getY(0)} r={7} fill="none" stroke="#ef4444" strokeWidth={2} />
+
+                      {/* 수동점 C, D */}
+                      <circle cx={getX(c)} cy={getY(0)} r={6} fill="#3b82f6" />
+                      <text x={getX(c)} y={getY(0)+28} fontSize="15" fill="#1d4ed8" fontWeight="bold" textAnchor="middle">C</text>
+                      <circle cx={getX(d)} cy={getY(0)} r={6} fill="#3b82f6" />
+                      <text x={getX(d)} y={getY(0)+28} fontSize="15" fill="#1d4ed8" fontWeight="bold" textAnchor="middle">D</text>
+
+                      {/* 원점 */}
+                      <text x={getX(0)+12} y={getY(0)-12} fontSize="15" fill="#64748b" fontStyle="italic">O</text>
+                    </svg>
+                  </div>
+
+                  {/* 중앙: 파라미터 제어 (3칸 차지 = 25%) */}
+                  <div className="lg:col-span-3 flex flex-col gap-3 bg-white border border-gray-200 p-4 rounded-xl shadow-sm h-full">
+                    <h2 className="text-md font-bold border-b pb-2 text-gray-800">파라미터 제어</h2>
+                    
+                    {/* 가중치 k 제어 */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-semibold text-gray-700">매질 가중치 (k)</label>
+                        <span className="font-mono bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-sm font-bold">{k.toFixed(3)}</span>
+                      </div>
+                      <input type="range" min="0.85" max="1.0" step="0.001" value={k} onChange={(e) => setK(parseFloat(e.target.value))} className="w-full accent-purple-600 h-2" />
+                      <p className="text-[11px] text-gray-500">임계값 (루트 26분의 5) ≈ 0.981</p>
+                    </div>
+
+                    {/* 토글 버튼 그룹 */}
+                    <div className="flex flex-col gap-2 mt-1">
+                      <div className="flex items-start gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                        <input type="checkbox" id="symmetricToggle" checked={isSymmetric} onChange={handleSymmetricToggle} className="w-4 h-4 mt-0.5 text-blue-600 rounded cursor-pointer" />
+                        <label htmlFor="symmetricToggle" className="text-xs font-semibold text-blue-800 cursor-pointer select-none leading-tight">
+                          수동 점 C와 D를 항상 원점 대칭으로 고정 (d = -c)
+                        </label>
+                      </div>
+                      <div className="flex items-start gap-2 p-2.5 bg-green-50 border border-green-200 rounded-lg">
+                        <input type="checkbox" id="fixedIntervalToggle" checked={isFixedInterval} onChange={handleFixedIntervalToggle} className="w-4 h-4 mt-0.5 text-green-600 rounded cursor-pointer" />
+                        <label htmlFor="fixedIntervalToggle" className="text-xs font-semibold text-green-800 cursor-pointer select-none leading-tight">
+                          현재 C-D 간격 유지하며 이동 (거리={currentL.toFixed(1)})
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* 점 C 제어 */}
+                    <div className="space-y-1 mt-1">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-semibold text-gray-700">점 C 위치 (c)</label>
+                        <span className="font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-sm">{c.toFixed(2)}</span>
+                      </div>
+                      <input type="range" min="-10" max="10" step="0.01" value={c} onChange={handleCChange} className="w-full accent-blue-600 h-2" />
+                    </div>
+
+                    {/* 점 D 제어 */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <label className="text-sm font-semibold text-gray-700">점 D 위치 (d)</label>
+                        <span className="font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-sm">{d.toFixed(2)}</span>
+                      </div>
+                      <input type="range" min="-10" max="10" step="0.01" value={d} onChange={handleDChange} className="w-full accent-blue-600 h-2" />
+                    </div>
+
+                    {/* 결과 출력 (하단 정렬) */}
+                    <div className="mt-auto pt-2 grid grid-cols-2 gap-2">
+                      <div className="bg-gray-100 p-2 rounded-lg border border-gray-200 text-center">
+                        <div className="text-[11px] font-semibold text-gray-500 mb-0.5">수동 조작 비용</div>
+                        <div className="text-base font-bold font-mono">{manualCost.toFixed(4)}</div>
+                      </div>
+                      <div className="bg-red-50 p-2 rounded-lg border border-red-200 text-center">
+                        <div className="text-[11px] font-semibold text-red-600 mb-0.5">이론적 최소 비용</div>
+                        <div className="text-base font-bold font-mono text-red-700">{optimalCost.toFixed(4)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 우측: 수학적 증명 그래프 (3칸 차지 = 25%) */}
+                  <div className="lg:col-span-3 flex flex-col gap-4 bg-white border border-gray-200 p-4 rounded-xl shadow-sm h-full">
+                    <h2 className="text-md font-bold border-b pb-2 text-gray-800">수학적 증명 그래프</h2>
+
+                    {/* 그래프 1 */}
+                    <div className="flex flex-col flex-1">
+                      <h3 className="text-[13px] font-bold text-gray-800 flex items-center gap-1.5">
+                        <span className="bg-gray-800 text-white w-4 h-4 flex justify-center items-center rounded-full text-[10px]">1</span> 
+                        대칭성 검증 (간격 유지)
+                      </h3>
+                      <p className="text-[11px] text-gray-500 mb-1.5 mt-0.5 leading-tight">두 점의 간격 고정 시, 중점이 0(원점)일 때 가장 비용이 적게 듭니다.</p>
+                      
+                      <div className="relative border border-gray-200 rounded-md bg-gray-50 w-full flex-1 min-h-[110px]">
+                        <svg width="100%" height="100%" viewBox={`0 0 ${graphWidth} ${graphHeight}`} preserveAspectRatio="none">
+                          <line x1={graphWidth/2} y1={0} x2={graphWidth/2} y2={graphHeight} stroke="#cbd5e1" strokeDasharray="4,4" />
+                          <path d={costPath1} stroke="#94a3b8" strokeWidth={3} fill="none" />
+                          <circle cx={getGraph1X(0)} cy={getGraph1Y(calcMidpointCost(0))} r={5} fill="#ef4444" />
+                          <circle cx={getGraph1X(currentM)} cy={getGraph1Y(calcMidpointCost(currentM))} r={6} fill="#3b82f6" stroke="white" strokeWidth={2} />
+                          <text x={5} y={graphHeight - 6} fontSize="11" fill="#64748b">좌로 이동</text>
+                          <text x={graphWidth - 50} y={graphHeight - 6} fontSize="11" fill="#64748b">우로 이동</text>
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* 그래프 2 */}
+                    <div className="flex flex-col flex-1">
+                      <h3 className="text-[13px] font-bold text-gray-800 flex items-center gap-1.5">
+                        <span className="bg-gray-800 text-white w-4 h-4 flex justify-center items-center rounded-full text-[10px]">2</span> 
+                        최적 거리 탐색 (대칭 가정)
+                      </h3>
+                      <p className="text-[11px] text-gray-500 mb-1.5 mt-0.5 leading-tight">완벽한 대칭(d=-c) 상태에서 점을 벌렸을 때의 최솟값(빨간점) 위치</p>
+                      
+                      <div className="relative border border-gray-200 rounded-md bg-gray-50 w-full flex-1 min-h-[110px]">
+                        <svg width="100%" height="100%" viewBox={`0 0 ${graphWidth} ${graphHeight}`} preserveAspectRatio="none">
+                          <path d={costPath2} stroke="#94a3b8" strokeWidth={3} fill="none" />
+                          <circle cx={getGraph2X(cOpt)} cy={getGraph2Y(optimalCost)} r={5} fill="#ef4444" />
+                          <circle cx={getGraph2X(c)} cy={getGraph2Y(calcCost(c, -c, k))} r={6} fill="#3b82f6" stroke="white" strokeWidth={2} />
+                          <text x={5} y={graphHeight - 6} fontSize="11" fill="#64748b">c = -10 (넓음)</text>
+                          <text x={graphWidth - 65} y={graphHeight - 6} fontSize="11" fill="#64748b">c = 0 (원점)</text>
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* 범례 */}
+                    <div className="flex justify-center text-[11px] text-gray-600 gap-3 mt-auto pt-2 border-t border-gray-100">
+                      <span className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div> 수동 위치</span>
+                      <span className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div> 수학적 극솟값</span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

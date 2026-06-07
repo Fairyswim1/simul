@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OPQ 시뮬레이터</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+    .wrap {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .title {
+      margin-bottom: 16px;
+    }
+    .title h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+    }
+    .title p {
+      margin: 0;
+      color: #4b5563;
+      line-height: 1.7;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(900px, 1fr) 360px;
+      gap: 20px;
+      align-items: start;
+    }
+    .panel, .side {
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 18px 20px 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .panel-head h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+    }
+    .panel-head p {
+      margin: 0;
+      font-size: 14px;
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    .viz-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      gap: 14px;
+      padding: 14px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f7faff 100%);
+      align-items: start;
+    }
+    .viz-card {
+      background: #fff;
+      border: 1px solid #dbe3ef;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .viz-card-head {
+      padding: 12px 14px 8px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .viz-card-head h3 {
+      margin: 0 0 6px;
+      font-size: 15px;
+    }
+    .viz-card-head p {
+      margin: 0;
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    .canvas-box {
+      padding: 10px;
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+    }
+    #canvas {
+      aspect-ratio: 900 / 640;
+    }
+    #graphCanvas {
+      aspect-ratio: 390 / 360;
+    }
+    .controls {
+      padding: 16px 18px 20px;
+      border-top: 1px solid #e5e7eb;
+      display: grid;
+      gap: 14px;
+    }
+    .control-row {
+      display: grid;
+      gap: 8px;
+    }
+    .range-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      color: #374151;
+      gap: 12px;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #2563eb;
+    }
+    .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease, background 0.12s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    .primary { background: #2563eb; color: #fff; }
+    .secondary { background: #eef2ff; color: #1d4ed8; }
+    .ghost { background: #f3f4f6; color: #374151; }
+    .hint-btn { background: #f8fafc; color: #0f172a; border: 1px solid #e2e8f0; }
+    .side {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+    .card {
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 14px 15px;
+      background: #fff;
+    }
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      gap: 8px 10px;
+      font-size: 14px;
+      line-height: 1.6;
+      align-items: start;
+    }
+    .kv div:nth-child(odd) {
+      color: #6b7280;
+      font-weight: 600;
+      padding-top: 2px;
+    }
+    .mono {
+      font-family: "Consolas", "SFMono-Regular", monospace;
+      word-break: break-word;
+    }
+    .formula {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      font-size: 14px;
+      line-height: 1.75;
+    }
+    .pill {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ecfeff;
+      color: #0f766e;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .small {
+      font-size: 13px;
+      color: #4b5563;
+      line-height: 1.75;
+    }
+    .hint-box {
+      display: none;
+      margin-top: 12px;
+    }
+    .hint-box.show {
+      display: block;
+    }
+    .math {
+      font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", serif;
+    }
+    math {
+      font-family: "Cambria Math", "STIX Two Math", "Latin Modern Math", serif;
+      font-size: 1.05em;
+    }
+    .math-inline math {
+      display: inline math;
+    }
+    .math-display math {
+      display: block math;
+      margin: 4px 0;
+    }
+    .graph-note {
+      padding: 0 12px 12px;
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.65;
+    }
+    @media (max-width: 1220px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 980px) {
+      .viz-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <h1>점 P, 점 Q, 그리고 이등변삼각형 OPQ 시뮬레이터</h1>
+      <p class="math-inline">
+        점 P는
+        <math xmlns="http://www.w3.org/1998/Math/MathML"><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo><msup><mi>y</mi><mn>2</mn></msup><mo>=</mo><mn>1</mn></math>
+        의 제1사분면 호를 따라 움직이고, 점 Q는 선분 OP의 수직이등분선과 포물선
+        <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>y</mi><mo>=</mo><msup><mi>x</mi><mn>2</mn></msup><mo>-</mo><mfrac><mn>11</mn><mn>4</mn></mfrac></math>
+        의 오른쪽 부분의 교점으로 정해진다.
+      </p>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>좌표평면과 변화 그래프</h2>
+          <p>왼쪽에는 문제의 기하 상황을, 오른쪽에는 <span class="math">θ</span>가 변할 때의 <span class="math">OQ</span>의 길이와 삼각형 넓이의 변화를 함께 그렸다.</p>
+        </div>
+
+        <div class="viz-grid">
+          <div class="viz-card">
+            <div class="viz-card-head">
+              <h3>좌표평면</h3>
+              <p>좌표평면은 x축과 y축의 눈금 비율을 같게 두었다. 양 끝점과 최소 넓이 지점도 함께 표시된다.</p>
+            </div>
+            <div class="canvas-box">
+              <canvas id="canvas" width="900" height="640"></canvas>
+            </div>
+          </div>
+
+          <div class="viz-card">
+            <div class="viz-card-head">
+              <h3>θ에 따른 변화</h3>
+              <p><span class="math">OQ</span>의 길이와 삼각형 <span class="math">OPQ</span>의 넓이를 같은 <span class="math">θ</span>축 위에 함께 나타냈다.</p>
+            </div>
+            <div class="canvas-box">
+              <canvas id="graphCanvas" width="390" height="360"></canvas>
+            </div>
+            <div class="graph-note math-inline">
+              점선은
+              <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>θ</mi><mo>=</mo><msup><mi>tan</mi><mrow><mo>-</mo><mn>1</mn></mrow></msup><mrow><mo>(</mo><mfrac><mn>4</mn><mn>3</mn></mfrac><mo>)</mo></mrow></math>
+              를 뜻하며, 이때 두 그래프가 동시에 최솟값을 갖는다.
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="control-row">
+            <div class="range-head">
+              <span>점 P의 위치</span>
+              <span id="thetaText" class="math-inline">θ = 0</span>
+            </div>
+            <input id="slider" type="range" min="0" max="1000" step="1" value="0" />
+          </div>
+          <div class="btns">
+            <button id="playBtn" class="primary">▶ 자동 재생</button>
+            <button id="resetBtn" class="secondary">처음으로</button>
+            <button id="minBtn" class="ghost">최소 넓이 점 표시 끄기</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <div class="card">
+          <h3>현재 값</h3>
+          <div class="kv">
+            <div>점 P</div><div id="pText"></div>
+            <div>점 Q</div><div id="qText"></div>
+            <div>x값</div><div id="xText"></div>
+            <div>OQ</div><div id="oqText"></div>
+            <div>넓이</div><div id="areaText"></div>
+          </div>
+          <div class="pill" id="statusPill">현재 상태 관찰 중</div>
+        </div>
+
+        <div class="card">
+          <h3>(1) 범위 검토</h3>
+          <div class="small">점 Q가 실제로 움직이는 포물선의 부분을 굵게 표시했고, 양 끝점도 좌표와 함께 나타냈다.</div>
+          <div class="formula math-display">
+            <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mfrac><mn>1</mn><mn>2</mn></mfrac>
+              <mo>≤</mo>
+              <mi>x</mi>
+              <mo>≤</mo>
+              <mfrac><msqrt><mn>13</mn></msqrt><mn>2</mn></mfrac>
+            </math>
+            <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mi>Q</mi><mo>=</mo><mo>(</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>,</mo><mo>-</mo><mfrac><mn>5</mn><mn>2</mn></mfrac><mo>)</mo>
+            </math>
+            <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mi>Q</mi><mo>=</mo><mo>(</mo><mfrac><msqrt><mn>13</mn></msqrt><mn>2</mn></mfrac><mo>,</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>)</mo>
+            </math>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>(2) 최소 넓이 정보</h3>
+          <div class="formula math-display">
+            <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <msub><mi>Q</mi><mtext>min</mtext></msub><mo>=</mo><mo>(</mo><mfrac><mn>3</mn><mn>2</mn></mfrac><mo>,</mo><mo>-</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>)</mo>
+            </math>
+            <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mi>P</mi><mo>=</mo><mo>(</mo><mfrac><mn>3</mn><mn>5</mn></mfrac><mo>,</mo><mfrac><mn>4</mn><mn>5</mn></mfrac><mo>)</mo>
+            </math>
+            <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mi>θ</mi><mo>=</mo><msup><mi>tan</mi><mrow><mo>-</mo><mn>1</mn></mrow></msup><mrow><mo>(</mo><mfrac><mn>4</mn><mn>3</mn></mfrac><mo>)</mo></mrow>
+            </math>
+            <math xmlns="http://www.w3.org/1998/Math/MathML">
+              <mi>OQ</mi><mo>=</mo><mfrac><msqrt><mn>10</mn></msqrt><mn>2</mn></mfrac>
+              <mspace width="1em"></mspace>
+              <mi>S</mi><mo>=</mo><mfrac><mn>3</mn><mn>4</mn></mfrac>
+            </math>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>풀이 힌트</h3>
+          <button id="hintToggleBtn" class="hint-btn">힌트 보기</button>
+          <div id="hintBox" class="hint-box">
+            <div class="formula math-display">
+              <math xmlns="http://www.w3.org/1998/Math/MathML">
+                <mi>OP</mi><mo>=</mo><mn>1</mn>
+              </math>
+              <math xmlns="http://www.w3.org/1998/Math/MathML">
+                <mi>S</mi><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>×</mo><mtext>높이</mtext>
+                <mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><msqrt><mrow><msup><mrow><mo>(</mo><mi>OQ</mi><mo>)</mo></mrow><mn>2</mn></msup><mo>-</mo><mfrac><mn>1</mn><mn>4</mn></mfrac></mrow></msqrt>
+              </math>
+            </div>
+            <div class="small">
+              따라서 <span class="math">OP</span>의 길이가 고정되어 있으므로, 넓이를 최소로 하려면 결국 <span class="math">OQ</span>를 최소로 만드는 지점을 찾으면 된다.
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const graphCanvas = document.getElementById('graphCanvas');
+    const gtx = graphCanvas.getContext('2d');
+
+    const slider = document.getElementById('slider');
+    const thetaText = document.getElementById('thetaText');
+    const pText = document.getElementById('pText');
+    const qText = document.getElementById('qText');
+    const xText = document.getElementById('xText');
+    const oqText = document.getElementById('oqText');
+    const areaText = document.getElementById('areaText');
+    const statusPill = document.getElementById('statusPill');
+    const playBtn = document.getElementById('playBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const minBtn = document.getElementById('minBtn');
+    const hintToggleBtn = document.getElementById('hintToggleBtn');
+    const hintBox = document.getElementById('hintBox');
+
+    const mainView = {
+      xMin: -0.25,
+      xMax: 2.2,
+      yMin: -3.1,
+      yMax: 1.35,
+      pad: 48
+    };
+
+    const thetaMin = Math.atan2(4, 3);
+    const xStart = 0.5;
+    const xEnd = Math.sqrt(13) / 2;
+    const qStart = { x: 0.5, y: -2.5 };
+    const qEnd = { x: Math.sqrt(13) / 2, y: 0.5 };
+    const qMin = { x: 1.5, y: -0.5 };
+    const pStart = { x: 1, y: 0 };
+    const pEnd = { x: 0, y: 1 };
+    const pMin = { x: 0.6, y: 0.8 };
+    const minOQ = Math.sqrt(10) / 2;
+    const minArea = 0.75;
+
+    let isPlaying = false;
+    let showMin = true;
+    let rafId = null;
+    let hintVisible = false;
+
+    function parabolaY(x) {
+      return x * x - 11 / 4;
+    }
+
+    function fmt(n, digits = 4) {
+      if (Math.abs(n) < 1e-12) n = 0;
+      return Number(n).toFixed(digits);
+    }
+
+    function getTheta() {
+      return (Number(slider.value) / 1000) * (Math.PI / 2);
+    }
+
+    function getState(theta) {
+      const px = Math.cos(theta);
+      const py = Math.sin(theta);
+      let x;
+      if (Math.abs(py) < 1e-10) {
+        x = 1 / (2 * px);
+      } else {
+        const A = py;
+        const B = px;
+        const C = -(11 / 4) * py - 1 / 2;
+        const D = B * B - 4 * A * C;
+        x = (-B + Math.sqrt(D)) / (2 * A);
+      }
+      const y = parabolaY(x);
+      const oq = Math.hypot(x, y);
+      const area = Math.abs(px * y - py * x) / 2;
+      return {
+        theta,
+        P: { x: px, y: py },
+        Q: { x, y },
+        oq,
+        area
+      };
+    }
+
+    function getEqualTransform(view, targetCanvas) {
+      const usableW = targetCanvas.width - 2 * view.pad;
+      const usableH = targetCanvas.height - 2 * view.pad;
+      const scaleX = usableW / (view.xMax - view.xMin);
+      const scaleY = usableH / (view.yMax - view.yMin);
+      const scale = Math.min(scaleX, scaleY);
+      const extraX = (usableW - scale * (view.xMax - view.xMin)) / 2;
+      const extraY = (usableH - scale * (view.yMax - view.yMin)) / 2;
+      return { scale, extraX, extraY };
+    }
+
+    function worldToCanvasMain(x, y) {
+      const t = getEqualTransform(mainView, canvas);
+      const cx = mainView.pad + t.extraX + (x - mainView.xMin) * t.scale;
+      const cy = canvas.height - mainView.pad - t.extraY - (y - mainView.yMin) * t.scale;
+      return { x: cx, y: cy };
+    }
+
+    function graphX(theta) {
+      const padL = 52;
+      const padR = 24;
+      const w = graphCanvas.width - padL - padR;
+      return padL + (theta / (Math.PI / 2)) * w;
+    }
+
+    function graphYOQ(value) {
+      const padT = 24;
+      const padB = 36;
+      const h = graphCanvas.height - padT - padB;
+      const min = 1.45;
+      const max = 2.65;
+      return graphCanvas.height - padB - ((value - min) / (max - min)) * h;
+    }
+
+    function graphYArea(value) {
+      const padT = 24;
+      const padB = 36;
+      const h = graphCanvas.height - padT - padB;
+      const min = 0.65;
+      const max = 1.30;
+      return graphCanvas.height - padB - ((value - min) / (max - min)) * h;
+    }
+
+    function linePoint(p, d, t) {
+      return { x: p.x + d.x * t, y: p.y + d.y * t };
+    }
+
+    function drawGrid() {
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#edf2f7';
+
+      for (let x = Math.ceil(mainView.xMin * 2) / 2; x <= mainView.xMax + 1e-9; x += 0.5) {
+        const p1 = worldToCanvasMain(x, mainView.yMin);
+        const p2 = worldToCanvasMain(x, mainView.yMax);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+
+      for (let y = Math.ceil(mainView.yMin * 2) / 2; y <= mainView.yMax + 1e-9; y += 0.5) {
+        const p1 = worldToCanvasMain(mainView.xMin, y);
+        const p2 = worldToCanvasMain(mainView.xMax, y);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawAxes() {
+      ctx.save();
+      ctx.strokeStyle = '#94a3b8';
+      ctx.fillStyle = '#64748b';
+      ctx.lineWidth = 1.6;
+
+      const x1 = worldToCanvasMain(mainView.xMin, 0);
+      const x2 = worldToCanvasMain(mainView.xMax, 0);
+      const y1 = worldToCanvasMain(0, mainView.yMin);
+      const y2 = worldToCanvasMain(0, mainView.yMax);
+
+      ctx.beginPath();
+      ctx.moveTo(x1.x, x1.y);
+      ctx.lineTo(x2.x, x2.y);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(y1.x, y1.y);
+      ctx.lineTo(y2.x, y2.y);
+      ctx.stroke();
+
+      ctx.font = '12px Pretendard, sans-serif';
+      ctx.fillText('x', x2.x - 12, x2.y - 8);
+      ctx.fillText('y', y2.x + 8, y2.y + 14);
+
+      for (let x = 0; x <= 2; x += 0.5) {
+        const p = worldToCanvasMain(x, 0);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - 5);
+        ctx.lineTo(p.x, p.y + 5);
+        ctx.stroke();
+        if (x !== 0) ctx.fillText(String(x), p.x - 7, p.y + 18);
+      }
+      for (let y = -3; y <= 1; y += 0.5) {
+        const p = worldToCanvasMain(0, y);
+        ctx.beginPath();
+        ctx.moveTo(p.x - 5, p.y);
+        ctx.lineTo(p.x + 5, p.y);
+        ctx.stroke();
+        if (y !== 0) ctx.fillText(String(y), p.x - 26, p.y + 4);
+      }
+      ctx.restore();
+    }
+
+    function drawParabola() {
+      ctx.save();
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = '#6366f1';
+      ctx.beginPath();
+      let started = false;
+      for (let x = 0; x <= 2.05; x += 0.005) {
+        const y = parabolaY(x);
+        const p = worldToCanvasMain(x, y);
+        if (!started) {
+          ctx.moveTo(p.x, p.y);
+          started = true;
+        } else {
+          ctx.lineTo(p.x, p.y);
+        }
+      }
+      ctx.stroke();
+
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#8b5cf6';
+      ctx.beginPath();
+      started = false;
+      for (let x = xStart; x <= xEnd + 1e-9; x += 0.004) {
+        const y = parabolaY(x);
+        const p = worldToCanvasMain(x, y);
+        if (!started) {
+          ctx.moveTo(p.x, p.y);
+          started = true;
+        } else {
+          ctx.lineTo(p.x, p.y);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawCircleArc() {
+      ctx.save();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#10b981';
+      ctx.beginPath();
+      let started = false;
+      for (let t = 0; t <= Math.PI / 2 + 1e-9; t += 0.01) {
+        const p = worldToCanvasMain(Math.cos(t), Math.sin(t));
+        if (!started) {
+          ctx.moveTo(p.x, p.y);
+          started = true;
+        } else {
+          ctx.lineTo(p.x, p.y);
+        }
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = '#047857';
+      ctx.font = '13px Pretendard, sans-serif';
+      const label = worldToCanvasMain(0.8, 0.68);
+      ctx.fillText('x² + y² = 1', label.x + 10, label.y - 12);
+      ctx.restore();
+    }
+
+    function drawLineInfinite(point, dir, color, width, dash = []) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.setLineDash(dash);
+      const p1 = linePoint(point, dir, -20);
+      const p2 = linePoint(point, dir, 20);
+      const c1 = worldToCanvasMain(p1.x, p1.y);
+      const c2 = worldToCanvasMain(p2.x, p2.y);
+      ctx.beginPath();
+      ctx.moveTo(c1.x, c1.y);
+      ctx.lineTo(c2.x, c2.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawSegment(a, b, color, width, dash = []) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.setLineDash(dash);
+      const p1 = worldToCanvasMain(a.x, a.y);
+      const p2 = worldToCanvasMain(b.x, b.y);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawTriangle(O, P, Q) {
+      ctx.save();
+      const o = worldToCanvasMain(O.x, O.y);
+      const p = worldToCanvasMain(P.x, P.y);
+      const q = worldToCanvasMain(Q.x, Q.y);
+      ctx.fillStyle = 'rgba(37, 99, 235, 0.12)';
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.55)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.lineTo(q.x, q.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawTrail(theta) {
+      ctx.save();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#ef4444';
+      ctx.beginPath();
+      let started = false;
+      const steps = 320;
+      for (let i = 0; i <= steps; i++) {
+        const t = theta * i / steps;
+        const s = getState(t);
+        const p = worldToCanvasMain(s.Q.x, s.Q.y);
+        if (!started) {
+          ctx.moveTo(p.x, p.y);
+          started = true;
+        } else {
+          ctx.lineTo(p.x, p.y);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPoint(pt, color, radius, label, labelDx = 10, labelDy = -10) {
+      ctx.save();
+      const p = worldToCanvasMain(pt.x, pt.y);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#111827';
+      ctx.font = '14px Pretendard, sans-serif';
+      ctx.fillText(label, p.x + labelDx, p.y + labelDy);
+      ctx.restore();
+    }
+
+    function drawCoordinateLabel(pt, text, dx, dy, color = '#111827') {
+      ctx.save();
+      const p = worldToCanvasMain(pt.x, pt.y);
+      ctx.fillStyle = color;
+      ctx.font = '13px Pretendard, sans-serif';
+      ctx.fillText(text, p.x + dx, p.y + dy);
+      ctx.restore();
+    }
+
+    function drawMidpoint(P) {
+      const M = { x: P.x / 2, y: P.y / 2 };
+      const p = worldToCanvasMain(M.x, M.y);
+      ctx.save();
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#92400e';
+      ctx.font = '13px Pretendard, sans-serif';
+      ctx.fillText('중점', p.x + 8, p.y - 8);
+      ctx.restore();
+    }
+
+    function drawHintLink(Q) {
+      drawSegment({ x: 0, y: 0 }, Q, '#0f766e', 2.2, [7, 6]);
+      const mid = worldToCanvasMain(Q.x * 0.5, Q.y * 0.5);
+      ctx.save();
+      ctx.fillStyle = '#0f766e';
+      ctx.font = '13px Pretendard, sans-serif';
+      ctx.fillText('OQ', mid.x + 6, mid.y - 8);
+      ctx.restore();
+    }
+
+    function normalize(v) {
+      const n = Math.hypot(v.x, v.y);
+      return { x: v.x / n, y: v.y / n };
+    }
+
+    function drawTangentAtMinimum() {
+      const tangentDir = { x: 1, y: 3 };
+      drawLineInfinite(qMin, tangentDir, '#16a34a', 2.4, [10, 6]);
+      drawCoordinateLabel(qMin, '접선', 12, -18, '#166534');
+
+      const u = normalize({ x: 1, y: 3 });
+      const v = normalize({ x: -3, y: 1 });
+      const len = 0.13;
+      const a = { x: qMin.x + u.x * len, y: qMin.y + u.y * len };
+      const b = { x: a.x + v.x * len, y: a.y + v.y * len };
+      const c = { x: qMin.x + v.x * len, y: qMin.y + v.y * len };
+      const pa = worldToCanvasMain(a.x, a.y);
+      const pb = worldToCanvasMain(b.x, b.y);
+      const pc = worldToCanvasMain(c.x, c.y);
+
+      ctx.save();
+      ctx.strokeStyle = '#166534';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.lineTo(pc.x, pc.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawFunctionLabels() {
+      ctx.save();
+      ctx.fillStyle = '#4b5563';
+      ctx.font = '13px Pretendard, sans-serif';
+      const txt = worldToCanvasMain(1.14, 1.04);
+      ctx.fillText('수직이등분선', txt.x, txt.y);
+      const txt2 = worldToCanvasMain(1.12, -2.92);
+      ctx.fillStyle = '#4338ca';
+      ctx.fillText('y = x² - 11/4', txt2.x, txt2.y);
+      ctx.restore();
+    }
+
+    function drawThetaGraph(state) {
+      gtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+      const padL = 52;
+      const padR = 40;
+      const padT = 24;
+      const padB = 36;
+      const w = graphCanvas.width - padL - padR;
+      const h = graphCanvas.height - padT - padB;
+
+      gtx.save();
+      gtx.strokeStyle = '#edf2f7';
+      gtx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const x = padL + (w * i / 4);
+        gtx.beginPath();
+        gtx.moveTo(x, padT);
+        gtx.lineTo(x, padT + h);
+        gtx.stroke();
+      }
+      for (let i = 0; i <= 6; i++) {
+        const y = padT + (h * i / 6);
+        gtx.beginPath();
+        gtx.moveTo(padL, y);
+        gtx.lineTo(padL + w, y);
+        gtx.stroke();
+      }
+
+      gtx.strokeStyle = '#94a3b8';
+      gtx.fillStyle = '#64748b';
+      gtx.lineWidth = 1.6;
+      gtx.beginPath();
+      gtx.moveTo(padL, padT + h);
+      gtx.lineTo(padL + w, padT + h);
+      gtx.stroke();
+      gtx.beginPath();
+      gtx.moveTo(padL, padT + h);
+      gtx.lineTo(padL, padT);
+      gtx.stroke();
+      gtx.beginPath();
+      gtx.moveTo(padL + w, padT + h);
+      gtx.lineTo(padL + w, padT);
+      gtx.stroke();
+
+      gtx.font = '11px Pretendard, sans-serif';
+      gtx.fillText('θ', padL + w - 8, padT + h - 8);
+      gtx.fillStyle = '#2563eb';
+      gtx.fillText('OQ', padL - 26, padT + 10);
+      gtx.fillStyle = '#dc2626';
+      gtx.fillText('넓이', padL + w + 6, padT + 10);
+
+      const thetaTicks = [0, thetaMin, Math.PI / 2];
+      const thetaLabels = ['0', 'tan⁻¹(4/3)', 'π/2'];
+      gtx.fillStyle = '#64748b';
+      for (let i = 0; i < thetaTicks.length; i++) {
+        const x = graphX(thetaTicks[i]);
+        gtx.beginPath();
+        gtx.moveTo(x, padT + h - 4);
+        gtx.lineTo(x, padT + h + 4);
+        gtx.stroke();
+        gtx.fillText(thetaLabels[i], x - (i === 1 ? 22 : 8), padT + h + 18);
+      }
+
+      const oqTicks = [1.5, 1.75, 2.0, 2.25, 2.5];
+      gtx.fillStyle = '#2563eb';
+      for (const v of oqTicks) {
+        const y = graphYOQ(v);
+        gtx.beginPath();
+        gtx.moveTo(padL - 4, y);
+        gtx.lineTo(padL + 4, y);
+        gtx.stroke();
+        gtx.fillText(v.toFixed(2), 8, y + 4);
+      }
+
+      const areaTicks = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2];
+      gtx.fillStyle = '#dc2626';
+      for (const v of areaTicks) {
+        const y = graphYArea(v);
+        gtx.beginPath();
+        gtx.moveTo(padL + w - 4, y);
+        gtx.lineTo(padL + w + 4, y);
+        gtx.stroke();
+        gtx.fillText(v.toFixed(1), padL + w + 8, y + 4);
+      }
+
+      gtx.setLineDash([7, 6]);
+      gtx.strokeStyle = '#16a34a';
+      gtx.lineWidth = 1.5;
+      const xMin = graphX(thetaMin);
+      gtx.beginPath();
+      gtx.moveTo(xMin, padT);
+      gtx.lineTo(xMin, padT + h);
+      gtx.stroke();
+      gtx.setLineDash([]);
+
+      gtx.lineWidth = 2.6;
+      gtx.strokeStyle = '#2563eb';
+      gtx.beginPath();
+      let started = false;
+      for (let i = 0; i <= 700; i++) {
+        const theta = (Math.PI / 2) * i / 700;
+        const s = getState(theta);
+        const x = graphX(theta);
+        const y = graphYOQ(s.oq);
+        if (!started) {
+          gtx.moveTo(x, y);
+          started = true;
+        } else {
+          gtx.lineTo(x, y);
+        }
+      }
+      gtx.stroke();
+
+      gtx.lineWidth = 2.6;
+      gtx.strokeStyle = '#dc2626';
+      gtx.beginPath();
+      started = false;
+      for (let i = 0; i <= 700; i++) {
+        const theta = (Math.PI / 2) * i / 700;
+        const s = getState(theta);
+        const x = graphX(theta);
+        const y = graphYArea(s.area);
+        if (!started) {
+          gtx.moveTo(x, y);
+          started = true;
+        } else {
+          gtx.lineTo(x, y);
+        }
+      }
+      gtx.stroke();
+
+      const currentX = graphX(state.theta);
+      gtx.setLineDash([5, 5]);
+      gtx.strokeStyle = '#9ca3af';
+      gtx.lineWidth = 1.2;
+      gtx.beginPath();
+      gtx.moveTo(currentX, padT);
+      gtx.lineTo(currentX, padT + h);
+      gtx.stroke();
+      gtx.setLineDash([]);
+
+      const oqMinPoint = { x: graphX(thetaMin), y: graphYOQ(minOQ) };
+      const areaMinPoint = { x: graphX(thetaMin), y: graphYArea(minArea) };
+      const oqCurPoint = { x: currentX, y: graphYOQ(state.oq) };
+      const areaCurPoint = { x: currentX, y: graphYArea(state.area) };
+
+      gtx.fillStyle = '#16a34a';
+      gtx.beginPath();
+      gtx.arc(oqMinPoint.x, oqMinPoint.y, 4.5, 0, Math.PI * 2);
+      gtx.fill();
+      gtx.beginPath();
+      gtx.arc(areaMinPoint.x, areaMinPoint.y, 4.5, 0, Math.PI * 2);
+      gtx.fill();
+
+      gtx.fillStyle = '#2563eb';
+      gtx.beginPath();
+      gtx.arc(oqCurPoint.x, oqCurPoint.y, 4.5, 0, Math.PI * 2);
+      gtx.fill();
+      gtx.fillStyle = '#dc2626';
+      gtx.beginPath();
+      gtx.arc(areaCurPoint.x, areaCurPoint.y, 4.5, 0, Math.PI * 2);
+      gtx.fill();
+
+      gtx.fillStyle = '#111827';
+      gtx.font = '11px Pretendard, sans-serif';
+      gtx.fillText('최소', oqMinPoint.x + 6, oqMinPoint.y - 8);
+      gtx.fillText('최소', areaMinPoint.x + 6, areaMinPoint.y + 14);
+
+      gtx.fillStyle = '#2563eb';
+      gtx.fillRect(padL + 8, padT + 8, 18, 3);
+      gtx.fillStyle = '#111827';
+      gtx.fillText('OQ의 길이', padL + 32, padT + 12);
+      gtx.fillStyle = '#dc2626';
+      gtx.fillRect(padL + 108, padT + 8, 18, 3);
+      gtx.fillStyle = '#111827';
+      gtx.fillText('삼각형 넓이', padL + 132, padT + 12);
+
+      gtx.restore();
+    }
+
+    function close(a, b, tol = 1e-2) {
+      return Math.abs(a - b) < tol;
+    }
+
+    function getSpecialCase(state) {
+      if (close(state.theta, 0, 0.0018)) return 'start';
+      if (close(state.theta, thetaMin, 0.01)) return 'min';
+      if (close(state.theta, Math.PI / 2, 0.0018)) return 'end';
+      return null;
+    }
+
+    function mathWrap(inner) {
+      return `<span class="math-inline"><math xmlns="http://www.w3.org/1998/Math/MathML">${inner}</math></span>`;
+    }
+
+    function coordHTML(xInner, yInner) {
+      return mathWrap(`<mo>(</mo>${xInner}<mo>,</mo>${yInner}<mo>)</mo>`);
+    }
+
+    function thetaHTML(theta, special) {
+      if (special === 'start') return mathWrap(`<mi>θ</mi><mo>=</mo><mn>0</mn>`);
+      if (special === 'min') return mathWrap(`<mi>θ</mi><mo>=</mo><msup><mi>tan</mi><mrow><mo>-</mo><mn>1</mn></mrow></msup><mrow><mo>(</mo><mfrac><mn>4</mn><mn>3</mn></mfrac><mo>)</mo></mrow>`);
+      if (special === 'end') return mathWrap(`<mi>θ</mi><mo>=</mo><mfrac><mi>π</mi><mn>2</mn></mfrac>`);
+      return `<span class="mono">θ = ${fmt(theta)} rad</span>`;
+    }
+
+    function pHTML(state, special) {
+      if (special === 'start') return coordHTML(`<mn>1</mn>`, `<mn>0</mn>`);
+      if (special === 'min') return coordHTML(`<mfrac><mn>3</mn><mn>5</mn></mfrac>`, `<mfrac><mn>4</mn><mn>5</mn></mfrac>`);
+      if (special === 'end') return coordHTML(`<mn>0</mn>`, `<mn>1</mn>`);
+      return `<span class="mono">(${fmt(state.P.x)}, ${fmt(state.P.y)})</span>`;
+    }
+
+    function qHTML(state, special) {
+      if (special === 'start') return coordHTML(`<mfrac><mn>1</mn><mn>2</mn></mfrac>`, `<mrow><mo>-</mo><mfrac><mn>5</mn><mn>2</mn></mfrac></mrow>`);
+      if (special === 'min') return coordHTML(`<mfrac><mn>3</mn><mn>2</mn></mfrac>`, `<mrow><mo>-</mo><mfrac><mn>1</mn><mn>2</mn></mfrac></mrow>`);
+      if (special === 'end') return coordHTML(`<mfrac><msqrt><mn>13</mn></msqrt><mn>2</mn></mfrac>`, `<mfrac><mn>1</mn><mn>2</mn></mfrac>`);
+      return `<span class="mono">(${fmt(state.Q.x)}, ${fmt(state.Q.y)})</span>`;
+    }
+
+    function xInfoHTML(state, special) {
+      if (special === 'start') {
+        return mathWrap(`<mi>x</mi><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>,</mo><mspace width="0.6em"></mspace><mi>y</mi><mo>=</mo><mo>-</mo><mfrac><mn>5</mn><mn>2</mn></mfrac>`);
+      }
+      if (special === 'min') {
+        return mathWrap(`<mi>x</mi><mo>=</mo><mfrac><mn>3</mn><mn>2</mn></mfrac><mo>,</mo><mspace width="0.6em"></mspace><mi>y</mi><mo>=</mo><mo>-</mo><mfrac><mn>1</mn><mn>2</mn></mfrac>`);
+      }
+      if (special === 'end') {
+        return mathWrap(`<mi>x</mi><mo>=</mo><mfrac><msqrt><mn>13</mn></msqrt><mn>2</mn></mfrac><mo>,</mo><mspace width="0.6em"></mspace><mi>y</mi><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac>`);
+      }
+      return `<span class="mono">x = ${fmt(state.Q.x)}, y = ${fmt(state.Q.y)}</span>`;
+    }
+
+    function oqHTML(state, special) {
+      if (special === 'start') return mathWrap(`<mi>OQ</mi><mo>=</mo><mfrac><msqrt><mn>26</mn></msqrt><mn>2</mn></mfrac>`);
+      if (special === 'min') return mathWrap(`<mi>OQ</mi><mo>=</mo><mfrac><msqrt><mn>10</mn></msqrt><mn>2</mn></mfrac>`);
+      if (special === 'end') return mathWrap(`<mi>OQ</mi><mo>=</mo><mfrac><msqrt><mn>14</mn></msqrt><mn>2</mn></mfrac>`);
+      return `<span class="mono">${fmt(state.oq)}</span>`;
+    }
+
+    function areaHTML(state, special) {
+      if (special === 'start') return mathWrap(`<mi>S</mi><mo>=</mo><mfrac><mn>5</mn><mn>4</mn></mfrac>`);
+      if (special === 'min') return mathWrap(`<mi>S</mi><mo>=</mo><mfrac><mn>3</mn><mn>4</mn></mfrac>`);
+      if (special === 'end') return mathWrap(`<mi>S</mi><mo>=</mo><mfrac><msqrt><mn>13</mn></msqrt><mn>4</mn></mfrac>`);
+      return `<span class="mono">${fmt(state.area)}</span>`;
+    }
+
+    function updateInfo(state) {
+      const special = getSpecialCase(state);
+      thetaText.innerHTML = thetaHTML(state.theta, special);
+      pText.innerHTML = pHTML(state, special);
+      qText.innerHTML = qHTML(state, special);
+      xText.innerHTML = xInfoHTML(state, special);
+      oqText.innerHTML = oqHTML(state, special);
+      areaText.innerHTML = areaHTML(state, special);
+
+      if (special === 'min') {
+        statusPill.textContent = '최소 넓이 지점: 이때 접선과 OQ가 서로 수직이다';
+        statusPill.style.background = '#ecfdf5';
+        statusPill.style.color = '#047857';
+      } else if (special === 'start' || special === 'end') {
+        statusPill.textContent = '범위의 끝점에 도달했다';
+        statusPill.style.background = '#eef2ff';
+        statusPill.style.color = '#4338ca';
+      } else if (state.oq < minOQ + 0.08) {
+        statusPill.textContent = 'OQ가 작아질수록 넓이도 함께 작아진다';
+        statusPill.style.background = '#ecfeff';
+        statusPill.style.color = '#0f766e';
+      } else {
+        statusPill.textContent = '현재 상태 관찰 중';
+        statusPill.style.background = '#f3f4f6';
+        statusPill.style.color = '#374151';
+      }
+    }
+
+    function render() {
+      const theta = getTheta();
+      const state = getState(theta);
+      const O = { x: 0, y: 0 };
+      const P = state.P;
+      const Q = state.Q;
+      const midpoint = { x: P.x / 2, y: P.y / 2 };
+      const dir = { x: -P.y, y: P.x };
+      const special = getSpecialCase(state);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      drawAxes();
+      drawParabola();
+      drawCircleArc();
+      drawTrail(theta);
+      drawTriangle(O, P, Q);
+      drawSegment(O, P, '#111827', 2.6);
+      drawHintLink(Q);
+      drawLineInfinite(midpoint, dir, '#f59e0b', 2.3, [10, 7]);
+      drawMidpoint(P);
+
+      drawPoint(qStart, '#7c3aed', 5, 'Q₁', 8, -10);
+      drawCoordinateLabel(qStart, '(1/2, -5/2)', 8, 18, '#6d28d9');
+      drawPoint(qEnd, '#7c3aed', 5, 'Q₂', 8, -10);
+      drawCoordinateLabel(qEnd, '(√13/2, 1/2)', -92, -14, '#6d28d9');
+
+      if (showMin) {
+        drawPoint(qMin, '#059669', 6, 'Qmin');
+        drawPoint(pMin, '#059669', 6, 'Pmin');
+      }
+
+      if (special === 'min') {
+        drawTangentAtMinimum();
+      }
+
+      drawPoint(O, '#111827', 5, 'O', 10, -8);
+      drawPoint(P, '#2563eb', 7, 'P');
+      drawPoint(Q, '#dc2626', 7, 'Q');
+      drawFunctionLabels();
+      updateInfo(state);
+      drawThetaGraph(state);
+    }
+
+    function animate() {
+      if (!isPlaying) return;
+      let v = Number(slider.value);
+      v += 3;
+      if (v > 1000) {
+        v = 1000;
+        isPlaying = false;
+        playBtn.textContent = '▶ 자동 재생';
+      }
+      slider.value = String(v);
+      render();
+      if (isPlaying) rafId = requestAnimationFrame(animate);
+    }
+
+    slider.addEventListener('input', render);
+
+    playBtn.addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      playBtn.textContent = isPlaying ? '⏸ 일시정지' : '▶ 자동 재생';
+      if (isPlaying) {
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(animate);
+      } else {
+        cancelAnimationFrame(rafId);
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      isPlaying = false;
+      playBtn.textContent = '▶ 자동 재생';
+      cancelAnimationFrame(rafId);
+      slider.value = '0';
+      render();
+    });
+
+    minBtn.addEventListener('click', () => {
+      showMin = !showMin;
+      minBtn.textContent = showMin ? '최소 넓이 점 표시 끄기' : '최소 넓이 점 표시 켜기';
+      render();
+    });
+
+    hintToggleBtn.addEventListener('click', () => {
+      hintVisible = !hintVisible;
+      hintBox.classList.toggle('show', hintVisible);
+      hintToggleBtn.textContent = hintVisible ? '힌트 끄기' : '힌트 보기';
+    });
+
+    render();
+  </script>
+</body>
+</html>

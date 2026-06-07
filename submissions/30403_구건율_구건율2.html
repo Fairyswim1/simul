@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>미적분학 오차 보완 시뮬레이터</title>
+    <style>
+        body {
+            background-color: #f1f5f9;
+            font-family: 'Malgun Gothic', sans-serif;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            width: 1140px;
+            margin: 20px auto;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        }
+        .canvas-box {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        canvas {
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        .control-panel {
+            margin-top: 25px;
+            background-color: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .slider-label {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1e293b;
+            width: 250px;
+            text-align: left;
+        }
+        .time-slider {
+            width: 75%;
+            height: 8px;
+            border-radius: 5px;
+            background: #cbd5e1;
+            outline: none;
+            cursor: pointer;
+        }
+        #kSlider { background: #93c5fd; }
+        .desc {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #1e40af;
+            line-height: 1.6;
+            background: #eff6ff;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #bfdbfe;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>[보완 완료] 오차 교정 및 자동 배율 연동 미적분 시뮬레이션</h2>
+    
+    <div class="container">
+        <div class="canvas-box">
+            <div>
+                <h3 style="color:#334155; margin-top:0;">기하학적 운동 시뮬레이션</h3>
+                <canvas id="simCanvas" width="540" height="500"></canvas>
+            </div>
+            <div>
+                <h3 style="color:#334155; margin-top:0;">시간($t$)별 길이·넓이 그래프 (정밀 적분 반영)</h3>
+                <canvas id="graphCanvas" width="540" height="500"></canvas>
+            </div>
+        </div>
+        
+        <div class="control-panel">
+            <div class="slider-group">
+                <span class="slider-label">회전 속도 비율 (<span style="color:#2563eb;">k</span>) : <span id="kVal">3</span>배 속도</span>
+                <input type="range" id="kSlider" class="time-slider" min="1" max="6" step="1" value="3">
+            </div>
+            <div class="slider-group">
+                <span class="slider-label">시간 제어 (<span style="color:#dc2626;">t</span>) : <span id="timeVal">0.000</span> rad</span>
+                <input type="range" id="tSlider" class="time-slider" min="0" max="6.2831" step="0.005" value="0">
+            </div>
+        </div>
+
+        <div class="desc">
+            ✅ <strong>보완 업데이트 완료:</strong> 사다리꼴 수치적분 알고리즘을 반영하여 컴퓨터 연산 오차를 제거했습니다. <br>
+            $k=3$ 상태에서 $t$를 끝까지($6.283$) 밀면 이론값인 <strong>길이 24.00 / 넓이 18.85 ($6\pi$)</strong>와 완벽히 일치합니다.
+        </div>
+    </div>
+
+    <script>
+        var simCanvas = document.getElementById("simCanvas");
+        var simCtx = simCanvas.getContext("2d");
+        var graphCanvas = document.getElementById("graphCanvas");
+        var graphCtx = graphCanvas.getContext("2d");
+        
+        var tSlider = document.getElementById("tSlider");
+        var timeVal = document.getElementById("timeVal");
+        var kSlider = document.getElementById("kSlider");
+        var kVal = document.getElementById("kVal");
+
+        var scx = 270; var scy = 250; 
+        var R = 3; var r = 1; 
+
+        // 수학적 점 위치 계산 함수 (수학 좌표계 기준)
+        function getPosition(t, k) {
+            var x = R * Math.cos(t) + r * Math.cos(-k * t);
+            var y = R * Math.sin(t) + r * Math.sin(-k * t);
+            return {x: x, y: y};
+        }
+
+        // 미분값 (속도 벡터) 계산 함수
+        function getVelocity(t, k) {
+            var dx = -R * Math.sin(t) + k * r * Math.sin(-k * t);
+            var dy = R * Math.cos(t) - k * r * Math.cos(-k * t);
+            return {dx: dx, dy: dy};
+        }
+
+        function drawAll() {
+            var currentT = parseFloat(tSlider.value);
+            var currentK = parseInt(kSlider.value);
+            
+            timeVal.innerHTML = currentT.toFixed(3);
+            kVal.innerHTML = currentK;
+
+            // [보완 2 반영] k값에 따른 자동 배율 조절 알고리즘 (화면 탈출 방지)
+            // k가 커지거나 작아져도 최대 반경을 계산해 캔버스 안에 항상 이쁘게 들어오도록 셋팅
+            var maxRadius = R + r; 
+            var sScale = 220 / maxRadius; 
+
+            // ==========================================
+            // 1. 왼쪽: 기하 운동 시뮬레이션 그리기
+            // ==========================================
+            simCtx.clearRect(0, 0, 540, 500);
+
+            // 좌표축
+            simCtx.strokeStyle = "#e2e8f0"; simCtx.lineWidth = 1; simCtx.beginPath();
+            simCtx.moveTo(0, scy); simCtx.lineTo(540, scy); simCtx.moveTo(scx, 0); simCtx.lineTo(scx, 500); simCtx.stroke();
+
+            // 중심 고정 원
+            simCtx.strokeStyle = "#94a3b8"; simCtx.lineWidth = 2; simCtx.beginPath();
+            simCtx.arc(scx, scy, R * sScale, 0, 2 * Math.PI); simCtx.stroke();
+
+            // [보완 3 반영] 사다리꼴 공식을 이용한 정밀 수치적분 데이터 생성
+            var fullTimePoints = [];
+            var fullLengthHistory = [];
+            var fullAreaHistory = [];
+
+            var totalLength = 0;
+            var totalAreaSum = 0;
+            var step = 0.001; // 더 촘촘한 간격으로 정확도 극대화
+            
+            var currentLengthPos = 0;
+            var currentAreaPos = 0;
+
+            // t = 0 일 때 초기 조건
+            var p0 = getPosition(0, currentK);
+            var v0 = getVelocity(0, currentK);
+            var ds0 = Math.sqrt(v0.dx*v0.dx + v0.dy*v0.dy);
+            var da0 = p0.x * v0.dy - p0.y * v0.dx;
+
+            fullTimePoints.push(0);
+            fullLengthHistory.push(0);
+            fullAreaHistory.push(0);
+
+            var idx = 1;
+            for (var i = step; i <= 6.28318 + 0.0001; i += step) {
+                var p1 = getPosition(i, currentK);
+                var v1 = getVelocity(i, currentK);
+                var ds1 = Math.sqrt(v1.dx*v1.dx + v1.dy*v1.dy);
+                var da1 = p1.x * v1.dy - p1.y * v1.dx;
+
+                // 사다리꼴 공식 적용: (f(t0) + f(t1)) * step / 2
+                totalLength += (ds0 + ds1) * step / 2;
+                totalAreaSum += (da0 + da1) * step / 2;
+
+                fullTimePoints.push(i);
+                fullLengthHistory.push(totalLength);
+                
+                // [보완 1 반영] Y축 반전 기하 왜곡 부호 보정 처리
+                fullAreaHistory.push(Math.abs(totalAreaSum * 0.5)); 
+
+                if (i <= currentT + 0.0001) {
+                    currentLengthPos = totalLength;
+                    currentAreaPos = Math.abs(totalAreaSum * 0.5);
+                }
+
+                // 다음 루프를 위해 이전 값 갱신
+                p0 = p1; v0 = v1; ds0 = ds1; da0 = da1;
+                idx++;
+            }
+
+            // 왼쪽 창: 실제 궤적 선 그리기
+            simCtx.strokeStyle = "#dc2626"; simCtx.lineWidth = 3; simCtx.beginPath();
+            for(var j=0; j<fullTimePoints.length; j++) {
+                if(fullTimePoints[j] > currentT + 0.0001) break;
+                var pt = getPosition(fullTimePoints[j], currentK);
+                var pbx = scx + pt.x * sScale;
+                var pby = scy - pt.y * sScale; // 화면 드로잉 시에만 Y축 반전
+                if(j === 0) simCtx.moveTo(pbx, pby); else simCtx.lineTo(pbx, pby);
+            }
+            simCtx.stroke();
+
+            // 현재 요소들 렌더링
+            var curA_x = R * Math.cos(currentT); var curA_y = R * Math.sin(currentT);
+            var curPt = getPosition(currentT, currentK);
+
+            var ax = scx + curA_x * sScale; var ay = scy - curA_y * sScale;
+            var bx = scx + curPt.x * sScale; var by = scy - curPt.y * sScale;
+
+            simCtx.strokeStyle = "#10b981"; simCtx.lineWidth = 1.5; simCtx.beginPath();
+            simCtx.arc(ax, ay, r * sScale, 0, 2 * Math.PI); simCtx.stroke();
+
+            simCtx.strokeStyle = "#60a5fa"; simCtx.beginPath();
+            simCtx.moveTo(scx, scy); simCtx.lineTo(ax, ay); simCtx.lineTo(bx, by); simCtx.stroke();
+
+            simCtx.fillStyle = "#2563eb"; simCtx.beginPath(); simCtx.arc(ax, ay, 5, 0, 2 * Math.PI); simCtx.fill();
+            simCtx.fillStyle = "#dc2626"; simCtx.beginPath(); simCtx.arc(bx, by, 6, 0, 2 * Math.PI); simCtx.fill();
+
+            simCtx.fillStyle = "#1e293b"; simCtx.font = "bold 13px sans-serif";
+            simCtx.fillText("정밀 연산 데이터 (k=" + currentK + ")", 15, 25);
+            simCtx.font = "12px sans-serif"; simCtx.fillStyle = "#475569";
+            simCtx.fillText("현재 길이(L) = " + currentLengthPos.toFixed(2), 15, 45);
+            simCtx.fillText("현재 넓이(A) = " + currentAreaPos.toFixed(2), 15, 65);
+
+
+            // ==========================================
+            // 2. 오른쪽: 그래프 및 현재 위치 특정하기
+            // ==========================================
+            graphCtx.clearRect(0, 0, 540, 500);
+            var originX = 60; var originY = 440; var graphW = 450; var graphH = 390;   
+
+            // 축
+            graphCtx.strokeStyle = "#475569"; graphCtx.lineWidth = 2; graphCtx.beginPath();
+            graphCtx.moveTo(originX, originY - graphH); graphCtx.lineTo(originX, originY); graphCtx.lineTo(originX + graphW, originY);
+            graphCtx.stroke();
+
+            // 세로축 맥스 스케일 동적 대응
+            var yMaxVal = 10 + currentK * 5; 
+            graphCtx.strokeStyle = "#f1f5f9"; graphCtx.lineWidth = 1;
+            graphCtx.fillStyle = "#64748b"; graphCtx.font = "11px sans-serif";
+            
+            var stepY = yMaxVal / 5;
+            for(var v = stepY; v <= yMaxVal; v += stepY) {
+                var gridY = originY - (v / yMaxVal) * graphH;
+                graphCtx.beginPath(); graphCtx.moveTo(originX, gridY); graphCtx.lineTo(originX + graphW, gridY); graphCtx.stroke();
+                graphCtx.fillText(v.toFixed(0), originX - 25, gridY + 4);
+            }
+            graphCtx.fillText("0", originX - 15, originY + 5);
+
+            // 가로축 시간 t
+            var xMaxVal = 6.28318;
+            var tLabels = [0, 1.5708, 3.1416, 4.7123, 6.28318];
+            var tText = ["0", "π/2", "π", "3π/2", "2π"];
+            for(var h=0; h<tLabels.length; h++) {
+                var gridX = originX + (tLabels[h] / xMaxVal) * graphW;
+                graphCtx.fillText(tText[h], gridX - 10, originY + 18);
+            }
+            graphCtx.font = "bold 12px sans-serif"; graphCtx.fillText("시간 (t)", originX + graphW - 20, originY + 35);
+
+            // ① 전체 길이 배경 점선
+            graphCtx.strokeStyle = "#fca5a5"; graphCtx.lineWidth = 1.5; graphCtx.setLineDash([3, 3]); graphCtx.beginPath();
+            for (var k = 0; k < fullTimePoints.length; k+=5) {
+                var gx = originX + (fullTimePoints[k] / xMaxVal) * graphW; var gy = originY - (fullLengthHistory[k] / yMaxVal) * graphH;
+                if (k === 0) graphCtx.moveTo(gx, gy); else graphCtx.lineTo(gx, gy);
+            }
+            graphCtx.stroke();
+
+            // ② 현재 길이 실선
+            graphCtx.strokeStyle = "#dc2626"; graphCtx.lineWidth = 3; graphCtx.setLineDash([]); graphCtx.beginPath();
+            for (var k = 0; k < fullTimePoints.length; k+=5) {
+                if (fullTimePoints[k] > currentT + 0.0001) break;
+                var gx = originX + (fullTimePoints[k] / xMaxVal) * graphW; var gy = originY - (fullLengthHistory[k] / yMaxVal) * graphH;
+                if (k === 0) graphCtx.moveTo(gx, gy); else graphCtx.lineTo(gx, gy);
+            }
+            graphCtx.stroke();
+
+            // ③ 전체 넓이 배경 점선
+            graphCtx.strokeStyle = "#93c5fd"; graphCtx.lineWidth = 1.5; graphCtx.setLineDash([3, 3]); graphCtx.beginPath();
+            for (var k = 0; k < fullTimePoints.length; k+=5) {
+                var gx = originX + (fullTimePoints[k] / xMaxVal) * graphW; var gy = originY - (fullAreaHistory[k] / yMaxVal) * graphH;
+                if (k === 0) graphCtx.moveTo(gx, gy); else graphCtx.lineTo(gx, gy);
+            }
+            graphCtx.stroke();
+
+            // ④ 현재 넓이 실선
+            graphCtx.strokeStyle = "#2563eb"; graphCtx.lineWidth = 3; graphCtx.setLineDash([]); graphCtx.beginPath();
+            for (var k = 0; k < fullTimePoints.length; k+=5) {
+                if (fullTimePoints[k] > currentT + 0.0001) break;
+                var gx = originX + (fullTimePoints[k] / xMaxVal) * graphW; var gy = originY - (fullAreaHistory[k] / yMaxVal) * graphH;
+                if (k === 0) graphCtx.moveTo(gx, gy); else graphCtx.lineTo(gx, gy);
+            }
+            graphCtx.stroke();
+
+            // 포인터 인디케이터 점 찍기
+            var pointerX = originX + (currentT / xMaxVal) * graphW;
+            var lengthPointerY = originY - (currentLengthPos / yMaxVal) * graphH;
+            var areaPointerY = originY - (currentAreaPos / yMaxVal) * graphH;
+
+            graphCtx.strokeStyle = "#cbd5e1"; graphCtx.lineWidth = 1; graphCtx.setLineDash([4, 2]);
+            graphCtx.beginPath(); graphCtx.moveTo(pointerX, originY); graphCtx.lineTo(pointerX, originY - graphH); graphCtx.stroke();
+            graphCtx.setLineDash([]); 
+
+            // 길이 마커 (주황색)
+            graphCtx.fillStyle = "#ea580c"; graphCtx.strokeStyle = "#ffffff"; graphCtx.lineWidth = 2;
+            graphCtx.beginPath(); graphCtx.arc(pointerX, lengthPointerY, 7, 0, 2 * Math.PI); graphCtx.fill(); graphCtx.stroke();
+
+            // 넓이 마커 (보라색)
+            graphCtx.fillStyle = "#7c3aed"; graphCtx.strokeStyle = "#ffffff"; graphCtx.lineWidth = 2;
+            graphCtx.beginPath(); graphCtx.arc(pointerX, areaPointerY, 7, 0, 2 * Math.PI); graphCtx.fill(); graphCtx.stroke();
+
+            graphCtx.font = "bold 12px sans-serif";
+            graphCtx.fillStyle = "#dc2626"; graphCtx.fillText("■ 곡선 길이 (현재 위치: ●)", originX + 30, originY - graphH + 30);
+            graphCtx.fillStyle = "#2563eb"; graphCtx.fillText("■ 영역 넓이 (현재 위치: ●)", originX + 30, originY - graphH + 50);
+        }
+
+        tSlider.addEventListener("input", drawAll);
+        kSlider.addEventListener("input", drawAll);
+        drawAll();
+    </script>
+</body>
+</html>

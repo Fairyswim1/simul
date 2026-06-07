@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>개선 시뮬레이터</title>
+<style>
+  :root{
+    --bg:#f5f7fb;--panel:#fff;--ink:#111827;--muted:#667085;--line:#d0d5dd;--grid:#eef2f7;
+    --blue:#2563eb;--red:#dc2626;--green:#059669;--orange:#f59e0b;--purple:#7c3aed;--shadow:rgba(15,23,42,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;color:var(--ink)}
+  header{max-width:1240px;margin:0 auto;padding:24px 28px 10px}
+  h1{font-size:25px;margin:0 0 8px}
+  h2,h3{margin:0 0 10px}
+  p{line-height:1.6;color:var(--muted);margin:6px 0}
+  main{max-width:1240px;margin:0 auto;padding:10px 28px 30px;display:grid;grid-template-columns:380px 1fr;gap:18px}
+  .card{background:var(--panel);border:1px solid #e5e7eb;border-radius:18px;padding:18px;box-shadow:0 8px 22px var(--shadow)}
+  label{font-weight:800;display:block;margin-bottom:8px}
+  input[type=range]{width:100%}
+  .value{font-size:19px;font-weight:900;margin-top:5px}
+  .toggles label{font-weight:600;margin:10px 0;color:#344054;display:flex;gap:8px;align-items:center}
+  .box{font-family:"Cambria Math","Times New Roman","Malgun Gothic",serif;background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:12px;margin-top:12px;line-height:1.85;overflow-x:auto}
+  .caption{font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;font-weight:800;margin-bottom:6px;color:#344054}
+  .result{margin-top:12px;border-radius:14px;background:#f9fafb;border:1px solid #e5e7eb;padding:12px;line-height:1.9;overflow-x:auto}
+  .result b{color:#111827;font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif}
+  .math{font-family:"Cambria Math","Times New Roman","Malgun Gothic",serif;font-size:1.04em;white-space:nowrap}
+  .display-math{display:block;margin:7px 0;font-family:"Cambria Math","Times New Roman","Malgun Gothic",serif;font-size:1.08em;white-space:nowrap}
+  sup,sub{font-size:.72em;line-height:0}
+  .frac{display:inline-grid;grid-template-rows:auto auto;vertical-align:middle;text-align:center;line-height:1.05;margin:0 .12em;position:relative;top:-.05em}
+  .frac .top{border-bottom:1.4px solid currentColor;padding:0 .22em .09em}
+  .frac .bottom{padding:.09em .22em 0}
+  .cases{display:inline-grid;grid-template-columns:auto auto;gap:2px 12px;vertical-align:middle;margin-left:.25em}
+  .brace{font-size:2.7em;vertical-align:middle;line-height:.7}
+  .small{font-size:13px;color:var(--muted)}
+  .tiny{font-size:12px;color:#667085;font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif}
+  canvas{width:100%;height:auto;background:white;border:1px solid var(--line);border-radius:16px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;color:#475467;font-size:14px}
+  .dot{display:inline-block;width:14px;height:5px;vertical-align:middle;border-radius:999px;margin-right:6px}
+  .layout2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border-bottom:1px solid #e5e7eb;padding:7px 6px;text-align:center;white-space:nowrap;vertical-align:middle}
+  th{background:#f9fafb;font-weight:800}
+  @media(max-width:980px){main{grid-template-columns:1fr}.layout2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>개선 시뮬레이터: <span class="math">h<sub>n</sub>(x)</span>, <span class="math">h<sub>n</sub><sup>−1</sup>(x)</span>, 구간 분할과 적분값</h1>
+</header>
+<main>
+  <section class="card">
+    <label for="nSlider">합성 횟수 <span class="math">n</span></label>
+    <input id="nSlider" type="range" min="1" max="12" value="4" />
+    <div class="value">n = <span id="nVal">4</span></div>
+    <div class="toggles">
+      <label><input id="showPrev" type="checkbox" checked /> 이전 단계 <span class="math">h<sub>1</sub>∼h<sub>n−1</sub></span> 함께 표시</label>
+      <label><input id="showBreaks" type="checkbox" checked /> 기울기 변화 구간 표시</label>
+      <label><input id="showRec" type="checkbox" checked /> 점화식 구조 표시</label>
+      <label><input id="showInv" type="checkbox" checked /> 역함수 <span class="math">h<sub>n</sub><sup>−1</sup></span> 표시</label>
+    </div>
+
+    <div class="box">
+      <div class="caption">문제에서 주어진 함수와 합성함수</div>
+      <span class="display-math">
+        h(x)=<span class="brace">{</span><span class="cases">
+          <span><span class="frac"><span class="top">x</span><span class="bottom">2</span></span></span><span>0 ≤ x ≤ <span class="frac"><span class="top">2</span><span class="bottom">3</span></span></span>
+          <span>2x−1</span><span><span class="frac"><span class="top">2</span><span class="bottom">3</span></span> ≤ x ≤ 1</span>
+        </span>
+      </span>
+      <span class="display-math">h<sub>n</sub>= h ∘ h ∘ ⋯ ∘ h &nbsp; <span class="tiny">(h가 n개)</span></span>
+    </div>
+
+    <div class="box">
+      <div class="caption">시뮬레이터가 확인하는 적분값</div>
+      <span class="display-math">C<sub>n</sub>=∫<sub>0</sub><sup>1</sup> h<sub>n</sub>(x) dx = <span class="frac"><span class="top">n+3</span><span class="bottom">6·2<sup>n</sup></span></span></span>
+      <span class="display-math">∫<sub>0</sub><sup>1</sup> h<sub>n</sub><sup>−1</sup>(x) dx = 1−C<sub>n</sub> = <span class="frac"><span class="top">6·2<sup>n</sup>−(n+3)</span><span class="bottom">6·2<sup>n</sup></span></span></span>
+      <span class="display-math">C<sub>1</sub>=<span class="frac"><span class="top">1</span><span class="bottom">3</span></span>, &nbsp; C<sub>n</sub>=<span class="frac"><span class="top">1</span><span class="bottom">2</span></span>C<sub>n−1</sub>+<span class="frac"><span class="top">1</span><span class="bottom">6·2<sup>n</sup></span></span> &nbsp; (n ≥ 2)</span>
+    </div>
+
+    <div class="result" id="resultBox"></div>
+  </section>
+
+  <section class="card">
+    <canvas id="plot" width="820" height="820" aria-label="improved simulator graph"></canvas>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--blue)"></i><span class="math">h<sub>n</sub>(x)</span></span>
+      <span><i class="dot" style="background:rgba(37,99,235,.25)"></i>이전 단계</span>
+      <span><i class="dot" style="background:var(--red)"></i><span class="math">h<sub>n</sub><sup>−1</sup>(x)</span></span>
+      <span><i class="dot" style="background:var(--green)"></i><span class="math"><span class="frac"><span class="top">1</span><span class="bottom">2</span></span>h<sub>n−1</sub>(x)</span></span>
+      <span><i class="dot" style="background:rgba(245,158,11,.42)"></i>추가 넓이</span>
+    </div>
+    <div class="card" style="box-shadow:none;padding:12px;margin-top:14px">
+      <h3 style="font-size:16px"><span class="math">n</span>까지의 넓이 표</h3>
+      <div id="tableWrap"></div>
+    </div>
+  </section>
+</main>
+<script>
+const canvas=document.getElementById('plot'), ctx=canvas.getContext('2d');
+const nSlider=document.getElementById('nSlider'), nVal=document.getElementById('nVal');
+const showPrev=document.getElementById('showPrev'), showBreaks=document.getElementById('showBreaks'), showRec=document.getElementById('showRec'), showInv=document.getElementById('showInv');
+const resultBox=document.getElementById('resultBox'), tableWrap=document.getElementById('tableWrap');
+const W=canvas.width,H=canvas.height,pad=72;
+function sx(x){return pad+x*(W-2*pad)}
+function sy(y){return H-pad-y*(H-2*pad)}
+function h(x){return x<=2/3?x/2:2*x-1}
+function hinv(y){return y<=1/3?2*y:(y+1)/2}
+function iter(fn,x,n){let v=x; for(let i=0;i<n;i++) v=fn(v); return v}
+function hN(x,n){return iter(h,x,n)}
+function invN(x,n){return iter(hinv,x,n)}
+function gcdBig(a,b){a=a<0n?-a:a; b=b<0n?-b:b; while(b){let t=a%b; a=b; b=t} return a}
+function pow2(n){return 1n<<BigInt(n)}
+function reduceFrac(num,den){num=BigInt(num); den=BigInt(den); const g=gcdBig(num,den); return {num:num/g, den:den/g}}
+function fracHTML(num,den){
+  const f=reduceFrac(num,den);
+  if(f.den===1n) return String(f.num);
+  return `<span class="frac"><span class="top">${f.num}</span><span class="bottom">${f.den}</span></span>`;
+}
+function oneOverHTML(denText){return `<span class="frac"><span class="top">1</span><span class="bottom">${denText}</span></span>`}
+function CfracHTML(n){return fracHTML(BigInt(n+3), 6n*pow2(n))}
+function IfracHTML(n){const den=6n*pow2(n); return fracHTML(den-BigInt(n+3), den)}
+function Cnum(n){return (n+3)/(6*Math.pow(2,n))}
+function Inum(n){return 1-Cnum(n)}
+function piecesOfHN(n){
+  let pieces=[{a:0,b:2/3,m:1/2,c:0},{a:2/3,b:1,m:2,c:-1}];
+  if(n===1) return pieces;
+  for(let k=2;k<=n;k++){
+    const next=[];
+    for(const p of pieces){
+      const ya=p.m*p.a+p.c, yb=p.m*p.b+p.c, t=2/3, eps=1e-12;
+      if(yb<=t+eps){next.push({a:p.a,b:p.b,m:p.m/2,c:p.c/2});}
+      else if(ya>=t-eps){next.push({a:p.a,b:p.b,m:2*p.m,c:2*p.c-1});}
+      else{
+        const x0=(t-p.c)/p.m;
+        next.push({a:p.a,b:x0,m:p.m/2,c:p.c/2});
+        next.push({a:x0,b:p.b,m:2*p.m,c:2*p.c-1});
+      }
+    }
+    pieces=next;
+  }
+  return pieces;
+}
+function drawGrid(){
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='white'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#eef2f7'; ctx.lineWidth=1; ctx.font='13px Malgun Gothic, Arial'; ctx.fillStyle='#667085';
+  for(let i=0;i<=6;i++){
+    const v=i/6;
+    ctx.beginPath(); ctx.moveTo(sx(v),sy(0)); ctx.lineTo(sx(v),sy(1)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx(0),sy(v)); ctx.lineTo(sx(1),sy(v)); ctx.stroke();
+    let label = i===0?'0':i===6?'1':`${i}/6`;
+    ctx.fillText(label, sx(v)-9, sy(0)+24);
+    if(i>0)ctx.fillText(label, sx(0)-38, sy(v)+5);
+  }
+  ctx.strokeStyle='#344054'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(sx(0),sy(0)); ctx.lineTo(sx(1),sy(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx(0),sy(0)); ctx.lineTo(sx(0),sy(1)); ctx.stroke();
+  ctx.fillStyle='#344054'; ctx.font='16px Malgun Gothic, Arial'; ctx.fillText('x',sx(1)+18,sy(0)+5); ctx.fillText('y',sx(0)-5,sy(1)-22);
+  ctx.setLineDash([6,6]); ctx.strokeStyle='#98a2b3'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(sx(0),sy(0)); ctx.lineTo(sx(1),sy(1)); ctx.stroke(); ctx.setLineDash([]);
+}
+function drawCurve(fn,n,color,width=3,alpha=1,dash=null){
+  ctx.save(); ctx.globalAlpha=alpha; ctx.strokeStyle=color; ctx.lineWidth=width; if(dash)ctx.setLineDash(dash); ctx.beginPath();
+  const steps=1600;
+  for(let i=0;i<=steps;i++){const x=i/steps, y=fn(x,n); if(i===0)ctx.moveTo(sx(x),sy(y)); else ctx.lineTo(sx(x),sy(y));}
+  ctx.stroke(); ctx.restore();
+}
+function drawHalfPrev(n){
+  if(n<2)return;
+  ctx.strokeStyle='#059669'; ctx.lineWidth=2.2; ctx.setLineDash([10,5]); ctx.beginPath();
+  const steps=1400;
+  for(let i=0;i<=steps;i++){const x=i/steps, y=0.5*hN(x,n-1); if(i===0)ctx.moveTo(sx(x),sy(y)); else ctx.lineTo(sx(x),sy(y));}
+  ctx.stroke(); ctx.setLineDash([]);
+}
+function shadeExtra(n){
+  if(n<2)return;
+  const steps=1600; ctx.fillStyle='rgba(245,158,11,.42)'; ctx.beginPath();
+  let started=false;
+  for(let i=0;i<=steps;i++){
+    const x=i/steps, y1=0.5*hN(x,n-1), y2=hN(x,n);
+    if(y2-y1>1e-8){ if(!started){ctx.moveTo(sx(x),sy(y1)); started=true;} else ctx.lineTo(sx(x),sy(y1)); }
+  }
+  for(let i=steps;i>=0;i--){
+    const x=i/steps, y1=0.5*hN(x,n-1), y2=hN(x,n);
+    if(y2-y1>1e-8){ ctx.lineTo(sx(x),sy(y2)); }
+  }
+  if(started){ctx.closePath(); ctx.fill();}
+}
+function markBreaks(n){
+  const pieces=piecesOfHN(n);
+  const pts=[...new Set(pieces.flatMap(p=>[p.a,p.b]).map(v=>Math.round(v*1e12)/1e12))].sort((a,b)=>a-b);
+  ctx.save(); ctx.strokeStyle='rgba(124,58,237,.55)'; ctx.fillStyle='#6d28d9'; ctx.lineWidth=1; ctx.setLineDash([4,5]); ctx.font='12px Malgun Gothic, Arial';
+  pts.forEach((x,idx)=>{
+    ctx.beginPath(); ctx.moveTo(sx(x),sy(0)); ctx.lineTo(sx(x),sy(1)); ctx.stroke();
+    if(idx!==0 && idx!==pts.length-1){ctx.save(); ctx.translate(sx(x)-4, sy(0)+38); ctx.rotate(-Math.PI/4); ctx.fillText(x.toFixed(4),0,0); ctx.restore();}
+  });
+  ctx.restore();
+}
+function drawAreaUnderHN(n){
+  const steps=1200; ctx.fillStyle='rgba(37,99,235,.08)'; ctx.beginPath(); ctx.moveTo(sx(0),sy(0));
+  for(let i=0;i<=steps;i++){const x=i/steps; ctx.lineTo(sx(x),sy(hN(x,n)));}
+  ctx.lineTo(sx(1),sy(0)); ctx.closePath(); ctx.fill();
+}
+function updateTable(n){
+  let html='<table><thead><tr><th><span class="math">k</span></th><th><span class="math">C<sub>k</sub>=∫<sub>0</sub><sup>1</sup>h<sub>k</sub>(x)dx</span></th><th><span class="math">∫<sub>0</sub><sup>1</sup>h<sub>k</sub><sup>−1</sup>(x)dx</span></th><th>점화식 추가항</th></tr></thead><tbody>';
+  for(let k=1;k<=n;k++){
+    const add = k===1 ? '—' : `<span class="math">${oneOverHTML(`6·2<sup>${k}</sup>`)}</span>`;
+    html += `<tr><td>${k}</td><td><span class="math">${CfracHTML(k)}</span><br><span class="small">${Cnum(k).toFixed(6)}</span></td><td><span class="math">${IfracHTML(k)}</span><br><span class="small">${Inum(k).toFixed(6)}</span></td><td>${add}</td></tr>`;
+  }
+  html+='</tbody></table>'; tableWrap.innerHTML=html;
+}
+function updateResult(n){
+  const rec = n===1
+    ? `<span class="math">C<sub>1</sub>=${fracHTML(1,3)}</span>`
+    : `<span class="math">C<sub>${n}</sub>=${fracHTML(1,2)}C<sub>${n-1}</sub>+${oneOverHTML(`6·2<sup>${n}</sup>`)}</span>`;
+  resultBox.innerHTML = `
+    <b>현재 (n=${n})에서의 정확한 적분값</b>
+    <span class="display-math">C<sub>${n}</sub>=∫<sub>0</sub><sup>1</sup>h<sub>${n}</sub>(x)dx = <span class="frac"><span class="top">${n}+3</span><span class="bottom">6·2<sup>${n}</sup></span></span> = ${CfracHTML(n)} ≈ ${Cnum(n).toFixed(8)}</span>
+    <span class="display-math">∫<sub>0</sub><sup>1</sup>h<sub>${n}</sub><sup>−1</sup>(x)dx = 1−C<sub>${n}</sub> = ${IfracHTML(n)} ≈ ${Inum(n).toFixed(8)}</span>
+    <span class="small">점화식 확인: ${rec}</span>`;
+}
+function update(){
+  const n=+nSlider.value; nVal.textContent=n;
+  drawGrid();
+  drawAreaUnderHN(n);
+  if(showPrev.checked){for(let k=1;k<n;k++){drawCurve(hN,k,'#2563eb',2,0.12+0.35*k/n);}}
+  if(showRec.checked){shadeExtra(n); drawHalfPrev(n);}
+  if(showBreaks.checked)markBreaks(n);
+  drawCurve(hN,n,'#2563eb',4,1);
+  if(showInv.checked)drawCurve(invN,n,'#dc2626',3.4,1);
+  ctx.fillStyle='#111827'; ctx.font='18px Malgun Gothic, Arial'; ctx.fillText(`n = ${n}`,sx(.035),sy(.94));
+  updateResult(n); updateTable(n);
+}
+[nSlider,showPrev,showBreaks,showRec,showInv].forEach(el=>el.addEventListener('input',update));
+update();
+</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Shadow Perfect Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Orbitron:wght@600;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; background: #af6969; color: #0f3b08; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 1000px; background: #aecfa9; padding: 25px; border-radius: 20px; }
+        .layout { display: grid; grid-template-columns: 400px 1fr; gap: 25px; }
+        .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .input-box { display: flex; flex-direction: column; width: 100%; }
+        label { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #0f3b08; margin-bottom: 5px; font-weight: 700; }
+        input { font-family: 'JetBrains Mono', monospace; background: #f8a6a6; border: 1px solid #922929; color: #0f3b08; padding: 10px; border-radius: 5px; font-size: 1rem; width: 100%; box-sizing: border-box; }
+        button { font-family: 'Orbitron', sans-serif; width: 100%; padding: 15px; background: #cc6060; color: #0f3b08; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; margin-top: 10px; font-size: 1rem; letter-spacing: 1px; }
+        button:hover { background: #e37171; }
+        .equation-box { background: #450707; padding: 15px; border-radius: 10px; color: #aecfa9; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; border-left: 4px solid #cc6060; white-space: pre-wrap; overflow-x: auto; font-weight: 500; }
+        canvas { background: #350404; border-radius: 10px; width: 100%; height: 500px; border: 1px solid #333; }
+        h2 { font-family: 'Orbitron', sans-serif; color: #cc6060; text-align: center; margin-top: 0; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; }
+        .result-label { font-family: 'JetBrains Mono', monospace; display: block; margin: 15px 0 5px 0; font-weight: bold; color: #cc6060; font-size: 0.9rem; }
+        #areaOut, #fociOut { font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: bold; }
+        #scaleInfo { font-family: 'JetBrains Mono', monospace; color: #cc6060; font-weight: bold; font-size: 0.85rem; margin-top: 5px; display: inline-block; background: rgba(0,0,0,0.1); padding: 2px 8px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Sphere Shadow</h2>
+    <div class="layout">
+        <div>
+            <div class="input-group">
+                <div class="input-box"><label>Center x (t)</label><input type="number" id="t" value="3"></div>
+                <div class="input-box"><label>Center y (s)</label><input type="number" id="s" value="4"></div>
+                <div class="input-box"><label>Radius a</label><input type="number" id="a" value="2"></div>
+                <div class="input-box"><label>Light b</label><input type="number" id="b" value="10"></div>
+            </div>
+            <button onclick="calculate()">RUN ANALYSIS</button>
+            
+            <span class="result-label">EQUATION:</span>
+            <div id="eqOut" class="equation-box">Ready...</div>
+            
+            <span class="result-label">SHADOW AREA:</span>
+            <div id="areaOut">-</div>
+
+            <span class="result-label">FOCI COORDINATES:</span>
+            <div id="fociOut" style="color: #0f3b08; background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; font-size: 0.9rem;">-</div>
+        </div>
+        <div style="text-align: center;">
+            <canvas id="cvs" width="500" height="500"></canvas>
+            <p style="font-family: 'JetBrains Mono'; color:#0f3b08; font-size:0.8rem; margin-top:5px;">
+                XY-PLANE (Red: Origin | Yellow: Foci) | <span id="scaleInfo">Scale: 100%</span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+function calculate() {
+    const t = parseFloat(document.getElementById('t').value) || 0;
+    const s = parseFloat(document.getElementById('s').value) || 0;
+    const a = parseFloat(document.getElementById('a').value) || 0;
+    const b = parseFloat(document.getElementById('b').value) || 0;
+
+    if (b <= 2 * a) {
+        alert("에러: 광원 높이(b)는 구의 직경(2a)보다 커야 완전한 타원이 생성됩니다.");
+        return;
+    }
+
+    const h = b - a;
+    const r2 = a * a;
+    const A = h*h - r2 + t*t;
+    const B = 2 * t * s;
+    const C = h*h - r2 + s*s;
+    const D = -2 * t * b * h;
+    const E = -2 * s * b * h;
+    const F = b * b * (h * h - r2);
+
+    const fmt = (v) => (v >= 0 ? "+ " + v.toFixed(2) : "- " + Math.abs(v).toFixed(2));
+    const eqString = `${A.toFixed(2)}x² ${fmt(B)}xy ${fmt(C)}y² \n${fmt(D)}x ${fmt(E)}y ${fmt(F)} = 0`;
+    document.getElementById('eqOut').innerText = eqString;
+
+    const distSq = t*t + s*s;
+    const d = Math.sqrt(distSq);
+    const area = (Math.PI * r2 * b * Math.sqrt(distSq + b*b)) / Math.pow(b - 2*a, 2);
+    document.getElementById('areaOut').innerText = area.toFixed(4);
+
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    
+    const angle = Math.atan2(s, t);
+    let major, minor;
+    if (d === 0) {
+        major = (a * b) / (b - 2 * a);
+        minor = major;
+    } else {
+        major = (a * b * Math.sqrt(d*d + b*b)) / (b*b - 2*a*b);
+        minor = (a * b) / Math.sqrt(b*b - 2*a*b);
+    }
+
+    // 초점 거리 c (c^2 = major^2 - minor^2)
+    const focalDist = Math.sqrt(Math.abs(major * major - minor * minor));
+
+    const shadowCX = (t * b) / (b - 2*a);
+    const shadowCY = (s * b) / (b - 2*a);
+
+    // 초점 좌표 계산 (중심에서 angle 방향으로 ±focalDist)
+    const f1x = shadowCX + focalDist * Math.cos(angle);
+    const f1y = shadowCY + focalDist * Math.sin(angle);
+    const f2x = shadowCX - focalDist * Math.cos(angle);
+    const f2y = shadowCY - focalDist * Math.sin(angle);
+
+    document.getElementById('fociOut').innerHTML = `F1: (${f1x.toFixed(2)}, ${f1y.toFixed(2)})<br>F2: (${f2x.toFixed(2)}, ${f2y.toFixed(2)})`;
+
+    const furthestPoint = Math.sqrt(shadowCX * shadowCX + shadowCY * shadowCY) + major;
+    let scale = (cvs.width / 2) / (furthestPoint || 1) * 0.8;
+    if (scale > 20) scale = 20;
+    const scalePercent = ((scale / 20) * 100).toFixed(0);
+    document.getElementById('scaleInfo').innerText = `Scale: ${scalePercent}% (${(1/scale).toFixed(2)} unit/px)`;
+
+    const cx = cvs.width / 2;
+    const cy = cvs.height / 2;
+
+    ctx.strokeStyle = '#333';
+    ctx.beginPath();
+    const step = scale < 2 ? 20 : 5; 
+    for(let i = -200; i <= 200; i += step) {
+        ctx.moveTo(cx + i * scale, 0); ctx.lineTo(cx + i * scale, cvs.height);
+        ctx.moveTo(0, cy + i * scale); ctx.lineTo(cvs.width, cy + i * scale);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = '#444';
+    ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(cvs.width, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, cvs.height); ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx + shadowCX * scale, cy - shadowCY * scale);
+    ctx.rotate(-angle);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, major * scale, minor * scale, 0, 0, 2 * Math.PI);
+    ctx.fillStyle = 'rgba(50, 200, 30, 0.30)';
+    ctx.fill();
+    ctx.strokeStyle = '#3a8811';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    // 초점 그리기 (노란색 점)
+    ctx.fillStyle = "yellow";
+    ctx.beginPath(); ctx.arc(cx + f1x * scale, cy - f1y * scale, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + f2x * scale, cy - f2y * scale, 4, 0, Math.PI*2); ctx.fill();
+
+    ctx.fillStyle = "red";
+    ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
+}
+calculate();
+</script>
+</body>
+</html>

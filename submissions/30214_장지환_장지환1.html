@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>기하 29번 문제 시뮬레이터 (고도화 버전)</title>
+    <style>
+        body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; display: flex; gap: 20px; }
+        #sidebar { width: 360px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow-y: auto; max-height: 90vh; }
+        #canvas-wrapper { flex: 1; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; }
+        canvas { border: 1px solid #e0e0e0; border-radius: 8px; background-color: #fafafa; width: 100%; max-width: 700px;}
+        h2 { margin-top: 0; font-size: 1.1rem; color: #333; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+        .control-group { margin-bottom: 15px; }
+        label { font-weight: bold; font-size: 0.9rem; color: #555; display: flex; justify-content: space-between; margin-bottom: 5px; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .stat-card { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 0.9rem; }
+        .stat-card span.highlight { font-weight: bold; color: #007bff; font-size: 1rem; }
+        .stat-card.success { background: #d4edda; border-color: #c3e6cb; }
+        .length-item { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem; }
+        .color-box { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border-radius: 3px; vertical-align: middle; }
+        .btn-auto { display: block; width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 10px; transition: background 0.2s; }
+        .btn-auto:hover { background-color: #218838; }
+        .desc { font-size: 0.8rem; color: #666; line-height: 1.5; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>파라미터 조절</h2>
+    <div class="control-group">
+        <label>포물선의 초점 p <span id="val-p">9.0</span></label>
+        <input type="range" id="pSlider" min="1" max="15" step="0.5" value="6">
+    </div>
+    <div class="control-group">
+        <label>점 A의 x좌표 (x_A) <span id="val-ax">1.00</span></label>
+        <input type="range" id="axSlider" min="0.01" max="5.00" step="0.01" value="0.5">
+    </div>
+    
+    <button class="btn-auto" onclick="autoSnap()">🎯 정답 찾기 (Auto-Snap)</button>
+
+    <h2 style="margin-top: 20px;">실시간 선분 길이 (둘레의 비밀)</h2>
+    <div class="stat-card">
+        <div class="length-item"><span style="color:#e67e22; font-weight:bold;">AH</span> <span id="len-ah">0.00</span></div>
+        <div class="length-item"><span style="color:#2980b9; font-weight:bold;">AB</span> <span id="len-ab">0.00</span></div>
+        <div class="length-item"><span style="color:#27ae60; font-weight:bold;">HB</span> <span id="len-hb">0.00</span></div>
+        <hr style="border: 0.5px solid #ddd;">
+        <div class="length-item"><span style="color:#8e44ad; font-weight:bold;">HB' (숨겨진 초점)</span> <span id="len-hbp">0.00</span></div>
+        <div class="desc" style="margin-top:5px; color:#c0392b; font-weight:bold;">
+            ※ 대칭성에 의해 항상 AB = HB' 입니다.<br>
+            ※ AH + AB + HB = AH + HB' + HB = 4p
+        </div>
+    </div>
+    
+    <h2>문제 조건 확인</h2>
+    <div class="stat-card" id="card-perimeter">
+        목표 둘레 (p + 27): <span id="target-perim" style="color:#555;">0.00</span><br>
+        현재 둘레 (AHB): <span class="highlight" id="curr-perim">0.00</span>
+    </div>
+    <div class="stat-card" id="card-area">
+        목표 넓이 (2p + 12): <span id="target-area" style="color:#555;">0.00</span><br>
+        현재 넓이 (AHB): <span class="highlight" id="curr-area">0.00</span>
+    </div>
+    
+    <div class="stat-card" style="background:#fff3cd; border-color:#ffeeba;">
+        최종 정답 k² = <span class="highlight" style="color:#856404; font-size: 1.2rem;" id="curr-k2">0.00</span>
+    </div>
+</div>
+
+<div id="canvas-wrapper">
+    <canvas id="simCanvas" width="700" height="600"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const pSlider = document.getElementById('pSlider');
+    const axSlider = document.getElementById('axSlider');
+    
+    const scale = 18; 
+    const offsetX = 350; 
+    const offsetY = 300;
+
+    let traceB = []; // 초점 B의 자취 기록
+
+    function tx(x) { return offsetX + x * scale; }
+    function ty(y) { return offsetY - y * scale; }
+
+    function draw() {
+        const p = parseFloat(pSlider.value);
+        
+        const maxAx = (p / 3) * 0.99;
+        if (parseFloat(axSlider.max) !== maxAx) {
+            axSlider.max = maxAx.toFixed(2);
+            if (parseFloat(axSlider.value) > maxAx) axSlider.value = maxAx.toFixed(2);
+        }
+        
+        const x_A = parseFloat(axSlider.value);
+        const y_A = Math.sqrt(4 * p * x_A); 
+        const ratio = x_A / p;
+        
+        const x_0 = (x_A - p) / 2; 
+        const a = (3 * p - x_A) / 2; 
+        const b = Math.sqrt(p * p * ratio * Math.pow(3 - ratio, 2) / (2 * (1 - ratio))); 
+        const c = Math.sqrt(a * a - b * b); 
+        const B_x = x_0 + c; 
+        const Bp_x = x_0 - c; // 반대편 초점 B'
+
+        // 자취 추가 (p가 바뀔 땐 초기화)
+        traceB.push(B_x);
+        if(traceB.length > 50) traceB.shift();
+
+        // 기하학적 수치 계산
+        const area = p * p * (ratio + 1) * Math.sqrt(ratio);
+        const AH = x_A + p;
+        const AB = Math.sqrt(Math.pow(x_A - B_x, 2) + Math.pow(y_A, 2));
+        const HB = Math.sqrt(Math.pow(-p - B_x, 2) + Math.pow(y_A, 2));
+        const HBp = Math.sqrt(Math.pow(-p - Bp_x, 2) + Math.pow(y_A, 2)); // HB'
+        const perimeter = AH + AB + HB; 
+        
+        const targetPerimeter = p + 27;
+        const targetArea = 2 * p + 12;
+        const k2 = 4 * p * (p + x_A); 
+
+        // UI 텍스트 업데이트
+        document.getElementById('val-p').innerText = p.toFixed(1);
+        document.getElementById('val-ax').innerText = x_A.toFixed(2);
+        
+        document.getElementById('len-ah').innerText = AH.toFixed(2);
+        document.getElementById('len-ab').innerText = AB.toFixed(2) + (Math.abs(AB - HBp)<0.01 ? " (=HB')" : "");
+        document.getElementById('len-hb').innerText = HB.toFixed(2);
+        document.getElementById('len-hbp').innerText = HBp.toFixed(2);
+
+        document.getElementById('target-perim').innerText = targetPerimeter.toFixed(2);
+        document.getElementById('curr-perim').innerText = perimeter.toFixed(2);
+        document.getElementById('target-area').innerText = targetArea.toFixed(2);
+        document.getElementById('curr-area').innerText = area.toFixed(2);
+        document.getElementById('curr-k2').innerText = k2.toFixed(2);
+
+        // 조건 만족 시 UI 배경색 변경
+        if(Math.abs(targetPerimeter - perimeter) < 0.1 && Math.abs(targetArea - area) < 0.1) {
+            document.getElementById('card-perimeter').classList.add('success');
+            document.getElementById('card-area').classList.add('success');
+        } else {
+            document.getElementById('card-perimeter').classList.remove('success');
+            document.getElementById('card-area').classList.remove('success');
+        }
+
+        // 캔버스 렌더링
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // x, y축
+        ctx.beginPath(); ctx.moveTo(0, offsetY); ctx.lineTo(canvas.width, offsetY); ctx.moveTo(offsetX, 0); ctx.lineTo(offsetX, canvas.height); ctx.strokeStyle = '#ddd'; ctx.stroke();
+        
+        // 준선 (x = -p)
+        ctx.beginPath(); ctx.moveTo(tx(-p), 0); ctx.lineTo(tx(-p), canvas.height); ctx.strokeStyle = '#28a745'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+        
+        // 포물선
+        ctx.beginPath();
+        for (let y = -20; y <= 20; y += 0.2) {
+            let x = (y * y) / (4 * p); if (x > 20) continue;
+            if (y === -20) ctx.moveTo(tx(x), ty(y)); else ctx.lineTo(tx(x), ty(y));
+        }
+        ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.lineWidth = 1;
+
+        // 초점 B의 자취 (Trace) 표시
+        ctx.fillStyle = 'rgba(41, 128, 185, 0.2)';
+        traceB.forEach(bx => {
+            ctx.beginPath(); ctx.arc(tx(bx), ty(0), 4, 0, Math.PI*2); ctx.fill();
+        });
+
+        // 타원 렌더링
+        ctx.beginPath(); ctx.ellipse(tx(x_0), ty(0), a * scale, b * scale, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(142, 68, 173, 0.4)'; ctx.stroke();
+        
+        // 선분 렌더링 (각각 색상 부여)
+        function drawLine(x1, y1, x2, y2, color, isDashed = false) {
+            ctx.beginPath(); ctx.moveTo(tx(x1), ty(y1)); ctx.lineTo(tx(x2), ty(y2));
+            ctx.strokeStyle = color; ctx.lineWidth = 2;
+            if(isDashed) ctx.setLineDash([5,5]); else ctx.setLineDash([]);
+            ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+        }
+
+        drawLine(-p, y_A, x_A, y_A, '#e67e22'); // AH
+        drawLine(x_A, y_A, B_x, 0, '#2980b9');  // AB
+        drawLine(-p, y_A, B_x, 0, '#27ae60');   // HB
+        drawLine(-p, y_A, Bp_x, 0, '#8e44ad', true); // HB' (대칭성 증명용 보조선)
+
+        // 좌표 점 렌더링
+        function drawPoint(x, y, label, color) {
+            ctx.beginPath(); ctx.arc(tx(x), ty(y), 5, 0, Math.PI * 2);
+            ctx.fillStyle = color; ctx.fill();
+            ctx.fillStyle = '#333'; ctx.font = 'bold 14px Arial';
+            ctx.fillText(label, tx(x) + 8, ty(y) - 8);
+        }
+        drawPoint(p, 0, 'F', 'black');
+        drawPoint(x_A, y_A, 'A', 'red');
+        drawPoint(-p, y_A, 'H', 'red');
+        drawPoint(B_x, 0, 'B', 'blue');
+        drawPoint(Bp_x, 0, "B'", 'purple');
+    }
+
+    // 초기화 시 자취 삭제를 위한 이벤트
+    pSlider.addEventListener('input', () => { traceB = []; draw(); });
+    axSlider.addEventListener('input', draw);
+    
+    // Auto-Snap 애니메이션 함수
+    function autoSnap() {
+        const targetP = 9.0;
+        const targetAx = 1.0;
+        let currentP = parseFloat(pSlider.value);
+        let currentAx = parseFloat(axSlider.value);
+        let step = 0;
+        const frames = 30; // 30프레임 동안 스무스하게 이동
+
+        const interval = setInterval(() => {
+            step++;
+            pSlider.value = currentP + (targetP - currentP) * (step / frames);
+            // p값이 변함에 따라 ax의 최대 제한이 풀리므로 ax 갱신 가능
+            axSlider.value = currentAx + (targetAx - currentAx) * (step / frames);
+            draw();
+            if(step >= frames) {
+                clearInterval(interval);
+                pSlider.value = targetP; 
+                axSlider.value = targetAx;
+                draw();
+            }
+        }, 16);
+    }
+
+    draw(); 
+</script>
+</body>
+</html>
