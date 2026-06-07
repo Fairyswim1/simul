@@ -1,11 +1,11 @@
 const CLASS_ORDER = ['301', '302', '303', '304', '305'];
 
-const ROW_COLORS = [
-  { accent: '#6366f1', soft: 'rgba(99, 102, 241, 0.1)' },
-  { accent: '#8b5cf6', soft: 'rgba(139, 92, 246, 0.1)' },
-  { accent: '#ec4899', soft: 'rgba(236, 72, 153, 0.1)' },
-  { accent: '#f59e0b', soft: 'rgba(245, 158, 11, 0.1)' },
-  { accent: '#10b981', soft: 'rgba(16, 185, 129, 0.1)' },
+const ROW_THEMES = [
+  { accent: '#ff6b6b', bg: '#fff0f0', emoji: '🐰' },
+  { accent: '#ffa94d', bg: '#fff8ee', emoji: '🐑' },
+  { accent: '#69db7c', bg: '#f0fff4', emoji: '🦊' },
+  { accent: '#74c0fc', bg: '#f0f8ff', emoji: '🐻' },
+  { accent: '#da77f2', bg: '#faf0ff', emoji: '🐱' },
 ];
 
 const galleryEl = document.getElementById('gallery');
@@ -38,19 +38,12 @@ function getClassCards(classId) {
   return cards;
 }
 
-function getSimIndex(title) {
-  const match = title.match(/(\d+)/);
-  return match ? match[1] : '';
-}
-
-function createCard({ student, sim }, color) {
+function createCard({ student, sim }, theme) {
   const card = document.createElement('article');
   card.className = 'card';
-  card.style.setProperty('--row-accent', color.accent);
-  card.style.setProperty('--row-accent-soft', color.soft);
+  card.style.setProperty('--row-accent', theme.accent);
 
   const hasReport = !!student.report;
-  const simNum = getSimIndex(sim.title);
 
   card.innerHTML = `
     <div class="card__thumb" role="button" tabindex="0" aria-label="${student.studentName} ${sim.title} 시뮬레이션 열기">
@@ -60,7 +53,6 @@ function createCard({ student, sim }, color) {
           <svg width="18" height="18" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </div>
       </div>
-      ${simNum ? `<span class="card__sim-badge">Sim ${simNum}</span>` : ''}
     </div>
     <div class="card__body">
       <div class="card__top">
@@ -92,42 +84,85 @@ function createCard({ student, sim }, color) {
   return card;
 }
 
+function setupRowCarousel(section) {
+  const scrollEl = section.querySelector('.class-row__scroll');
+  const prevBtn = section.querySelector('.class-row__arrow--prev');
+  const nextBtn = section.querySelector('.class-row__arrow--next');
+  if (!scrollEl || !prevBtn || !nextBtn) return;
+
+  const scrollAmount = () => {
+    const card = scrollEl.querySelector('.card');
+    if (!card) return 280;
+    const gap = 14;
+    return card.offsetWidth + gap;
+  };
+
+  const updateArrows = () => {
+    const max = scrollEl.scrollWidth - scrollEl.clientWidth;
+    prevBtn.disabled = scrollEl.scrollLeft <= 4;
+    nextBtn.disabled = scrollEl.scrollLeft >= max - 4;
+  };
+
+  prevBtn.addEventListener('click', () => {
+    scrollEl.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
+  });
+
+  nextBtn.addEventListener('click', () => {
+    scrollEl.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+  });
+
+  scrollEl.addEventListener('scroll', updateArrows, { passive: true });
+  window.addEventListener('resize', updateArrows);
+  updateArrows();
+}
+
 function createClassRow(classId, index) {
-  const color = ROW_COLORS[index % ROW_COLORS.length];
+  const theme = ROW_THEMES[index % ROW_THEMES.length];
   const students = getStudentsByClass(classId);
   const cards = getClassCards(classId);
 
   const section = document.createElement('section');
   section.className = 'class-row';
   section.id = `class-${classId}`;
-  section.style.setProperty('--row-accent', color.accent);
-  section.style.setProperty('--row-accent-soft', color.soft);
+  section.style.setProperty('--row-accent', theme.accent);
+  section.style.setProperty('--row-bg', theme.bg);
 
   section.innerHTML = `
     <div class="class-row__header">
       <div class="class-row__title-group">
-        <div class="class-row__indicator"></div>
+        <span class="class-row__emoji" aria-hidden="true">${theme.emoji}</span>
         <div>
           <h2 class="class-row__title">${classId}반</h2>
           <p class="class-row__meta">${students.length}명 · 시뮬레이션 ${cards.length}개</p>
         </div>
       </div>
-      <span class="class-row__count">${cards.length} works</span>
+      <span class="class-row__count">${cards.length}개</span>
     </div>
-    <div class="class-row__body">
-      <div class="class-row__scroll">
-        <div class="class-row__track"></div>
-      </div>
-    </div>
+    <div class="class-row__body"></div>
   `;
 
-  const track = section.querySelector('.class-row__track');
+  const body = section.querySelector('.class-row__body');
 
   if (cards.length === 0) {
-    section.querySelector('.class-row__body').innerHTML =
-      '<p class="class-row__empty">아직 제출된 작품이 없습니다.</p>';
+    body.innerHTML = '<p class="class-row__empty">아직 제출된 작품이 없어요 🌱</p>';
   } else {
-    cards.forEach((c) => track.appendChild(createCard(c, color)));
+    body.innerHTML = `
+      <div class="class-row__carousel">
+        <button class="class-row__arrow class-row__arrow--prev" aria-label="${classId}반 이전">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </button>
+        <div class="class-row__scroll">
+          <div class="class-row__track"></div>
+        </div>
+        <button class="class-row__arrow class-row__arrow--next" aria-label="${classId}반 다음">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    `;
+
+    const track = body.querySelector('.class-row__track');
+    cards.forEach((c) => track.appendChild(createCard(c, theme)));
+    setupRowCarousel(section);
   }
 
   return section;
