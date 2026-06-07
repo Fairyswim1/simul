@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-07T05:35:32.965Z",
+  "generatedAt": "2026-06-07T05:37:51.478Z",
   "classes": [
     "301",
     "302",
@@ -155,7 +155,7 @@
       "studentId": "30312",
       "studentName": "전윤수",
       "classId": "303",
-      "report": null,
+      "report": "submissions/30312_전윤수_수세 시뮬레이터 30312 전윤수.pdf",
       "simulations": [
         {
           "title": "전윤수 2",
