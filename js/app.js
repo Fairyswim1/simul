@@ -11,8 +11,12 @@ const ROW_THEMES = [
 const galleryEl = document.getElementById('gallery');
 const classNavEl = document.getElementById('classNav');
 const emptyMsg = document.getElementById('emptyMsg');
+const searchInput = document.getElementById('searchInput');
+const searchClear = document.getElementById('searchClear');
+const searchResult = document.getElementById('searchResult');
 
 let data = null;
+let searchQuery = '';
 
 async function loadData() {
   try {
@@ -41,6 +45,8 @@ function getClassCards(classId) {
 function createCard({ student, sim }, theme) {
   const card = document.createElement('article');
   card.className = 'card';
+  card.dataset.studentName = student.studentName;
+  card.dataset.studentId = student.studentId;
   card.style.setProperty('--row-accent', theme.accent);
 
   const hasReport = !!student.report;
@@ -209,6 +215,88 @@ function renderGallery() {
   CLASS_ORDER.forEach((classId, index) => {
     galleryEl.appendChild(createClassRow(classId, index));
   });
+
+  if (searchQuery) applySearch(searchQuery);
+}
+
+function normalizeSearch(text) {
+  return text.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+function cardMatches(card, query) {
+  const name = normalizeSearch(card.dataset.studentName || '');
+  const id = (card.dataset.studentId || '').toLowerCase();
+  return name.includes(query) || id.includes(query);
+}
+
+function applySearch(rawQuery) {
+  searchQuery = rawQuery;
+  const query = normalizeSearch(rawQuery);
+  const cards = galleryEl.querySelectorAll('.card');
+  let matchCount = 0;
+  let firstMatch = null;
+
+  cards.forEach((card) => {
+    const match = !query || cardMatches(card, query);
+    card.classList.toggle('card--hidden', !match);
+    card.classList.toggle('card--match', match && !!query);
+    if (match && query) {
+      matchCount++;
+      if (!firstMatch) firstMatch = card;
+    }
+  });
+
+  galleryEl.querySelectorAll('.class-row').forEach((row) => {
+    const visible = row.querySelector('.card:not(.card--hidden)');
+    row.classList.toggle('class-row--hidden', !!query && !visible);
+  });
+
+  if (!query) {
+    searchResult.hidden = true;
+    searchClear.hidden = true;
+    return;
+  }
+
+  searchClear.hidden = false;
+  searchResult.hidden = false;
+
+  if (matchCount === 0) {
+    searchResult.textContent = `"${rawQuery.trim()}" 검색 결과가 없습니다.`;
+    searchResult.classList.add('search__result--empty');
+    return;
+  }
+
+  const students = new Set();
+  galleryEl.querySelectorAll('.card--match').forEach((c) => students.add(c.dataset.studentName));
+  searchResult.textContent = `${students.size}명 · 시뮬레이션 ${matchCount}개 찾음`;
+  searchResult.classList.remove('search__result--empty');
+
+  if (firstMatch) {
+    setTimeout(() => {
+      firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }, 80);
+  }
+}
+
+function setupSearch() {
+  if (!searchInput) return;
+
+  searchInput.addEventListener('input', () => {
+    applySearch(searchInput.value);
+  });
+
+  searchClear?.addEventListener('click', () => {
+    searchInput.value = '';
+    applySearch('');
+    searchInput.focus();
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      searchInput.value = '';
+      applySearch('');
+    }
+  });
 }
 
 async function init() {
@@ -216,6 +304,7 @@ async function init() {
   await loadData();
   renderClassNav();
   renderGallery();
+  setupSearch();
 }
 
 init();
