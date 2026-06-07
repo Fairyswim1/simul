@@ -656,6 +656,14 @@ body {
   color: rgba(255, 255, 255, 0.75);
 }
 
+.footer__credit {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   :root {
