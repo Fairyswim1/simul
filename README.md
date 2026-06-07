@@ -47,6 +47,32 @@ npm start
 학생 파일을 추가한 뒤 GitHub에 push하면 Vercel이 자동으로 재배포합니다.
 빌드 시 `npm run build`가 실행되어 `data/students.json`이 자동 갱신됩니다.
 
+## 좋아요 · 댓글 (Firebase Realtime Database)
+
+각 시뮬레이션 카드에 좋아요와 댓글 기능이 있습니다. 댓글은 **실명**으로만 작성할 수 있습니다.
+
+### 설정 방법
+
+1. [Firebase 콘솔](https://console.firebase.google.com) → 프로젝트 **simul-dbcbe**
+2. 왼쪽 **빌드(Build)** → **Realtime Database** 클릭
+3. 데이터베이스가 없으면 **데이터베이스 만들기** → 지역 선택 → **게시**
+4. 상단 **규칙(Rules)** 탭 → `database.rules.json` 내용 붙여넣기 → **게시**
+
+```json
+{
+  "rules": {
+    "interactions": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
+```
+
+5. `js/firebase-config.js`에 `databaseURL`이 포함되어 있는지 확인
+
+Firebase 설정 전에도 UI는 보이지만, 클릭 시 설정 안내 메시지가 표시됩니다.
+
 ## 폴더 구조
 
 ```
@@ -58,5 +84,8 @@ simul/
 │   └── generate-data.mjs
 ├── css/
 ├── js/
+│   ├── firebase-config.js   ← Firebase 설정
+│   └── interactions.js      ← 좋아요/댓글
+├── database.rules.json
 └── index.html
 ```

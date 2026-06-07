@@ -414,6 +414,224 @@ body {
   pointer-events: none;
 }
 
+.card__social {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1.5px dashed rgba(45, 42, 38, 0.1);
+}
+
+.card__like-btn,
+.card__comment-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 8px 10px;
+  border-radius: var(--radius-pill);
+  border: 2px solid rgba(45, 42, 38, 0.15);
+  background: #fffaf5;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: transform 0.12s, background 0.15s, border-color 0.15s;
+}
+
+.card__like-btn:hover,
+.card__comment-btn:hover {
+  background: #fff;
+  border-color: var(--text-dark);
+  transform: translateY(-1px);
+}
+
+.card__like-btn--active {
+  background: #ffe0e0;
+  border-color: #ff5c5c;
+  color: #e03131;
+}
+
+.card__like-btn--active .card__social-icon {
+  color: #ff5c5c;
+}
+
+.card__social-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+/* Comment modal */
+.comment-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.comment-modal[hidden] {
+  display: none;
+}
+
+.comment-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(45, 42, 38, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.comment-modal__panel {
+  position: relative;
+  width: min(480px, 100%);
+  max-height: 85vh;
+  background: #fff;
+  border: 2.5px solid var(--text-dark);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 0 rgba(0, 0, 0, 0.1), 0 24px 48px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.comment-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  background: #fff8f0;
+  border-bottom: 2px solid rgba(45, 42, 38, 0.08);
+}
+
+.comment-modal__title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.4;
+  padding-right: 12px;
+}
+
+.comment-modal__close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--text-dark);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.comment-modal__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+  min-height: 120px;
+  max-height: 280px;
+}
+
+.comment-modal__empty {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 24px 0;
+}
+
+.comment-item {
+  padding: 12px 0;
+  border-bottom: 1.5px solid rgba(45, 42, 38, 0.08);
+}
+
+.comment-item:last-child {
+  border-bottom: none;
+}
+
+.comment-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.comment-item__name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.comment-item__date {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.comment-item__body {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--text-dark);
+  word-break: break-word;
+}
+
+.comment-modal__form {
+  padding: 14px 18px 18px;
+  background: #fffaf5;
+  border-top: 2px solid rgba(45, 42, 38, 0.08);
+}
+
+.comment-modal__notice {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.comment-modal__input,
+.comment-modal__textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  border: 2px solid rgba(45, 42, 38, 0.15);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  background: #fff;
+  resize: vertical;
+}
+
+.comment-modal__input:focus,
+.comment-modal__textarea:focus {
+  outline: none;
+  border-color: var(--text-dark);
+}
+
+.comment-modal__submit {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 12px;
+  border: 2.5px solid var(--text-dark);
+  border-radius: var(--radius-pill);
+  background: var(--text-dark);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
+  transition: transform 0.12s;
+}
+
+.comment-modal__submit:hover {
+  background: #1a1816;
+}
+
+.comment-modal__submit:active {
+  transform: translateY(1px);
+}
+
 /* Empty / Footer */
 .gallery__empty {
   text-align: center;

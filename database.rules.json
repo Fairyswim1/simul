@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "interactions": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

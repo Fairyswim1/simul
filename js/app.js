@@ -68,6 +68,16 @@ function createCard({ student, sim }, theme) {
             : `<span class="card__btn card__btn--report" aria-disabled="true">보고서 없음</span>`
         }
       </div>
+      <div class="card__social">
+        <button type="button" class="card__like-btn" aria-label="좋아요">
+          <span class="card__social-icon">♥</span>
+          <span class="card__like-count">0</span>
+        </button>
+        <button type="button" class="card__comment-btn" aria-label="댓글 보기">
+          <span class="card__social-icon">💬</span>
+          <span class="card__comment-count">0</span>
+        </button>
+      </div>
     </div>
   `;
 
@@ -80,6 +90,10 @@ function createCard({ student, sim }, theme) {
       openSim();
     }
   });
+
+  if (typeof Interactions !== 'undefined') {
+    Interactions.bindCard(card, Interactions.createMeta(student, sim));
+  }
 
   return card;
 }
@@ -198,6 +212,7 @@ function renderGallery() {
 }
 
 async function init() {
+  if (typeof Interactions !== 'undefined') Interactions.init();
   await loadData();
   renderClassNav();
   renderGallery();
