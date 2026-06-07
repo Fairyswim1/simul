@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>원 C와 직선 l 시뮬레이터</title>
+<style>
+  * { box-sizing: border-box; }
+  :root{
+    --ink:#111827; --muted:#6b7280; --soft:#f6f7fb; --line:#e5e7eb;
+    --accent:#ec6f9f; --accent-dark:#be3f75;
+  }
+  body{
+    margin:0; height:100vh; overflow:hidden;
+    font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--ink); background:#f5f6fa;
+  }
+  .wrap{width:100vw;height:100vh;padding:18px;display:flex;flex-direction:column;gap:12px;}
+  .stage{
+    flex:1; min-height:0; position:relative; overflow:hidden; background:#fff;
+    border:1px solid rgba(17,24,39,.12); border-radius:24px;
+    box-shadow:0 18px 48px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.9);
+  }
+  canvas{width:100%;height:100%;display:block;cursor:grab;background:#fff;}
+  canvas:active{cursor:grabbing;}
+  .info{
+    position:absolute;left:16px;top:14px;pointer-events:none;user-select:none;
+    padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.84);
+    border:1px solid rgba(17,24,39,.10);box-shadow:0 10px 25px rgba(15,23,42,.08);
+    backdrop-filter:blur(10px);font-size:13px;line-height:1.55;color:#263244;
+  }
+  .controls{
+    min-height:86px;display:grid;grid-template-columns:minmax(240px,1fr) minmax(280px,1.25fr) auto auto auto;
+    align-items:center;gap:12px;padding:14px 16px;border-radius:24px;background:rgba(255,255,255,.88);
+    border:1px solid rgba(17,24,39,.10);box-shadow:0 14px 36px rgba(15,23,42,.08);backdrop-filter:blur(10px);
+  }
+  .control{display:flex;align-items:center;gap:10px;min-width:0;padding:9px 11px;border-radius:17px;background:#fff;border:1px solid rgba(17,24,39,.08);}
+  label{white-space:nowrap;font-size:14px;color:#374151;}
+  .value{min-width:42px;text-align:right;font-variant-numeric:tabular-nums;color:#111827;font-weight:650;}
+  input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;}
+  button{height:42px;padding:0 16px;border:0;border-radius:15px;background:#111827;color:#fff;font-weight:750;cursor:pointer;box-shadow:0 8px 20px rgba(17,24,39,.16);}
+  button:hover{transform:translateY(-1px);}
+  .check{height:42px;display:flex;align-items:center;gap:8px;padding:0 13px;border-radius:15px;background:#fff;border:1px solid rgba(17,24,39,.09);cursor:pointer;}
+  .check input{accent-color:var(--accent);}
+  @media(max-width:850px){.controls{grid-template-columns:1fr 1fr}.controls>*{min-width:0}.check,button{justify-content:center}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <canvas id="canvas"></canvas>
+    <div class="info" id="info"></div>
+  </div>
+  <div class="controls">
+    <div class="control"><label for="aSlider">a 값</label><input id="aSlider" type="range" min="0" max="10" step="0.01" value="3.5"><span class="value" id="aVal">3.5</span></div>
+    <div class="control"><label for="tSlider">점 P 위치</label><input id="tSlider" type="range" min="0" max="6.28318530718" step="0.001" value="2.25"><span class="value" id="tVal">2.25</span></div>
+    <button id="playBtn">▶ 재생</button>
+    <label class="check"><input id="traceCheck" type="checkbox"> 흔적 남기기</label>
+    <label class="check"><input id="regionCheck" type="checkbox" checked> 영역 표시</label>
+  </div>
+</div>
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const info = document.getElementById('info');
+  const aSlider = document.getElementById('aSlider');
+  const tSlider = document.getElementById('tSlider');
+  const aVal = document.getElementById('aVal');
+  const tVal = document.getElementById('tVal');
+  const playBtn = document.getElementById('playBtn');
+  const traceCheck = document.getElementById('traceCheck');
+  const regionCheck = document.getElementById('regionCheck');
+
+  let W=0,H=0,dpr=1,scale=85,origin={x:0,y:0},initialized=false;
+  let playing=false,lastTime=0;
+  let dragging=false,dragStart={x:0,y:0},originStart={x:0,y:0};
+  let traceAngles=[];          // 재렌더링용 각도 목록
+  let lastTraceAngle=null;
+  let traceCanvas=document.createElement('canvas');
+  let traceCtx=traceCanvas.getContext('2d');
+
+  const TAU = Math.PI*2;
+  const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+  const fmt = x => {
+    if(!isFinite(x)) return '';
+    const v = Math.abs(x)<1e-10 ? 0 : x;
+    return v.toFixed(2).replace(/\.00$/,'');
+  };
+  function resize(){
+    const r=canvas.getBoundingClientRect(); W=r.width; H=r.height; dpr=window.devicePixelRatio||1;
+    canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr);
+    traceCanvas.width=Math.round(W*dpr); traceCanvas.height=Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    traceCtx.setTransform(dpr,0,0,dpr,0,0);
+    if(!initialized){origin={x:W*.48,y:H*.52}; initialized=true;}
+    rebuildTrace();
+    draw();
+  }
+  function worldToScreen(x,y){return {x:origin.x+x*scale,y:origin.y-y*scale};}
+  function screenToWorld(x,y){return {x:(x-origin.x)/scale,y:(origin.y-y)/scale};}
+  function state(){const a=+aSlider.value,t=+tSlider.value,u=Math.cos(t),v=Math.sin(t);return {a,t,u,v};}
+  function visibleWorldBounds(){
+    const p=[screenToWorld(0,0),screenToWorld(W,0),screenToWorld(W,H),screenToWorld(0,H)];
+    return {xMin:Math.min(...p.map(q=>q.x)),xMax:Math.max(...p.map(q=>q.x)),yMin:Math.min(...p.map(q=>q.y)),yMax:Math.max(...p.map(q=>q.y))};
+  }
+
+  function drawGrid(){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+    const b=visibleWorldBounds();
+    let step=1; const raw=72/scale, pow=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/pow;
+    if(n<1.5) step=pow; else if(n<3.5) step=2*pow; else if(n<7.5) step=5*pow; else step=10*pow;
+    ctx.lineWidth=1; ctx.strokeStyle='#edf0f5'; ctx.beginPath();
+    for(let x=Math.floor(b.xMin/step)*step; x<=b.xMax; x+=step){const p=worldToScreen(x,0); ctx.moveTo(p.x,0);ctx.lineTo(p.x,H);}
+    for(let y=Math.floor(b.yMin/step)*step; y<=b.yMax; y+=step){const p=worldToScreen(0,y); ctx.moveTo(0,p.y);ctx.lineTo(W,p.y);}
+    ctx.stroke();
+    const ox=worldToScreen(0,0).x, oy=worldToScreen(0,0).y;
+    ctx.strokeStyle='rgba(17,24,39,.78)'; ctx.lineWidth=1.35; ctx.beginPath();
+    ctx.moveTo(0,oy);ctx.lineTo(W,oy);ctx.moveTo(ox,H);ctx.lineTo(ox,0);ctx.stroke();
+    ctx.fillStyle='#374151'; ctx.font='12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='top';
+    for(let x=Math.floor(b.xMin/step)*step; x<=b.xMax; x+=step){if(Math.abs(x)<1e-9)continue; const p=worldToScreen(x,0); if(p.x>8&&p.x<W-8&&oy>-18&&oy<H+5) ctx.fillText(fmt(x),p.x,oy+4);}
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    for(let y=Math.floor(b.yMin/step)*step; y<=b.yMax; y+=step){if(Math.abs(y)<1e-9)continue; const p=worldToScreen(0,y); if(p.y>8&&p.y<H-8&&ox>-4&&ox<W+34) ctx.fillText(fmt(y),ox-5,p.y);}
+  }
+
+  function makeForbiddenLobePath(a, side){
+    // a>1일 때 영역에서 빠지는 부분: x>1 또는 x<-1에서 |y| < sqrt(a²-1)sqrt(x²-1)
+    const b=visibleWorldBounds();
+    const s=Math.sqrt(a*a-1); const N=260;
+    if(side>0){
+      const x1=Math.max(1,b.xMin), x2=b.xMax; if(x2<=x1) return;
+      for(let i=0;i<=N;i++){const x=x1+(x2-x1)*i/N,y=s*Math.sqrt(Math.max(0,x*x-1)),p=worldToScreen(x,y); i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);}
+      for(let i=N;i>=0;i--){const x=x1+(x2-x1)*i/N,y=-s*Math.sqrt(Math.max(0,x*x-1)),p=worldToScreen(x,y); ctx.lineTo(p.x,p.y);}
+      ctx.closePath();
+    }else{
+      const x1=b.xMin, x2=Math.min(-1,b.xMax); if(x2<=x1) return;
+      for(let i=0;i<=N;i++){const x=x1+(x2-x1)*i/N,y=s*Math.sqrt(Math.max(0,x*x-1)),p=worldToScreen(x,y); i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);}
+      for(let i=N;i>=0;i--){const x=x1+(x2-x1)*i/N,y=-s*Math.sqrt(Math.max(0,x*x-1)),p=worldToScreen(x,y); ctx.lineTo(p.x,p.y);}
+      ctx.closePath();
+    }
+  }
+
+  function clipRegion(a){
+    ctx.beginPath(); ctx.rect(0,0,W,H);
+    if(Math.abs(a-1)<1e-6){ return; }
+    if(a<1){
+      const s=Math.sqrt(1-a*a), c=worldToScreen(0,0);
+      ctx.moveTo(c.x+scale,c.y);
+      ctx.ellipse(c.x,c.y,scale,scale*s,0,0,TAU);
+    }else{
+      makeForbiddenLobePath(a, 1);
+      makeForbiddenLobePath(a,-1);
+    }
+  }
+
+  function drawRegion(a){
+    if(!regionCheck.checked || Math.abs(a-1)<1e-6) return;
+    ctx.save();
+    // 빗금 없이 실제 가능 영역만 반투명 분홍색 면으로 채운다.
+    // clipRegion은 a<1에서는 타원 바깥, a>1에서는 쌍곡선 사이/바깥의 가능 영역만 남긴다.
+    clipRegion(a);
+    ctx.clip('evenodd');
+    ctx.fillStyle='rgba(236,111,159,.18)';
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+
+    // 축과 만나는 주요 좌표만 표시한다. 분홍색 테두리는 그리지 않는다.
+    labelPoint(1,0,'(1, 0)','#be3f75',7,15);
+    labelPoint(-1,0,'(-1, 0)','#be3f75',-52,15);
+    if(a<1){const s=Math.sqrt(1-a*a); labelPoint(0,s,`(0, ${fmt(s)})`,'#be3f75',7,-10); labelPoint(0,-s,`(0, -${fmt(s)})`,'#be3f75',7,13);}
+  }
+
+  function drawBoundary(a){
+    // 영역 양쪽의 점선 경계는 표시하지 않는다.
+    return;
+  }
+
+  function drawCircleAndObjects(a,u,v){
+    const c=worldToScreen(0,0);
+    ctx.strokeStyle='#111827'; ctx.lineWidth=1.8; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(c.x,c.y,scale,0,TAU); ctx.stroke();
+    const title=worldToScreen(-.95,1.12); ctx.fillStyle='#111827'; ctx.font='14px system-ui'; ctx.fillText('C: x²+y²=1',title.x,title.y);
+    drawLineThroughPoints(a,0,u,v,'rgba(31,41,55,.55)',1.3); // AP 직선
+    drawL(a,u,v,'#111827',2.1);                           // l
+    labelPoint(a,0,`A(${fmt(a)}, 0)`,'#111827',8,-11,true);
+    labelPoint(u,v,`P(${fmt(u)}, ${fmt(v)})`,'#0f766e',8,-12,true);
+    const A=worldToScreen(a,0), P=worldToScreen(u,v);
+    ctx.strokeStyle='rgba(17,24,39,.45)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(P.x,P.y); ctx.stroke();
+  }
+  function drawLineThroughPoints(x1,y1,x2,y2,color,width){
+    const b=visibleWorldBounds(), dx=x2-x1, dy=y2-y1; if(Math.abs(dx)+Math.abs(dy)<1e-9)return;
+    const len=Math.hypot(dx,dy); const ux=dx/len, uy=dy/len, big=Math.hypot(b.xMax-b.xMin,b.yMax-b.yMin)*2;
+    const p1=worldToScreen(x1-ux*big,y1-uy*big), p2=worldToScreen(x1+ux*big,y1+uy*big);
+    ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+  }
+  function drawL(a,u,v,color,width){
+    // l: (u-a)x + vy = 1 - au. 방향벡터는 (-v, u-a)
+    const dx=-v, dy=u-a, len=Math.hypot(dx,dy)||1, ux=dx/len, uy=dy/len;
+    const b=visibleWorldBounds(), big=Math.hypot(b.xMax-b.xMin,b.yMax-b.yMin)*2;
+    const p1=worldToScreen(u-ux*big,v-uy*big), p2=worldToScreen(u+ux*big,v+uy*big);
+    ctx.strokeStyle=color; ctx.lineWidth=width; ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+  }
+  function labelPoint(x,y,text,color,dx=8,dy=-10,dot=false){
+    const p=worldToScreen(x,y);
+    if(p.x<-80||p.x>W+80||p.y<-40||p.y>H+40) return;
+    ctx.save();
+    if(dot){ctx.fillStyle=color; ctx.beginPath(); ctx.arc(p.x,p.y,4.4,0,TAU); ctx.fill();}
+    ctx.font='13px system-ui'; ctx.fillStyle=color; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(text,p.x+dx,p.y+dy); ctx.restore();
+  }
+
+  function clearTrace(){
+    traceAngles=[]; lastTraceAngle=null;
+    traceCtx.clearRect(0,0,W,H);
+  }
+  function signedAngleDelta(from,to){
+    let d=(to-from+Math.PI) % TAU - Math.PI;
+    if(d < -Math.PI) d += TAU;
+    return d;
+  }
+  function drawLOn(g,a,u,v,color,width){
+    const dx=-v, dy=u-a, len=Math.hypot(dx,dy)||1, ux=dx/len, uy=dy/len;
+    const b=visibleWorldBounds(), big=Math.hypot(b.xMax-b.xMin,b.yMax-b.yMin)*2;
+    const p1=worldToScreen(u-ux*big,v-uy*big), p2=worldToScreen(u+ux*big,v+uy*big);
+    g.strokeStyle=color; g.lineWidth=width; g.lineCap='butt';
+    g.beginPath(); g.moveTo(p1.x,p1.y); g.lineTo(p2.x,p2.y); g.stroke();
+  }
+  function stampTraceLine(t, a=+aSlider.value){
+    // 검은색 불투명 마스크에 넓은 선을 촘촘히 찍고, 실제 화면에는 한 번만 반투명하게 합성한다.
+    // source-over + 불투명 마스크라 같은 곳을 여러 번 지나도 더 진해지지 않는다.
+    // 실제 직선 l보다 자국이 두껍게 보이지 않도록 마스크 선폭을 얇게 잡는다.
+    drawLOn(traceCtx, a, Math.cos(t), Math.sin(t), '#000', 1.05);
+  }
+  function stampTraceArc(t0, t1, a){
+    // 두 프레임 사이의 각도를 매우 촘촘하게 보간해서 불연속적인 선 자국이 보이지 않게 한다.
+    const delta=signedAngleDelta(t0,t1);
+    const maxStep=0.0016;
+    const n=Math.max(1, Math.ceil(Math.abs(delta)/maxStep));
+    for(let i=1;i<=n;i++){
+      const t=t0 + delta*i/n;
+      traceAngles.push((t%TAU+TAU)%TAU);
+      stampTraceLine(t,a);
+    }
+  }
+  function handleTrace(st){
+    if(!traceCheck.checked) return;
+    traceCtx.lineCap='butt';
+    traceCtx.lineJoin='miter';
+    if(lastTraceAngle===null){
+      lastTraceAngle=st.t; traceAngles.push(st.t); stampTraceLine(st.t, st.a); return;
+    }
+    stampTraceArc(lastTraceAngle, st.t, st.a);
+    lastTraceAngle=st.t;
+    if(traceAngles.length>24000) traceAngles.splice(0, traceAngles.length-24000);
+  }
+  function rebuildTrace(){
+    traceCtx.clearRect(0,0,W,H);
+    traceCtx.lineCap='butt';
+    traceCtx.lineJoin='miter';
+    const a=+aSlider.value;
+    for(const t of traceAngles) stampTraceLine(t,a);
+  }
+  function drawTrace(a){
+    if(!traceCheck.checked || traceAngles.length===0) return;
+    ctx.save();
+    ctx.globalAlpha=.26;
+    ctx.drawImage(traceCanvas,0,0,W,H);
+    ctx.restore();
+  }
+
+  function updateInfo(s){
+    const {a,u,v}=s;
+    const lhs=`(${fmt(u-a)})x + (${fmt(v)})y = ${fmt(1-a*u)}`;
+    let region;
+    if(Math.abs(a-1)<1e-6) region='a=1에서는 전 평면이 가능함';
+    else if(a<1) region=`영역: x² + y²/${fmt(1-a*a)} ≥ 1`;
+    else region=`영역: x² - y²/${fmt(a*a-1)} ≤ 1`;
+    info.innerHTML=`l: ${lhs}<br>${region}<br>드래그: 이동 · 휠: 확대/축소`;
+    aVal.textContent=fmt(a); tVal.textContent=fmt(s.t);
+  }
+  function draw(){
+    const s=state(); handleTrace(s);
+    drawGrid();
+    drawRegion(s.a);
+    drawTrace(s.a);
+    drawBoundary(s.a);
+    drawCircleAndObjects(s.a,s.u,s.v);
+    updateInfo(s);
+  }
+
+  aSlider.addEventListener('input',()=>{clearTrace();draw();});
+  tSlider.addEventListener('input',draw);
+  regionCheck.addEventListener('change',draw);
+  traceCheck.addEventListener('change',()=>{clearTrace();draw();});
+  playBtn.addEventListener('click',()=>{playing=!playing; playBtn.textContent=playing?'⏸ 정지':'▶ 재생'; if(playing){lastTime=performance.now(); requestAnimationFrame(tick);}});
+  function tick(now){if(!playing)return; const dt=Math.min(.05,(now-lastTime)/1000); lastTime=now; let t=(+tSlider.value+dt*1.05)%TAU; tSlider.value=t; draw(); requestAnimationFrame(tick);}
+
+  canvas.addEventListener('mousedown',e=>{dragging=true; dragStart={x:e.clientX,y:e.clientY}; originStart={...origin};});
+  window.addEventListener('mouseup',()=>dragging=false);
+  window.addEventListener('mousemove',e=>{if(!dragging)return; origin.x=originStart.x+e.clientX-dragStart.x; origin.y=originStart.y+e.clientY-dragStart.y; rebuildTrace(); draw();});
+  canvas.addEventListener('wheel',e=>{e.preventDefault(); const rect=canvas.getBoundingClientRect(); const sx=e.clientX-rect.left, sy=e.clientY-rect.top; const before=screenToWorld(sx,sy); const factor=Math.exp(-e.deltaY*.001); scale=clamp(scale*factor,22,420); const after=screenToWorld(sx,sy); origin.x+=(after.x-before.x)*scale; origin.y-=(after.y-before.y)*scale; rebuildTrace(); draw();},{passive:false});
+  window.addEventListener('resize',resize);
+  resize();
+})();
+</script>
+</body>
+</html>

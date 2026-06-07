@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수학 시뮬레이터: 원 C와 벡터 분해 및 넓이 그래프</title>
+    
+    <!-- MathJax 3 설정: 단일 달러($) 기호를 인라인 수식으로 인식하도록 사전 설정 -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <!-- 수식 렌더링을 위한 MathJax 라이브러리 추가 -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        body {
+            font-family: '맑은 고딕', sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            padding: 20px;
+            margin: 0;
+            line-height: 1.6;
+        }
+        h1 { font-size: 24px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 20px; }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .left-col {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 500px;
+        }
+        .right-col {
+            flex: 1;
+            min-width: 300px;
+        }
+        .canvas-wrapper {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .canvas-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #444;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            background-color: #fff;
+            width: 100%;
+            display: block;
+        }
+        .panel {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 20px;
+        }
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: inline-block; width: 80px; font-weight: bold; }
+        input[type="range"] { width: 180px; vertical-align: middle; }
+        .value-display { font-weight: bold; color: #007bff; margin-left: 10px; font-size: 18px;}
+        button {
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+        button:hover { background-color: #0056b3; }
+        .btn-success { background-color: #28a745; margin-top: 10px; }
+        .btn-success:hover { background-color: #218838; }
+        .data-box {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+            margin-top: 20px;
+            font-size: 14.5px;
+            line-height: 1.7;
+        }
+        .vector-eq {
+            font-size: 18px;
+            font-weight: bold;
+            color: #d9534f;
+            margin-top: 15px;
+            text-align: center;
+            padding: 10px;
+            background: #fff;
+            border: 1px dashed #d9534f;
+        }
+        .highlight { color: #dc3545; font-weight: bold; }
+        
+        /* 접기/펴기 아코디언 관련 스타일 */
+        details {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-top: 20px;
+            width: 100%;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+        summary {
+            background-color: #f8fafc;
+            padding: 15px 40px 15px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #0e2238;
+            cursor: pointer;
+            user-select: none;
+            outline: none;
+            border-bottom: 1px solid #e2e8f0;
+            transition: background-color 0.2s;
+            display: block;
+            position: relative;
+        }
+        summary:hover {
+            background-color: #f1f5f9;
+        }
+        summary::after {
+            content: "▼";
+            font-size: 12px;
+            color: #64748b;
+            transition: transform 0.2s;
+            position: absolute;
+            right: 25px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        details[open] summary::after {
+            transform: translateY(-50%) rotate(180deg);
+        }
+        .math-explanation {
+            padding: 25px 30px;
+            font-size: 15.5px;
+            border-top: none;
+        }
+        .math-explanation h4 {
+            margin-top: 0;
+            color: #0056b3;
+            font-size: 17px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        .math-result {
+            background-color: #f0f7ff;
+            border-left: 5px solid #007bff;
+            padding: 15px 20px;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 0 4px 4px 0;
+        }
+        .math-result-success {
+            background-color: #f0fff4;
+            border-left: 5px solid #28a745;
+            padding: 15px 20px;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 0 4px 4px 0;
+        }
+    </style>
+</head>
+<body class="tex2jax_process">
+
+    <h1>문제 상황 시뮬레이터: 벡터 일차결합 및 AQR 넓이 최대화 분석</h1>
+    
+    <div class="container">
+        <!-- 왼쪽: 캔버스 영역 -->
+        <div class="left-col">
+            <!-- 1. 메인 문제 상황 캔버스 -->
+            <div class="canvas-wrapper">
+                <div class="canvas-title">① 기하학적 문제 상황 시각화 (원 C와 점 P, Q, R)</div>
+                <canvas id="mathCanvas" width="600" height="400"></canvas>
+            </div>
+            
+            <!-- 2. 벡터 삼각형 캔버스 (자동 스케일 기능 탑재) -->
+            <div class="canvas-wrapper">
+                <div class="canvas-title">② 벡터 합의 삼각형 법칙 시각화 (AR = sAB + tAP)</div>
+                <canvas id="vectorCanvas" width="600" height="220"></canvas>
+            </div>
+            
+            <!-- 3. 실시간 넓이 변화 그래프 캔버스 -->
+            <div class="canvas-wrapper">
+                <div class="canvas-title">③ 각도 θ에 따른 △AQR의 넓이 변화</div>
+                <canvas id="graphCanvas" width="600" height="200"></canvas>
+                <div style="text-align: center; font-size: 13px; color: #666; margin-top: 5px;">
+                    ※ 슬라이더를 움직이거나 자동 재생을 통해 궤적을 그립니다.
+                </div>
+            </div>
+        </div>
+        
+        <!-- 오른쪽: 조작 및 데이터 패널 -->
+        <div class="right-col">
+            <div class="panel">
+                <div class="control-group">
+                    <label for="thetaSlider">각도 θ :</label>
+                    <input type="range" id="thetaSlider" min="0" max="90" value="20" step="0.1">
+                    <span id="thetaValue" class="value-display">20.0°</span>
+                </div>
+                
+                <button id="playBtn">▶ 0° ↔ 90° 자동 재생</button>
+                <button id="maxBtn" class="btn-success">⭐ △AQR 넓이 최대 상황 설정</button>
+
+                <div class="data-box">
+                    <strong>[ 실시간 좌표 및 분석 데이터 ]</strong><br><br>
+                    <div id="dataOutput">
+                        <!-- Data will be updated here -->
+                    </div>
+                    <div class="vector-eq" id="vectorOutput">
+                        AR = s AB + t AP
+                    </div>
+                </div>
+                
+                <ul style="margin-top: 20px; color: #555; font-size: 14px; line-height: 1.6;">
+                    <li><strong>파란색 화살표:</strong> 기저 벡터 AB (또는 sAB)</li>
+                    <li><strong>초록색 화살표:</strong> 기저 벡터 AP (또는 tAP)</li>
+                    <li><strong>빨간색 화살표:</strong> 교점 R을 향하는 벡터 AR</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- [아코디언 1] 삼각형 AQR의 넓이 공식 유도 과정 -->
+    <details id="mathDetails1">
+        <summary>📝 [과정 ①] 매개변수 $\theta$를 이용한 삼각형 $AQR$의 넓이 식 도출</summary>
+        <div class="math-explanation">
+            <h4>1단계. 주요 점들의 좌표 대수적 성분화</h4>
+            <p>
+                1. 점 $\text{A}$를 원점 $(0, 0)$으로 하고, 선분 $\text{AB}$가 $x$축 위에 오도록 좌표평면을 설정하면 $\text{B}(2, 0)$이 됩니다.<br>
+                2. 문제 조건에 따라 점 $\text{P}$는 선분 $\text{AB}$를 지름으로 하는 반원 위의 점이며, $\angle \text{PAB} = \theta$ 입니다. 따라서 직각삼각형 $\text{APB}$에서 $\overline{\text{AP}} = 2\cos\theta$ 가 되고, 점 $\text{P}$의 좌표는 $(2\cos^2\theta, 2\cos\theta\sin\theta)$ 입니다.<br>
+                3. 점 $\text{Q}$는 $x$축 위의 점이며 조건에서 $\overline{\text{AQ}} = \overline{\text{AP}}$ 이므로, 점 $\text{Q}$의 좌표는 $(2\cos\theta, 0)$ 입니다.<br>
+                4. 두 점 $\text{P}$와 $\text{Q}$를 지나는 직선의 기울기 $m$은 다음과 같습니다.<br>
+                &nbsp;&nbsp;&nbsp; $m = \frac{2\cos\theta\sin\theta - 0}{2\cos^2\theta - 2\cos\theta} = \frac{\sin\theta}{\cos\theta - 1}$<br>
+                &nbsp;&nbsp;&nbsp; 따라서 직선 $\text{PQ}$의 방정식은 $y = \frac{\sin\theta}{\cos\theta - 1}(x - 2\cos\theta)$ 가 됩니다.<br>
+                5. 직선 $\text{PQ}$와 원 $C$의 교점 중 $\text{P}$가 아닌 다른 점이 바로 $\text{R}$입니다. 원 $C$의 방정식인 $(x-1)^2 + y^2 = 1$ (즉, $x^2 - 2x + y^2 = 0$) 과 직선의 방정식을 연립하면 점 $\text{R}$의 좌표는 $(1+\cos\theta, -\sin\theta)$ 가 도출됩니다.<br>
+                6. 우리가 구하고자 하는 삼각형 $\text{AQR}$은 밑변이 선분 $\text{AQ}$이고, 높이가 점 $\text{R}$의 $y$좌표의 절댓값인 삼각형입니다.
+            </p>
+            <div class="math-result">
+                $\therefore$ 삼각형 $\text{AQR}$의 넓이 $S(\theta) = \frac{1}{2} \times \overline{\text{AQ}} \times |y_{\text{R}}| = \frac{1}{2} \times (2\cos\theta) \times |-\sin\theta| = \sin\theta\cos\theta = \frac{1}{2}\sin(2\theta)$
+            </div>
+            <p>
+                결과적으로 $\triangle\text{AQR}$의 넓이 $S(\theta)$는 삼각함수의 배각 공식에 의해 $\frac{1}{2}\sin(2\theta)$로 정리되며, 사인 함수의 특성상 $2\theta = 90^\circ$, 즉 <strong>$\theta = 45^\circ$ 일 때 최댓값 $\frac{1}{2}$</strong> 을 가짐을 수학적으로 증명할 수 있습니다.
+            </p>
+        </div>
+    </details>
+
+    <!-- [아코디언 2] 넓이가 최대인 순간의 벡터 AR의 일차결합 분석 -->
+    <details id="mathDetails2">
+        <summary>📝 [과정 ②] 넓이가 최대일 때 벡터 $AR$의 일차결합 분해 과정</summary>
+        <div class="math-explanation">
+            <h4>1단계. 넓이가 최대가 되는 각도와 점들의 좌표 확정</h4>
+            <p>
+                [과정 ①]에 의해 삼각형 $AQR$의 넓이가 최대가 되는 순간은 $\theta = 45^\circ$ (즉, $\frac{\pi}{4}$ 라디안) 일 때입니다. 이 순간의 기하학적 각 점의 성분을 대입하면 아래와 같이 상수로 결정됩니다.<br>
+                &nbsp;&nbsp;&nbsp; - <strong>기준 벡터 $\vec{AB}$ :</strong> 점 $\text{B}$의 좌표가 $(2, 0)$이므로, $\vec{AB} = (2, 0)$입니다.<br>
+                &nbsp;&nbsp;&nbsp; - <strong>점 $\text{P}$의 좌표 :</strong> $P(2\cos^2 45^\circ, 2\cos 45^\circ \sin 45^\circ) = (1, 1)$ 이므로, $\vec{AP} = (1, 1)$입니다.<br>
+                &nbsp;&nbsp;&nbsp; - <strong>점 $\text{R}$의 좌표 :</strong> $R(1+\cos 45^\circ, -\sin 45^\circ) = \left(1+\frac{\sqrt{2}}{2}, -\frac{\sqrt{2}}{2}\right)$ 이므로, $\vec{AR} = \left(1+\frac{\sqrt{2}}{2}, -\frac{\sqrt{2}}{2}\right)$입니다.
+            </p>
+            
+            <h4>2단계. 일차결합 연립방정식 설계 및 해결</h4>
+            <p>
+                $\vec{AR}$ 벡터를 두 기저 벡터 $\vec{AB}$와 $\vec{AP}$의 실수배의 합(일차결합)인 $\vec{AR} = s\vec{AB} + t\vec{AP}$ 형태로 표현하기 위해, 각각의 $x$성분과 $y$성분 관계식을 연립하여 상수를 도출합니다.<br>
+                $$ \left(1+\frac{\sqrt{2}}{2}, -\frac{\sqrt{2}}{2}\right) = s(2, 0) + t(1, 1) = (2s + t, t) $$
+                
+                각 성분별로 연립방정식을 세우면 다음과 같습니다.<br>
+                &nbsp;&nbsp;&nbsp; [1] $y$성분 비교: $t = -\frac{\sqrt{2}}{2}$<br>
+                &nbsp;&nbsp;&nbsp; [2] $x$성분 비교: $2s + t = 1 + \frac{\sqrt{2}}{2}$
+            </p>
+            
+            <h4>3단계. 최종 계수 $s, t$ 유도</h4>
+            <p>
+                [1]의 $t$값을 [2]에 대입하여 $s$를 정리합니다.<br>
+                $$ 2s - \frac{\sqrt{2}}{2} = 1 + \frac{\sqrt{2}}{2} $$
+                $$ 2s = 1 + \sqrt{2} \quad \implies \quad s = \frac{1+\sqrt{2}}{2} $$
+            </p>
+            <div class="math-result-success">
+                $\therefore$ 넓이가 최대일 때, 벡터 $\vec{AR}$의 일차결합 식의 결과값은 다음과 같습니다.<br>
+                $$\vec{AR} = \frac{1+\sqrt{2}}{2}\vec{AB} - \frac{\sqrt{2}}{2}\vec{AP}$$
+                <span style="font-size: 15px; font-weight: normal; color: #555;">(소수점 근사치 표현: $\vec{AR} \approx 1.207\vec{AB} - 0.707\vec{AP}$)</span>
+            </div>
+            <p>
+                <strong>시각적 타당성 검증 :</strong> 시뮬레이터 조작을 통해 $\theta = 45.0^\circ$ 로 설정하거나 '넓이 최대 상황 설정' 버튼을 클릭하면 우측 데이터 패널과 삼각형 시각화 장치에서 정확하게 $\vec{AR} = 1.207\vec{AB} - 0.707\vec{AP}$ 를 나타내며, 이론적인 해와 그래픽 계산 결과가 기하학적으로 완벽히 수렴함을 증명할 수 있습니다.
+            </p>
+        </div>
+    </details>
+
+    <script>
+        // 요소 가져오기
+        const mainCanvas = document.getElementById('mathCanvas');
+        const ctxMain = mainCanvas.getContext('2d');
+        const vectorCanvas = document.getElementById('vectorCanvas');
+        const ctxVec = vectorCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const ctxGraph = graphCanvas.getContext('2d');
+        
+        const thetaSlider = document.getElementById('thetaSlider');
+        const thetaValue = document.getElementById('thetaValue');
+        const playBtn = document.getElementById('playBtn');
+        const maxBtn = document.getElementById('maxBtn');
+        const dataOutput = document.getElementById('dataOutput');
+        const vectorOutput = document.getElementById('vectorOutput');
+
+        // 상태 변수
+        let currentTheta = 20;
+        let isPlaying = false;
+        let animReq;
+        let animDirection = 1; 
+        let animSpeed = 0.3; 
+        
+        // 데이터 추적 (그래프 용)
+        const historyData = [];
+
+        // 최대 넓이 사전 계산
+        let globalMaxArea = 0;
+        let globalBestTheta = 45;
+        let maxAreaScale = 1;
+
+        // 메인 캔버스 기본 스케일 및 중앙 좌표
+        const cxMain = 100;
+        const cyMain = 200; 
+        const scaleMain = 110; 
+
+        // Helper: 면적 계산 함수 (배각 공식 적용)
+        function calcAreaForTheta(deg) {
+            let rad = deg * Math.PI / 180;
+            return 0.5 * Math.sin(2 * rad);
+        }
+
+        // 초기화 시 최대 넓이 탐색
+        function initPrecalculations() {
+            for(let a = 0.1; a <= 89.9; a += 0.1) {
+                let a_val = calcAreaForTheta(a);
+                if(a_val > globalMaxArea) {
+                    globalMaxArea = a_val;
+                    globalBestTheta = a;
+                }
+            }
+            maxAreaScale = globalMaxArea * 1.3; 
+        }
+        initPrecalculations();
+
+        // Helper: 화살표/텍스트 그리기 함수
+        function drawArrow(ctx, fromx, fromy, tox, toy, color, width) {
+            let headlen = 10;
+            let dx = tox - fromx;
+            let dy = toy - fromy;
+            let angle = Math.atan2(dy, dx);
+            ctx.beginPath();
+            ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width;
+            ctx.moveTo(fromx, fromy); ctx.lineTo(tox, toy); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - headlen * Math.cos(angle - Math.PI / 7), toy - headlen * Math.sin(angle - Math.PI / 7));
+            ctx.lineTo(tox - headlen * Math.cos(angle + Math.PI / 7), toy - headlen * Math.sin(angle + Math.PI / 7));
+            ctx.lineTo(tox, toy); ctx.fill();
+        }
+
+        function drawText(ctx, x, y, text, color, align='left') {
+            ctx.font = 'bold 13px "맑은 고딕", Arial';
+            ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(text, x, y);
+        }
+
+        function updateSim() {
+            let calcTheta = currentTheta;
+            if (calcTheta <= 0.1) calcTheta = 0.1;
+            if (calcTheta >= 89.9) calcTheta = 89.9;
+            
+            let rad = calcTheta * Math.PI / 180;
+            
+            let Px = 2 * Math.pow(Math.cos(rad), 2);
+            let Py = 2 * Math.cos(rad) * Math.sin(rad);
+            let Qx = 2 * Math.cos(rad);
+            let m = Math.sin(rad) / (Math.cos(rad) - 1);
+            let Rx = (2 * (1 + 2 * m * m * Math.cos(rad))) / (1 + m * m) - Px;
+            let Ry = m * (Rx - Qx);
+            let area = 0.5 * Qx * Math.abs(Ry);
+            
+            let t = Ry / Py;
+            let s = (Rx - t * Px) / 2;
+
+            // 그래프 궤적 데이터 저장
+            if (historyData.length === 0 || Math.abs(historyData[historyData.length-1].theta - currentTheta) > 0.05) {
+                historyData.push({ theta: currentTheta, area: area });
+            }
+
+            // 데이터 패널 업데이트
+            let isMaxArea = (Math.abs(currentTheta - globalBestTheta) < 0.5) ? 'highlight' : ''; 
+            dataOutput.innerHTML = `
+                점 P: (${Px.toFixed(3)}, ${Py.toFixed(3)})<br>
+                점 Q: (${Qx.toFixed(3)}, 0.000)<br>
+                점 R: (${Rx.toFixed(3)}, ${Ry.toFixed(3)})<br>
+                <hr style="border:0; border-bottom:1px solid #ddd; margin: 10px 0;">
+                <span class="${isMaxArea}">△AQR의 넓이: <strong>${area.toFixed(4)}</strong> 
+                ${isMaxArea ? ' (최대 근접!)' : ''}</span>
+            `;
+            vectorOutput.innerHTML = `
+                <span style="color:#333">AR</span> = 
+                <span style="color:#007bff">${s.toFixed(3)}</span> <span style="color:#007bff">AB</span> 
+                ${t >= 0 ? '+' : '-'} <span style="color:#28a745">${Math.abs(t).toFixed(3)}</span> <span style="color:#28a745">AP</span>
+            `;
+
+            // 각 캔버스 렌더링
+            drawMainCanvas(Px, Py, Qx, Rx, Ry, m, rad); 
+            drawVectorCanvas(s, t, Px, Py, Rx, Ry);
+            drawGraphCanvas(area);
+        }
+
+        function drawMainCanvas(Px, Py, Qx, Rx, Ry, m, rad) {
+            ctxMain.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            let tx = x => cxMain + x * scaleMain;
+            let ty = y => cyMain - y * scaleMain;
+            
+            // 좌표축
+            ctxMain.beginPath(); ctxMain.strokeStyle = '#e0e0e0'; ctxMain.lineWidth = 1;
+            ctxMain.moveTo(0, ty(0)); ctxMain.lineTo(mainCanvas.width, ty(0));
+            ctxMain.moveTo(tx(0), 0); ctxMain.lineTo(tx(0), mainCanvas.height); ctxMain.stroke();
+
+            // 원 C
+            ctxMain.beginPath(); ctxMain.strokeStyle = '#888'; ctxMain.setLineDash([5, 5]);
+            ctxMain.arc(tx(1), ty(0), scaleMain, 0, 2 * Math.PI); ctxMain.stroke(); ctxMain.setLineDash([]);
+
+            // 삼각형 AQR 면적
+            ctxMain.beginPath(); ctxMain.fillStyle = 'rgba(255, 193, 7, 0.25)';
+            ctxMain.moveTo(tx(0), ty(0)); ctxMain.lineTo(tx(Qx), ty(0)); ctxMain.lineTo(tx(Rx), ty(Ry));
+            ctxMain.closePath(); ctxMain.fill(); ctxMain.strokeStyle = '#ffc107'; ctxMain.stroke();
+
+            // 직선 PQ
+            ctxMain.beginPath(); ctxMain.strokeStyle = '#bbb'; ctxMain.lineWidth = 1;
+            let line_x1 = -0.5, line_y1 = m * (line_x1 - Qx);
+            let line_x2 = 2.5, line_y2 = m * (line_x2 - Qx);
+            if (line_y1 > 1.5) { line_y1 = 1.5; line_x1 = (line_y1 / m) + Qx; }
+            if (line_y1 < -1.5) { line_y1 = -1.5; line_x1 = (line_y1 / m) + Qx; }
+            if (line_y2 > 1.5) { line_y2 = 1.5; line_x2 = (line_y2 / m) + Qx; }
+            if (line_y2 < -1.5) { line_y2 = -1.5; line_x2 = (line_y2 / m) + Qx; }
+            ctxMain.moveTo(tx(line_x1), ty(line_y1)); ctxMain.lineTo(tx(line_x2), ty(line_y2)); ctxMain.stroke();
+
+            // theta 각도 호 그리기
+            ctxMain.beginPath();
+            ctxMain.strokeStyle = '#d9534f';
+            ctxMain.lineWidth = 1.5;
+            ctxMain.arc(tx(0), ty(0), 40, 0, -rad, true); 
+            ctxMain.stroke();
+            
+            // theta 텍스트 
+            ctxMain.fillStyle = '#d9534f';
+            ctxMain.font = 'italic bold 16px "Times New Roman", serif';
+            let textX = tx(0) + 48 * Math.cos(-rad/2) - 5;
+            let textY = ty(0) + 48 * Math.sin(-rad/2) + 5;
+            ctxMain.fillText('θ', textX, textY);
+
+            // 벡터 그리기
+            drawArrow(ctxMain, tx(0), ty(0), tx(2), ty(0), '#007bff', 2); 
+            drawArrow(ctxMain, tx(0), ty(0), tx(Px), ty(Py), '#28a745', 2); 
+            drawArrow(ctxMain, tx(0), ty(0), tx(Rx), ty(Ry), '#dc3545', 3); 
+
+            // 점 그리기
+            const drawP = (x, y, label) => {
+                ctxMain.beginPath(); ctxMain.arc(tx(x), ty(y), 4, 0, 2*Math.PI);
+                ctxMain.fillStyle = '#000'; ctxMain.fill();
+                ctxMain.font = '13px Arial'; ctxMain.fillText(label, tx(x) + 6, ty(y) - 6);
+            };
+            drawP(0, 0, 'A'); drawP(2, 0, 'B'); drawP(Px, Py, 'P'); drawP(Qx, 0, 'Q'); drawP(Rx, Ry, 'R');
+        }
+
+        // 벡터 삼각형 캔버스 렌더링 (동적 자동 스케일링 탑재!)
+        function drawVectorCanvas(s, t, Px, Py, Rx, Ry) {
+            ctxVec.clearRect(0, 0, vectorCanvas.width, vectorCanvas.height);
+
+            let x0 = 0, y0 = 0;
+            let x1 = 2 * s, y1 = 0;
+            let x2 = Rx, y2 = Ry;
+
+            let minX = Math.min(x0, x1, x2);
+            let maxX = Math.max(x0, x1, x2);
+            let minY = Math.min(y0, y1, y2);
+            let maxY = Math.max(y0, y1, y2);
+
+            let widthMath = Math.max(maxX - minX, 1.0);
+            let heightMath = Math.max(maxY - minY, 1.0);
+
+            let padding = 45; 
+            let scaleX = (vectorCanvas.width - 2 * padding) / widthMath;
+            let scaleY = (vectorCanvas.height - 2 * padding) / heightMath;
+            
+            let dynamicScale = Math.min(scaleX, scaleY);
+            if (dynamicScale > 150) dynamicScale = 150;
+
+            let centerMathX = (minX + maxX) / 2;
+            let centerMathY = (minY + maxY) / 2;
+            
+            let cxVecDyn = vectorCanvas.width / 2 - centerMathX * dynamicScale;
+            let cyVecDyn = vectorCanvas.height / 2 + centerMathY * dynamicScale; 
+
+            let dtx = x => cxVecDyn + x * dynamicScale;
+            let dty = y => cyVecDyn - y * dynamicScale;
+
+            // 좌표 격자
+            ctxVec.beginPath(); ctxVec.strokeStyle = '#f4f4f4'; ctxVec.lineWidth = 1;
+            ctxVec.moveTo(0, dty(0)); ctxVec.lineTo(vectorCanvas.width, dty(0));
+            ctxVec.moveTo(dtx(0), 0); ctxVec.lineTo(dtx(0), vectorCanvas.height); ctxVec.stroke();
+
+            // 삼각형 영역 채우기
+            ctxVec.beginPath(); ctxVec.fillStyle = 'rgba(230, 230, 230, 0.4)';
+            ctxVec.moveTo(dtx(x0), dty(y0)); 
+            ctxVec.lineTo(dtx(x1), dty(y1)); 
+            ctxVec.lineTo(dtx(x2), dty(y2)); 
+            ctxVec.closePath(); ctxVec.fill();
+
+            // sAB 벡터
+            drawArrow(ctxVec, dtx(x0), dty(y0), dtx(x1), dty(y1), '#007bff', 2.5);
+            drawText(ctxVec, dtx(x1/2), dty(y1) + 18, `sAB`, '#007bff', 'center');
+
+            // tAP 벡터
+            drawArrow(ctxVec, dtx(x1), dty(y1), dtx(x2), dty(y2), '#28a745', 2.5);
+            let lblX = (x1 + x2) / 2;
+            let lblY = (y1 + y2) / 2;
+            drawText(ctxVec, dtx(lblX) + 8, dty(lblY) - 5, `tAP`, '#28a745', 'left');
+
+            // AR 벡터
+            drawArrow(ctxVec, dtx(x0), dty(y0), dtx(x2), dty(y2), '#dc3545', 3.5);
+            drawText(ctxVec, dtx(x2/2) - 10, dty(y2/2) - 8, `AR`, '#dc3545', 'right');
+            
+            // 점 표시
+            ctxVec.fillStyle = '#000';
+            ctxVec.beginPath(); ctxVec.arc(dtx(x0), dty(y0), 4, 0, Math.PI*2); ctxVec.fill();
+            ctxVec.beginPath(); ctxVec.arc(dtx(x2), dty(y2), 4, 0, Math.PI*2); ctxVec.fill();
+            drawText(ctxVec, dtx(x0) - 12, dty(y0) + 14, 'A', '#000'); 
+            drawText(ctxVec, dtx(x2) + 10, dty(y2) - 5, 'R', '#000');
+        }
+
+        // 3. 그래프 캔버스 렌더링
+        function drawGraphCanvas(currentArea) {
+            ctxGraph.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            const padX = 40; const padY = 30;
+            const w = graphCanvas.width - padX * 2;
+            const h = graphCanvas.height - padY * 2;
+
+            // 배경 축
+            ctxGraph.beginPath(); ctxGraph.strokeStyle = '#ccc'; ctxGraph.lineWidth = 1;
+            ctxGraph.moveTo(padX, padY); ctxGraph.lineTo(padX, padY + h); 
+            ctxGraph.lineTo(padX + w, padY + h); 
+            ctxGraph.stroke();
+
+            // 라벨 표시
+            ctxGraph.fillStyle = '#666'; ctxGraph.font = '12px Arial';
+            ctxGraph.textAlign = 'center';
+            ctxGraph.fillText('0°', padX, padY + h + 15);
+            ctxGraph.fillText('90°', padX + w, padY + h + 15);
+            ctxGraph.fillText('θ (각도)', padX + w + 15, padY + h + 4);
+            
+            ctxGraph.textAlign = 'right';
+            ctxGraph.fillText('0', padX - 8, padY + h + 4);
+            ctxGraph.fillText(globalMaxArea.toFixed(2), padX - 8, padY + h - (globalMaxArea/maxAreaScale)*h + 4);
+            ctxGraph.fillText('넓이', padX - 8, padY - 10);
+
+            // 가이드선
+            let maxYPixel = padY + h - (globalMaxArea/maxAreaScale)*h;
+            ctxGraph.beginPath(); ctxGraph.strokeStyle = '#e8e8e8'; ctxGraph.setLineDash([4, 4]);
+            ctxGraph.moveTo(padX, maxYPixel); ctxGraph.lineTo(padX + w, maxYPixel);
+            ctxGraph.stroke(); ctxGraph.setLineDash([]);
+
+            // 히스토리 점 그리기
+            ctxGraph.fillStyle = '#007bff';
+            for (let i = 0; i < historyData.length; i++) {
+                let d = historyData[i];
+                let px = padX + (d.theta / 90) * w;
+                let py = padY + h - (d.area / maxAreaScale) * h;
+                ctxGraph.beginPath();
+                ctxGraph.arc(px, py, 1.5, 0, Math.PI*2);
+                ctxGraph.fill();
+            }
+
+            // 현재 위치 큰 빨간 점
+            let curX = padX + (currentTheta / 90) * w;
+            let curY = padY + h - (currentArea / maxAreaScale) * h;
+            ctxGraph.fillStyle = '#dc3545';
+            ctxGraph.beginPath();
+            ctxGraph.arc(curX, curY, 4, 0, Math.PI*2);
+            ctxGraph.fill();
+        }
+
+        // 이벤트 리스너
+        thetaSlider.addEventListener('input', (e) => {
+            currentTheta = parseFloat(e.target.value);
+            thetaValue.textContent = currentTheta.toFixed(1) + '°';
+            updateSim();
+        });
+
+        maxBtn.addEventListener('click', () => {
+            if (isPlaying) playBtn.click(); 
+            currentTheta = globalBestTheta;
+            thetaSlider.value = currentTheta;
+            thetaValue.textContent = currentTheta.toFixed(1) + '°';
+            updateSim();
+        });
+
+        // 아코디언이 펼쳐질 때 MathJax 수식이 다시 깨지지 않고 그려지도록 강제 트리거
+        document.getElementById('mathDetails1').addEventListener('toggle', function() {
+            if (this.open && window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        });
+        document.getElementById('mathDetails2').addEventListener('toggle', function() {
+            if (this.open && window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        });
+
+        function animateLoop() {
+            if (!isPlaying) return;
+            currentTheta += animSpeed * animDirection;
+            
+            if (currentTheta >= 90) { currentTheta = 90; animDirection = -1; } 
+            else if (currentTheta <= 0) { currentTheta = 0; animDirection = 1; }
+            
+            thetaSlider.value = currentTheta;
+            thetaValue.textContent = currentTheta.toFixed(1) + '°';
+            updateSim();
+            animReq = requestAnimationFrame(animateLoop);
+        }
+
+        playBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playBtn.textContent = '⏸ 자동 재생 정지';
+                playBtn.style.backgroundColor = '#dc3545';
+                animReq = requestAnimationFrame(animateLoop);
+            } else {
+                playBtn.textContent = '▶ 0° ↔ 90° 자동 재생';
+                playBtn.style.backgroundColor = '#007bff';
+                cancelAnimationFrame(animReq);
+            }
+        });
+
+        // 초기 화면 그리기
+        updateSim();
+    </script>
+</body>
+</html>

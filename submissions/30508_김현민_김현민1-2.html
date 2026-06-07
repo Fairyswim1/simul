@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>점 A와 점 B의 운동 시뮬레이터 - 최종 버전</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f6f8;
+      color: #222;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 28px auto;
+      padding: 0 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      margin-bottom: 22px;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(560px, 720px) 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .card {
+      background: white;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 8px 24px rgba(20, 30, 45, 0.08);
+      border: 1px solid #e5e9ef;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #ffffff;
+      border-radius: 14px;
+      border: 1px solid #d9e0e8;
+    }
+
+    .controls {
+      margin-top: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      background: #2f7df6;
+      color: white;
+      padding: 10px 18px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(47, 125, 246, 0.25);
+      white-space: nowrap;
+    }
+
+    button:hover {
+      filter: brightness(0.96);
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: #2f7df6;
+    }
+
+    .value {
+      min-width: 95px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: #444;
+    }
+
+    .info h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    .section {
+      background: #f6f8fb;
+      border: 1px solid #e3e7ee;
+      border-radius: 12px;
+      padding: 12px 14px;
+      line-height: 1.7;
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    .section strong {
+      color: #111827;
+    }
+
+    .data {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+
+    .data div {
+      background: #f9fbfd;
+      border: 1px solid #e5e9ef;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .label {
+      color: #667085;
+      font-size: 13px;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .speedBox {
+      border: 1px solid #e5e9ef;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fffaf0;
+      margin-bottom: 12px;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .zeroList {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .zeroItem {
+      padding: 5px 8px;
+      border-radius: 8px;
+      color: #444;
+    }
+
+    .zeroItem.active {
+      background: #eef2ff;
+      color: #312e81;
+      font-weight: 800;
+      outline: 2px solid #818cf8;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .big::before { background: #444; }
+    .small::before { background: #999; }
+    .a::before { background: #2563eb; }
+    .b::before { background: #e11d48; }
+    .trace::before { background: #f59e0b; }
+    .area::before { background: #bfdbfe; }
+    .zero::before { background: #7c3aed; }
+
+    .insight {
+      background: #eef7ff;
+      border-color: #bfdbfe;
+    }
+
+    .note {
+      color: #667085;
+      line-height: 1.6;
+      font-size: 14px;
+      margin-top: 12px;
+    }
+
+    ul {
+      margin: 8px 0 0 20px;
+      padding: 0;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    code {
+      font-family: "Consolas", "Menlo", monospace;
+      background: #eef2f7;
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+
+    @media (max-width: 960px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+
+      .row {
+        flex-wrap: wrap;
+      }
+
+      input[type="range"] {
+        min-width: 220px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>점 A와 점 B의 운동 시뮬레이터</h1>
+    <div class="subtitle">
+      점 A는 원 x²+y²=9 위를 반시계방향으로 움직이고,<br>
+      점 B는 점 A를 중심으로 하는 반지름 1인 원 위를 시계방향으로 움직입니다.
+    </div>
+
+    <div class="layout">
+      <div class="card">
+        <canvas id="canvas" width="780" height="780"></canvas>
+
+        <div class="controls">
+          <div class="row">
+            <button id="playBtn">▶ 자동 재생</button>
+            <button id="areaToggleBtn">넓이 표시 끄기</button>
+            <input id="slider" type="range" min="0" max="6.28318530718" step="0.001" value="0">
+            <div class="value" id="tValue">t = 0.000</div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span class="big">큰 원</span>
+          <span class="small">작은 원</span>
+          <span class="a">점 A</span>
+          <span class="b">점 B</span>
+          <span class="trace">현재까지의 자취</span>
+          <span class="area">둘러싸인 영역</span>
+          <span class="zero">속력 0 지점</span>
+        </div>
+      </div>
+
+      <div class="card info">
+        <h2>현재 상태 및 풀이 정보</h2>
+
+        <div class="section">
+          <strong>점 B의 매개변수방정식</strong><br>
+          B(t) = (3cos t + cos 3t, 3sin t - sin 3t)<br>
+          = (<code>4cos³t</code>, <code>4sin³t</code>)<br>
+          따라서 점 B의 자취는 astroid 곡선입니다.
+        </div>
+
+        <div class="data">
+          <div>
+            <span class="label">시간</span>
+            <strong id="timeText">t = 0.000</strong>
+          </div>
+          <div>
+            <span class="label">점 A의 좌표</span>
+            <strong id="aText">A = (3.000, 0.000)</strong>
+          </div>
+          <div>
+            <span class="label">점 B의 좌표</span>
+            <strong id="bText">B = (4.000, 0.000)</strong>
+          </div>
+        </div>
+
+        <div class="speedBox">
+          <span class="label">점 B의 현재 속력</span>
+          <strong id="speedText">v = 0.000</strong><br>
+          <span>v = 12|sin t cos t|</span>
+        </div>
+
+        <div class="section">
+          <strong>속력이 0이 되는 시각과 위치</strong>
+          <div class="zeroList">
+            <div id="zeroItem0" class="zeroItem">t = 0 → B(4, 0)</div>
+            <div id="zeroItem1" class="zeroItem">t = π/2 → B(0, 4)</div>
+            <div id="zeroItem2" class="zeroItem">t = π → B(-4, 0)</div>
+            <div id="zeroItem3" class="zeroItem">t = 3π/2 → B(0, -4)</div>
+            <div id="zeroItem4" class="zeroItem">t = 2π → B(4, 0)</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <strong>문제 (3) 넓이 검토</strong><br>
+          파란색으로 칠해진 부분은 점 B의 자취가 둘러싸는 영역입니다.<br>
+          위쪽의 ‘넓이 표시 끄기/켜기’ 버튼으로 영역 표시를 조절할 수 있습니다.<br>
+          astroid의 넓이 공식에 의해 전체 넓이는 <strong>6π</strong>입니다.
+        </div>
+
+        <div class="section insight">
+          <strong>풀이 인사이트</strong>
+          <ul>
+            <li>자취를 보면 x축과 y축에 대해 대칭임을 확인할 수 있습니다.</li>
+            <li>뾰족점에서 속력이 0이 되어 곡선의 방향이 바뀝니다.</li>
+            <li>곡선이 둘러싸는 영역을 직접 확인하여 넓이 계산 결과를 검토할 수 있습니다.</li>
+          </ul>
+        </div>
+
+        <p class="note">
+          슬라이더를 움직이거나 자동 재생 버튼을 누르면 시간 t에 따라 점 A와 점 B가 움직입니다.
+          회색 곡선은 전체 자취, 주황색 곡선은 현재까지 점 B가 지나간 자취입니다.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const slider = document.getElementById("slider");
+    const playBtn = document.getElementById("playBtn");
+    const areaToggleBtn = document.getElementById("areaToggleBtn");
+    const tValue = document.getElementById("tValue");
+    const timeText = document.getElementById("timeText");
+    const aText = document.getElementById("aText");
+    const bText = document.getElementById("bText");
+    const speedText = document.getElementById("speedText");
+
+    const zeroItems = [
+      document.getElementById("zeroItem0"),
+      document.getElementById("zeroItem1"),
+      document.getElementById("zeroItem2"),
+      document.getElementById("zeroItem3"),
+      document.getElementById("zeroItem4")
+    ];
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const scale = 82;
+    const originX = W / 2;
+    const originY = H / 2;
+
+    const TWO_PI = Math.PI * 2;
+    let t = 0;
+    let playing = false;
+    let showArea = true;
+    let lastTime = null;
+
+    const zeroPoints = [
+      { t: 0, label: "t=0", x: 4, y: 0, index: 0 },
+      { t: Math.PI / 2, label: "t=π/2", x: 0, y: 4, index: 1 },
+      { t: Math.PI, label: "t=π", x: -4, y: 0, index: 2 },
+      { t: 3 * Math.PI / 2, label: "t=3π/2", x: 0, y: -4, index: 3 },
+      { t: TWO_PI, label: "t=2π", x: 4, y: 0, index: 4 }
+    ];
+
+    function toCanvasX(x) {
+      return originX + x * scale;
+    }
+
+    function toCanvasY(y) {
+      return originY - y * scale;
+    }
+
+    function format(n) {
+      if (Math.abs(n) < 0.0005) return "0.000";
+      return n.toFixed(3);
+    }
+
+    function getA(t) {
+      return {
+        x: 3 * Math.cos(t),
+        y: 3 * Math.sin(t)
+      };
+    }
+
+    function getB(t) {
+      const A = getA(t);
+      return {
+        x: A.x + Math.cos(3 * t),
+        y: A.y - Math.sin(3 * t)
+      };
+    }
+
+    function getSpeed(t) {
+      return 12 * Math.abs(Math.sin(t) * Math.cos(t));
+    }
+
+    function nearestZeroInfo(t) {
+      let best = null;
+
+      for (const z of zeroPoints) {
+        const diff = Math.abs(t - z.t);
+        if (best === null || diff < best.diff) {
+          best = { ...z, diff };
+        }
+      }
+
+      if (t < 0.04) {
+        return { ...zeroPoints[0], diff: t };
+      }
+
+      if (Math.abs(t - TWO_PI) < 0.04) {
+        return { ...zeroPoints[4], diff: Math.abs(t - TWO_PI) };
+      }
+
+      return best;
+    }
+
+    function drawGrid() {
+      ctx.save();
+
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#edf0f4";
+
+      for (let x = -4; x <= 4; x++) {
+        ctx.beginPath();
+        ctx.moveTo(toCanvasX(x), toCanvasY(-4.5));
+        ctx.lineTo(toCanvasX(x), toCanvasY(4.5));
+        ctx.stroke();
+      }
+
+      for (let y = -4; y <= 4; y++) {
+        ctx.beginPath();
+        ctx.moveTo(toCanvasX(-4.5), toCanvasY(y));
+        ctx.lineTo(toCanvasX(4.5), toCanvasY(y));
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(-4.6), toCanvasY(0));
+      ctx.lineTo(toCanvasX(4.6), toCanvasY(0));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(0), toCanvasY(-4.6));
+      ctx.lineTo(toCanvasX(0), toCanvasY(4.6));
+      ctx.stroke();
+
+      ctx.fillStyle = "#333";
+      ctx.font = "16px system-ui";
+      ctx.fillText("x", toCanvasX(4.45), toCanvasY(0) - 8);
+      ctx.fillText("y", toCanvasX(0) + 8, toCanvasY(4.45));
+
+      for (let i = -4; i <= 4; i++) {
+        if (i === 0) continue;
+
+        ctx.fillStyle = "#707782";
+        ctx.font = "13px system-ui";
+        ctx.fillText(i.toString(), toCanvasX(i) - 5, toCanvasY(0) + 18);
+        ctx.fillText(i.toString(), toCanvasX(0) + 8, toCanvasY(i) + 5);
+      }
+
+      ctx.restore();
+    }
+
+    function drawCircle(cx, cy, r, color, width, dashed = false) {
+      ctx.save();
+      ctx.beginPath();
+
+      if (dashed) {
+        ctx.setLineDash([7, 7]);
+      }
+
+      ctx.arc(toCanvasX(cx), toCanvasY(cy), r * scale, 0, TWO_PI);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPoint(x, y, color, label, dx = 10, dy = -10, radius = 7) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(toCanvasX(x), toCanvasY(y), radius, 0, TWO_PI);
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      ctx.fillStyle = color;
+      ctx.font = "bold 17px system-ui";
+      ctx.fillText(label, toCanvasX(x) + dx, toCanvasY(y) + dy);
+      ctx.restore();
+    }
+
+    function drawAstroidArea() {
+      const steps = 720;
+
+      ctx.save();
+      ctx.beginPath();
+
+      for (let i = 0; i <= steps; i++) {
+        const tt = TWO_PI * i / steps;
+        const B = getB(tt);
+
+        if (i === 0) {
+          ctx.moveTo(toCanvasX(B.x), toCanvasY(B.y));
+        } else {
+          ctx.lineTo(toCanvasX(B.x), toCanvasY(B.y));
+        }
+      }
+
+      ctx.closePath();
+      ctx.fillStyle = "rgba(59, 130, 246, 0.16)";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawFullTrace() {
+      const steps = 720;
+
+      ctx.save();
+      ctx.beginPath();
+
+      for (let i = 0; i <= steps; i++) {
+        const tt = TWO_PI * i / steps;
+        const B = getB(tt);
+
+        if (i === 0) {
+          ctx.moveTo(toCanvasX(B.x), toCanvasY(B.y));
+        } else {
+          ctx.lineTo(toCanvasX(B.x), toCanvasY(B.y));
+        }
+      }
+
+      ctx.strokeStyle = "rgba(70, 70, 70, 0.35)";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawTrace(currentT) {
+      const steps = 900;
+
+      ctx.save();
+      ctx.beginPath();
+
+      for (let i = 0; i <= steps; i++) {
+        const tt = currentT * i / steps;
+        const B = getB(tt);
+
+        if (i === 0) {
+          ctx.moveTo(toCanvasX(B.x), toCanvasY(B.y));
+        } else {
+          ctx.lineTo(toCanvasX(B.x), toCanvasY(B.y));
+        }
+      }
+
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawZeroPoints() {
+      const threshold = 0.055;
+
+      for (const z of zeroPoints.slice(0, 4)) {
+        const isNear = Math.abs(t - z.t) < threshold ||
+          (z.t === 0 && Math.abs(t - TWO_PI) < threshold);
+
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.arc(toCanvasX(z.x), toCanvasY(z.y), isNear ? 13 : 8, 0, TWO_PI);
+        ctx.fillStyle = isNear ? "#7c3aed" : "rgba(124, 58, 237, 0.65)";
+        ctx.fill();
+        ctx.strokeStyle = isNear ? "#111827" : "#7c3aed";
+        ctx.lineWidth = isNear ? 3 : 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = isNear ? "#111827" : "#5b21b6";
+        ctx.font = isNear ? "bold 15px system-ui" : "13px system-ui";
+
+        const label = `${z.label}, (${z.x}, ${z.y})`;
+
+        let dx = 10;
+        let dy = -12;
+
+        if (z.x < 0) {
+          dx = -112;
+        }
+
+        if (z.y < 0) {
+          dy = 24;
+        }
+
+        if (z.y > 0) {
+          dy = -16;
+        }
+
+        ctx.fillText(label, toCanvasX(z.x) + dx, toCanvasY(z.y) + dy);
+
+        ctx.restore();
+      }
+    }
+
+    function drawSymmetryGuides() {
+      ctx.save();
+      ctx.setLineDash([8, 8]);
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.35)";
+      ctx.lineWidth = 1.5;
+
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(-4.2), toCanvasY(0));
+      ctx.lineTo(toCanvasX(4.2), toCanvasY(0));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(0), toCanvasY(-4.2));
+      ctx.lineTo(toCanvasX(0), toCanvasY(4.2));
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawScene() {
+      const A = getA(t);
+      const B = getB(t);
+      const speed = getSpeed(t);
+      const near = nearestZeroInfo(t);
+      const isNearZero = near.diff < 0.055 || t < 0.055 || Math.abs(t - TWO_PI) < 0.055;
+
+      ctx.clearRect(0, 0, W, H);
+
+      drawGrid();
+
+      if (showArea) {
+        drawAstroidArea();
+        drawSymmetryGuides();
+      }
+
+      drawCircle(0, 0, 3, "#555", 2);
+      drawFullTrace();
+      drawTrace(t);
+      drawZeroPoints();
+
+      drawCircle(A.x, A.y, 1, "#9ca3af", 2, true);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(A.x), toCanvasY(A.y));
+      ctx.lineTo(toCanvasX(B.x), toCanvasY(B.y));
+      ctx.strokeStyle = "#9ca3af";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      drawPoint(A.x, A.y, "#2563eb", "A");
+      drawPoint(B.x, B.y, "#e11d48", "B", 10, -10, isNearZero ? 10 : 7);
+
+      tValue.textContent = `t = ${format(t)}`;
+      timeText.textContent = `t = ${format(t)}`;
+      aText.textContent = `A = (${format(A.x)}, ${format(A.y)})`;
+      bText.textContent = `B = (${format(B.x)}, ${format(B.y)})`;
+      speedText.textContent = `v = ${format(speed)}`;
+
+      zeroItems.forEach((item) => item.classList.remove("active"));
+
+      if (isNearZero) {
+        zeroItems[near.index].classList.add("active");
+      }
+    }
+
+    function animate(timestamp) {
+      if (!playing) {
+        lastTime = null;
+        return;
+      }
+
+      if (lastTime === null) {
+        lastTime = timestamp;
+      }
+
+      const elapsed = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      t += elapsed * 0.75;
+
+      if (t > TWO_PI) {
+        t = 0;
+      }
+
+      slider.value = t;
+      drawScene();
+      requestAnimationFrame(animate);
+    }
+
+    slider.addEventListener("input", () => {
+      t = parseFloat(slider.value);
+      drawScene();
+    });
+
+    playBtn.addEventListener("click", () => {
+      playing = !playing;
+      playBtn.textContent = playing ? "⏸ 일시정지" : "▶ 자동 재생";
+
+      if (playing) {
+        requestAnimationFrame(animate);
+      }
+    });
+
+    areaToggleBtn.addEventListener("click", () => {
+      showArea = !showArea;
+      areaToggleBtn.textContent = showArea ? "넓이 표시 끄기" : "넓이 표시 켜기";
+      drawScene();
+    });
+
+    drawScene();
+  </script>
+</body>
+</html>

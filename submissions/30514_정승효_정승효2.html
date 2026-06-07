@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>사면체 OABC 단면 시뮬레이터 (범위 확장 버전)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #sidebar {
+            width: 380px;
+            background-color: #262626;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            height: 100%;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #444;
+            padding-bottom: 8px;
+            color: #00adb5;
+        }
+        .control-group {
+            background: #333;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .input-box {
+            width: 70px;
+            background: #444;
+            color: #fff;
+            border: 1px solid #555;
+            text-align: center;
+            border-radius: 4px;
+            padding: 4px;
+            font-weight: bold;
+        }
+        .input-box:focus {
+            border-color: #00adb5;
+            outline: none;
+        }
+        input[type="range"] {
+            width: 100%;
+            accent-color: #00adb5;
+        }
+        select, button {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: none;
+            background-color: #444;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        select:focus, button:hover {
+            background-color: #00adb5;
+        }
+        .btn-reset {
+            background-color: #d9534f;
+        }
+        .btn-reset:hover {
+            background-color: #c9302c;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+        .result-table th, .result-table td {
+            border: 1px solid #444;
+            padding: 6px;
+            text-align: center;
+        }
+        .result-table th {
+            background-color: #222;
+        }
+        .shape-highlight {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffde7d;
+            text-align: center;
+            margin-top: 10px;
+            padding: 8px;
+            background: #444;
+            border-radius: 4px;
+        }
+        #info-text {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>사면체 OABC 단면 시뮬레이터</h2>
+        
+        <div class="control-group">
+            <div style="margin-bottom: 10px; font-weight: bold; color: #ffde7d;">[모드 1] 제어변수 (a, b, c) 설정</div>
+            
+            <div class="control-label">
+                <span>a (OA 길이):</span>
+                <input type="number" id="num-a" min="0" max="100" step="0.1" value="7.0" class="input-box">
+            </div>
+            <input type="range" id="slide-a" min="0" max="100" step="0.1" value="7">
+            
+            <div class="control-label" style="margin-top: 10px;">
+                <span>b (OB 길이):</span>
+                <input type="number" id="num-b" min="0" max="100" step="0.1" value="8.0" class="input-box">
+            </div>
+            <input type="range" id="slide-b" min="0" max="100" step="0.1" value="8">
+            
+            <div class="control-label" style="margin-top: 10px;">
+                <span>c (OC 길이):</span>
+                <input type="number" id="num-c" min="0" max="100" step="0.1" value="9.0" class="input-box">
+            </div>
+            <input type="range" id="slide-c" min="0" max="100" step="0.1" value="9">
+        </div>
+
+        <div class="control-group">
+            <div style="margin-bottom: 10px; font-weight: bold; color: #ffde7d;">[모드 2] A, B, C 부호 지정 개형</div>
+            <select id="preset-signs">
+                <option value="none">-- 부호 프리셋 선택 (수동 제어 해제) --</option>
+                <option value="---">A(-), B(-), C(-) ➔ 모두 음수</option>
+                <option value="+--">A(+), B(-), C(-) ➔ 양수 1개, 음수 2개</option>
+                <option value="-+-">A(-), B(+), C(-) ➔ 양수 1개, 음수 2개</option>
+                <option value="--+">A(-), B(-), C(+) ➔ 양수 1개, 음수 2개</option>
+                <option value="-++">A(-), B(+), C(+) ➔ 양수 2개, 음수 1개</option>
+                <option value="+-+">A(+), B(-), C(+) ➔ 양수 2개, 음수 1개</option>
+                <option value="++-">A(+), B(+), C(-) ➔ 양수 2개, 음수 1개</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <div style="margin-bottom: 8px; font-weight: bold;">표시 요소 선택</div>
+            <label class="checkbox-label"><input type="checkbox" id="show-tet" checked> 사면체 (OABC)</label>
+            <label class="checkbox-label"><input type="checkbox" id="show-plane" checked> 절단 평면 (G 통과 & OG 수직)</label>
+            <label class="checkbox-label"><input type="checkbox" id="show-cross" checked> 단면 (Cross-section)</label>
+        </div>
+
+        <div class="control-group">
+            <div style="font-weight: bold;">연산 결과 값 및 부호</div>
+            <table class="result-table">
+                <thead>
+                    <tr>
+                        <th>수식</th>
+                        <th>계산값</th>
+                        <th>부호</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>A = b²+c²-3a²</td>
+                        <td id="calc-A">0.0</td>
+                        <td id="sign-A">-</td>
+                    </tr>
+                    <tr>
+                        <td>B = c²+a²-3b²</td>
+                        <td id="calc-B">0.0</td>
+                        <td id="sign-B">-</td>
+                    </tr>
+                    <tr>
+                        <td>C = a²+b²-3c²</td>
+                        <td id="calc-C">0.0</td>
+                        <td id="sign-C">-</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="shape-highlight">단면 형태: <span id="shape-type">삼각형</span></div>
+        </div>
+
+        <button class="btn-reset" id="btn-reset">초기값 리셋 (a=7, b=8, c=9)</button>
+    </div>
+
+    <div id="canvas-container">
+        <div id="info-text">
+            <strong>마우스 조작법:</strong><br>
+            • 좌클릭 + 드래그: 카메라 회전<br>
+            • 우클릭 + 드래그: 카메라 이동<br>
+            • 스크롤: 확대/축소<br>
+            <span style="color: #ff4a4a;">■ X축 (OA방향)</span> | 
+            <span style="color: #4ade80;">■ Y축 (OB방향)</span> | 
+            <span style="color: #60a5fa;">■ Z축 (OC방향)</span>
+        </div>
+    </div>
+
+    <script>
+        // --- Three.js 기본 설정 ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+
+        // 큰 스케일을 고려하여 카메라 배치 범위 조정
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000);
+        camera.position.set(40, 35, 50);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(5, 5, 5);
+
+        // 조명 설정
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight1.position.set(100, 150, 100);
+        scene.add(dirLight1);
+        const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+        dirLight2.position.set(-100, -50, -100);
+        scene.add(dirLight2);
+
+        // 축 길이도 최대 스케일에 맞춰 150으로 연장
+        const axesHelper = new THREE.AxesHelper(150);
+        scene.add(axesHelper);
+
+        // --- UI 요소 매핑 ---
+        const slideA = document.getElementById('slide-a');
+        const slideB = document.getElementById('slide-b');
+        const slideC = document.getElementById('slide-c');
+        const numA = document.getElementById('num-a');
+        const numB = document.getElementById('num-b');
+        const numC = document.getElementById('num-c');
+        
+        const presetSigns = document.getElementById('preset-signs');
+        const chkTet = document.getElementById('show-tet');
+        const checkPlane = document.getElementById('show-plane');
+        const checkCross = document.getElementById('show-cross');
+
+        const txtA = document.getElementById('calc-A');
+        const txtB = document.getElementById('calc-B');
+        const txtC = document.getElementById('calc-C');
+        const signA = document.getElementById('sign-A');
+        const signB = document.getElementById('sign-B');
+        const signC = document.getElementById('sign-C');
+        const shapeType = document.getElementById('shape-type');
+
+        let meshGroup = new THREE.Group();
+        scene.add(meshGroup);
+
+        // 부호 프리셋 데이터 (스케일 확장을 고려한 기본 비율 형상 유지)
+        const signPresets = {
+            '---': {a: 25, b: 25, c: 25},
+            '+--': {a: 10, b: 25, c: 25},
+            '-+-': {a: 25, b: 10, c: 25},
+            '--+': {a: 25, b: 25, c: 10},
+            '-++': {a: 35, b: 15, c: 15},
+            '+-+': {a: 15, b: 35, c: 15},
+            '++-': {a: 15, b: 15, c: 35}
+        };
+
+        // --- 메인 렌더링/연산 함수 ---
+        function updateSimulation() {
+            while(meshGroup.children.length > 0){
+                meshGroup.remove(meshGroup.children[0]);
+            }
+
+            // 슬라이더 값 기준으로 변수 할당
+            let a = parseFloat(slideA.value);
+            let b = parseFloat(slideB.value);
+            let c = parseFloat(slideC.value);
+
+            // 계산식
+            let A = b*b + c*c - 3*a*a;
+            let B = c*c + a*a - 3*b*b;
+            let C = a*a + b*b - 3*c*c;
+
+            txtA.innerText = A.toFixed(1);
+            txtB.innerText = B.toFixed(1);
+            txtC.innerText = C.toFixed(1);
+
+            signA.innerText = A >= 0 ? '(+)' : '(-)';
+            signB.innerText = B >= 0 ? '(+)' : '(-)';
+            signC.innerText = C >= 0 ? '(+)' : '(-)';
+            
+            signA.style.color = A >= 0 ? '#ff4a4a' : '#60a5fa';
+            signB.style.color = B >= 0 ? '#ff4a4a' : '#60a5fa';
+            signC.style.color = C >= 0 ? '#ff4a4a' : '#60a5fa';
+
+            // 단면 형태 판정
+            let negCount = (A < 0) + (B < 0) + (C < 0);
+            let posCount = (A >= 0) + (B >= 0) + (C >= 0);
+
+            if (negCount === 2 && posCount === 1) {
+                shapeType.innerText = "사각형 (Quadrilateral)";
+                shapeType.style.color = "#ffde7d";
+            } else {
+                shapeType.innerText = "삼각형 (Triangle)";
+                shapeType.style.color = "#4ade80";
+            }
+
+            // 기하 벡터 생성
+            const O = new THREE.Vector3(0,0,0);
+            const VA = new THREE.Vector3(a,0,0);
+            const VB = new THREE.Vector3(0,b,0);
+            const VC = new THREE.Vector3(0,0,c);
+            const VG = new THREE.Vector3(a/4, b/4, c/4); 
+
+            // 카메라가 항상 사면체의 중심을 바라보도록 타겟 동적 업데이트
+            controls.target.set(a/4, b/4, c/4);
+
+            const D = (a*a + b*b + c*c) / 4; 
+
+            // 사면체 그리기
+            if (chkTet.checked && (a > 0 || b > 0 || c > 0)) {
+                const tetGeom = new THREE.BufferGeometry();
+                const vertices = new Float32Array([
+                    0,0,0,  a,0,0,  0,b,0,  
+                    0,0,0,  0,b,0,  0,0,c,  
+                    0,0,0,  0,0,c,  a,0,0,  
+                    a,0,0,  0,b,0,  0,0,c   
+                ]);
+                tetGeom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                tetGeom.computeVertexNormals();
+
+                const tetMat = new THREE.MeshStandardMaterial({
+                    color: 0xaaaaaa,
+                    transparent: true,
+                    opacity: 0.25,
+                    side: THREE.DoubleSide
+                });
+                const tetMesh = new THREE.Mesh(tetGeom, tetMat);
+                meshGroup.add(tetMesh);
+
+                const wireframe = new THREE.WireframeGeometry(tetGeom);
+                const line = new THREE.LineSegments(wireframe, new THREE.LineBasicMaterial({ color: 0x888888 }));
+                meshGroup.add(line);
+            }
+
+            // 점 G 시각화 (스케일에 맞춰 구 크기 유동적 조절)
+            const gRadius = Math.max(a, b, c) * 0.02 + 0.1;
+            const gGeom = new THREE.SphereGeometry(gRadius, 16, 16);
+            const gMat = new THREE.MeshBasicMaterial({color: 0xffea00});
+            const gMesh = new THREE.Mesh(gGeom, gMat);
+            gMesh.position.copy(VG);
+            meshGroup.add(gMesh);
+
+            // OG 연결선
+            const ogGeom = new THREE.BufferGeometry().setFromPoints([O, VG]);
+            const ogLine = new THREE.Line(ogGeom, new THREE.LineBasicMaterial({color: 0xffea00}));
+            meshGroup.add(ogLine);
+
+            // 절단 평면 시각화
+            if (checkPlane.checked && (a > 0 && b > 0 && c > 0)) {
+                const planeSize = Math.max(a, b, c) * 2.5;
+                const planeGeom = new THREE.PlaneGeometry(planeSize, planeSize);
+                const planeMat = new THREE.MeshStandardMaterial({
+                    color: 0x00adb5,
+                    transparent: true,
+                    opacity: 0.15,
+                    side: THREE.DoubleSide,
+                    depthWrite: false
+                });
+                const planeMesh = new THREE.Mesh(planeGeom, planeMat);
+                
+                planeMesh.position.copy(VG);
+                let normal = new THREE.Vector3(a, b, c).normalize();
+                let targetPoint = new THREE.Vector3().addVectors(VG, normal);
+                planeMesh.lookAt(targetPoint);
+                meshGroup.add(planeMesh);
+            }
+
+            // 교선 단면 추출
+            let intersectPoints = [];
+            const EPS = 1e-4;
+
+            function checkEdgeIntersect(p1, p2) {
+                let denom = a*(p2.x - p1.x) + b*(p2.y - p1.y) + c*(p2.z - p1.z);
+                if (Math.abs(denom) > EPS) {
+                    let t = (D - (a*p1.x + b*p1.y + c*p1.z)) / denom;
+                    if (t >= -EPS && t <= 1 + EPS) {
+                        t = Math.max(0, Math.min(1, t)); 
+                        let hit = new THREE.Vector3().lerpVectors(p1, p2, t);
+                        
+                        if (!intersectPoints.some(p => p.distanceTo(hit) < 1e-2)) {
+                            intersectPoints.push(hit);
+                        }
+                    }
+                }
+            }
+
+            checkEdgeIntersect(O, VA); 
+            checkEdgeIntersect(O, VB); 
+            checkEdgeIntersect(O, VC); 
+            checkEdgeIntersect(VA, VB); 
+            checkEdgeIntersect(VB, VC); 
+            checkEdgeIntersect(VC, VA); 
+
+            if (checkCross.checked && intersectPoints.length >= 3) {
+                let center = new THREE.Vector3(0,0,0);
+                intersectPoints.forEach(p => center.add(p));
+                center.divideScalar(intersectPoints.length);
+
+                let nDir = new THREE.Vector3(a, b, c).normalize();
+                let uDir = new THREE.Vector3().subVectors(intersectPoints[0], center).normalize();
+                let vDir = new THREE.Vector3().crossVectors(nDir, uDir).normalize();
+
+                intersectPoints.sort((p1, p2) => {
+                    let r1 = new THREE.Vector3().subVectors(p1, center);
+                    let r2 = new THREE.Vector3().subVectors(p2, center);
+                    return Math.atan2(r1.dot(vDir), r1.dot(uDir)) - Math.atan2(r2.dot(vDir), r2.dot(uDir));
+                });
+
+                const crossGeom = new THREE.BufferGeometry();
+                let crossVertices = [];
+
+                for(let i = 1; i < intersectPoints.length - 1; i++) {
+                    crossVertices.push(intersectPoints[0].x, intersectPoints[0].y, intersectPoints[0].z);
+                    crossVertices.push(intersectPoints[i].x, intersectPoints[i].y, intersectPoints[i].z);
+                    crossVertices.push(intersectPoints[i+1].x, intersectPoints[i+1].y, intersectPoints[i+1].z);
+                }
+
+                crossGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(crossVertices), 3));
+                crossGeom.computeVertexNormals();
+
+                const crossMat = new THREE.MeshStandardMaterial({
+                    color: 0xff4a4a,
+                    side: THREE.DoubleSide,
+                    roughness: 0.4
+                });
+                const crossMesh = new THREE.Mesh(crossGeom, crossMat);
+                meshGroup.add(crossMesh);
+
+                let linePts = [...intersectPoints, intersectPoints[0]];
+                const edgeGeom = new THREE.BufferGeometry().setFromPoints(linePts);
+                const edgeLine = new THREE.Line(edgeGeom, new THREE.LineBasicMaterial({color: 0xffffff, linewidth: 2}));
+                meshGroup.add(edgeLine);
+            }
+        }
+
+        // --- 양방향 데이터 동기화 함수 ---
+        function syncControl(type, alphabet, val) {
+            val = Math.max(0, Math.min(100, parseFloat(val) || 0)); // 0~100 범위 제한
+            
+            if (type === 'slide') {
+                document.getElementById(`num-${alphabet}`).value = val.toFixed(1);
+            } else {
+                document.getElementById(`slide-${alphabet}`).value = val;
+            }
+            presetSigns.value = "none";
+            updateSimulation();
+        }
+
+        // 이벤트 리스너 바인딩 (슬라이더 & 넘버박스 동기화)
+        ['a', 'b', 'c'].forEach(ch => {
+            const slider = document.getElementById(`slide-${ch}`);
+            const number = document.getElementById(`num-${ch}`);
+
+            slider.addEventListener('input', (e) => syncControl('slide', ch, e.target.value));
+            number.addEventListener('change', (e) => syncControl('number', ch, e.target.value));
+            number.addEventListener('keyup', (e) => { if(e.key === 'Enter') syncControl('number', ch, e.target.value); });
+        });
+
+        // 프리셋 변경 감지
+        presetSigns.addEventListener('change', (e) => {
+            const mode = e.target.value;
+            if (mode !== "none" && signPresets[mode]) {
+                const target = signPresets[mode];
+                slideA.value = target.a; numA.value = target.a.toFixed(1);
+                slideB.value = target.b; numB.value = target.b.toFixed(1);
+                slideC.value = target.c; numC.value = target.c.toFixed(1);
+                updateSimulation();
+            }
+        });
+
+        // 가시성 토글
+        [chkTet, checkPlane, checkCross].forEach(chk => {
+            chk.addEventListener('change', updateSimulation);
+        });
+
+        // 초기화 버튼 리셋
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            slideA.value = 7; numA.value = "7.0";
+            slideB.value = 8; numB.value = "8.0";
+            slideC.value = 9; numC.value = "9.0";
+            presetSigns.value = "none";
+            updateSimulation();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // 최초 실행 기본값 동기화 및 렌더링
+        syncControl('slide', 'a', 7);
+        syncControl('slide', 'b', 8);
+        syncControl('slide', 'c', 9);
+        animate();
+
+    </script>
+</body>
+</html>

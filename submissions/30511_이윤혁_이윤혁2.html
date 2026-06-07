@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>기하 동적 시뮬레이터</title>
+    <style>
+        :root { 
+            --primary: #2c3e50; --accent: #e74c3c; 
+            --point-p: #3498db; --point-q: #27ae60; --bg: #f8f9fa;
+        }
+        body { 
+            font-family: 'Pretendard', sans-serif; background-color: #f4f7f6; 
+            max-width: 1100px; margin: 20px auto; padding: 20px; color: #333;
+        }
+        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        h2 { text-align: center; color: var(--primary); margin-top: 0; font-size: 1.8em; }
+        
+        .controls { 
+            display: flex; gap: 15px; align-items: center; background: var(--bg); 
+            padding: 15px; border-radius: 10px; margin-bottom: 20px;
+        }
+        .slider-container { flex-grow: 1; display: flex; align-items: center; gap: 10px; }
+        input[type=range] { flex-grow: 1; cursor: pointer; }
+        button { 
+            padding: 10px 20px; background: var(--primary); color: white; 
+            border: none; border-radius: 5px; cursor: pointer; font-weight: bold; 
+        }
+        button.playing { background: var(--accent); }
+
+        .visual-area { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .canvas-box { display: flex; flex-direction: column; align-items: center; }
+        canvas { 
+            background: white; border: 1px solid #ddd; border-radius: 8px; 
+            width: 100%; aspect-ratio: 1 / 1; max-width: 500px;
+        }
+        h4 { margin: 15px 0 10px 0; color: var(--primary); font-size: 1.1em; border-bottom: 2px solid #eee; width: 100%; text-align: center; padding-bottom: 5px; }
+
+        .info-board { 
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; 
+        }
+        .panel { background: var(--bg); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #eee; }
+        .panel b { font-size: 0.9em; color: #666; display: block; }
+        .panel span { font-size: 1.1em; font-weight: bold; font-family: 'Consolas', monospace; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>기하 동적 시뮬레이터</h2>
+    
+    <div class="controls">
+        <button id="playBtn" onclick="togglePlay()">▶ 자동 재생</button>
+        <div class="slider-container">
+            <label><b>시간(t): </b></label>
+            <input type="range" id="t-slider" min="0" max="6.283185" step="0.001" value="0" oninput="manualUpdate()">
+            <span id="t-display" style="min-width: 45px; font-weight: bold;">0.000</span>
+        </div>
+    </div>
+
+    <div class="visual-area">
+        <div class="canvas-box">
+            <h4>선분 PQ의 자취</h4>
+            <canvas id="planeCanvas" width="500" height="500"></canvas>
+        </div>
+        <div class="canvas-box">
+            <h4>t에 따른 거리 d(t)의 변화</h4>
+            <canvas id="graphCanvas" width="500" height="500"></canvas>
+        </div>
+    </div>
+
+    <div class="info-board">
+        <div class="panel"><b>점 P (원 C: 반지름 1)</b><span id="p-coord" style="color:var(--point-p)">-</span></div>
+        <div class="panel"><b>점 Q (원 D: 반지름 2)</b><span id="q-coord" style="color:var(--point-q)">-</span></div>
+        <div class="panel"><b>거리 PQ (d)</b><span id="d-val" style="color:var(--accent)">-</span></div>
+    </div>
+</div>
+
+<script>
+    let t = 0;
+    let isPlaying = false;
+    let animationId;
+    
+    // 이론적 값
+    const MAX_T1 = Math.acos(3/8);
+    const MAX_T2 = 2 * Math.PI - Math.acos(3/8);
+    const MAX_D = (5 * Math.sqrt(5)) / 2;
+    const MIN_T = Math.PI;
+    const MIN_D = 1.0;
+    
+    const pCanvas = document.getElementById('planeCanvas');
+    const pCtx = pCanvas.getContext('2d');
+    const gCanvas = document.getElementById('graphCanvas');
+    const gCtx = gCanvas.getContext('2d');
+
+    const margin = 40;
+    const scale = (pCanvas.width - 2 * margin) / 9;
+
+    function toPX(x) { return margin + (x + 2) * scale; }
+    function toPY(y) { return pCanvas.height / 2 - (y * scale); }
+
+    function toGX(time) { return 50 + (time / (2 * Math.PI)) * (gCanvas.width - 80); }
+    function toGY(d) { return gCanvas.height - 50 - (d / 6) * (gCanvas.height - 100); }
+
+    function drawPlane() {
+        pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+        
+        // 그리드
+        pCtx.strokeStyle = '#f5f5f5';
+        pCtx.lineWidth = 1;
+        for(let i=-2; i<=7; i++) {
+            pCtx.beginPath(); pCtx.moveTo(toPX(i), 0); pCtx.lineTo(toPX(i), pCanvas.height); pCtx.stroke();
+        }
+        for(let i=-4; i<=4; i++) {
+            pCtx.beginPath(); pCtx.moveTo(0, toPY(i)); pCtx.lineTo(pCanvas.width, toPY(i)); pCtx.stroke();
+        }
+        
+        // 축
+        pCtx.strokeStyle = '#ddd';
+        pCtx.beginPath(); pCtx.moveTo(toPX(-2), toPY(0)); pCtx.lineTo(toPX(7), toPY(0)); pCtx.stroke();
+        pCtx.beginPath(); pCtx.moveTo(toPX(0), toPY(-4.5)); pCtx.lineTo(toPX(0), toPY(4.5)); pCtx.stroke();
+
+        // 원 C, D 모두 점선으로 설정
+        pCtx.setLineDash([5, 5]);
+        pCtx.lineWidth = 1.5;
+
+        // 원 C (중심 0,0 반지름 1)
+        pCtx.beginPath(); pCtx.arc(toPX(0), toPY(0), scale * 1, 0, 2*Math.PI);
+        pCtx.strokeStyle = 'var(--point-p)'; pCtx.stroke();
+        
+        // 원 D (중심 4,0 반지름 2)
+        pCtx.beginPath(); pCtx.arc(toPX(4), toPY(0), scale * 2, 0, 2*Math.PI);
+        pCtx.strokeStyle = 'var(--point-q)'; pCtx.stroke();
+
+        // 점선 해제
+        pCtx.setLineDash([]);
+
+        // 동점 좌표
+        const px = Math.cos(2 * t), py = Math.sin(2 * t);
+        const qx = 4 + 2 * Math.cos(t), qy = 2 * Math.sin(t);
+
+        // 선분 PQ (실선)
+        pCtx.beginPath(); pCtx.moveTo(toPX(px), toPY(py)); pCtx.lineTo(toPX(qx), toPY(qy));
+        pCtx.strokeStyle = 'var(--accent)'; pCtx.lineWidth = 2.5; pCtx.stroke();
+
+        // 점 P, Q
+        drawCircle(pCtx, toPX(px), toPY(py), 7, 'var(--point-p)', 'P');
+        drawCircle(pCtx, toPX(qx), toPY(qy), 7, 'var(--point-q)', 'Q');
+
+        document.getElementById('p-coord').innerText = `(${px.toFixed(3)}, ${py.toFixed(3)})`;
+        document.getElementById('q-coord').innerText = `(${qx.toFixed(3)}, ${qy.toFixed(3)})`;
+        document.getElementById('d-val').innerText = Math.sqrt((qx-px)**2 + (qy-py)**2).toFixed(4);
+    }
+
+    function drawCircle(ctx, x, y, r, color, label) {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI);
+        ctx.fillStyle = color; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#000'; ctx.font = 'bold 15px Arial';
+        ctx.fillText(label, x - 5, y - 15);
+    }
+
+    function drawGraph() {
+        gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
+        
+        // 격자 (π/2 단위)
+        const steps = [
+            {v: 0, l: '0'}, {v: Math.PI/2, l: 'π/2'}, {v: Math.PI, l: 'π'}, 
+            {v: 3*Math.PI/2, l: '3π/2'}, {v: 2*Math.PI, l: '2π'}
+        ];
+        gCtx.textAlign = 'center';
+        gCtx.font = '11px Arial';
+        steps.forEach(s => {
+            let gx = toGX(s.v);
+            gCtx.strokeStyle = '#f0f0f0';
+            gCtx.beginPath(); gCtx.moveTo(gx, 20); gCtx.lineTo(gx, toGY(0)); gCtx.stroke();
+            gCtx.fillStyle = '#888';
+            gCtx.fillText(s.l, gx, toGY(0) + 20);
+        });
+
+        // 그래프 축
+        gCtx.strokeStyle = '#555';
+        gCtx.beginPath(); gCtx.moveTo(50, toGY(0)); gCtx.lineTo(gCanvas.width - 20, toGY(0)); gCtx.stroke();
+        gCtx.beginPath(); gCtx.moveTo(50, toGY(0)); gCtx.lineTo(50, 20); gCtx.stroke();
+
+        // 전체 거리 곡선
+        gCtx.beginPath();
+        for(let ct=0; ct<=2*Math.PI; ct+=0.01) {
+            let d = Math.sqrt((4+2*Math.cos(ct)-Math.cos(2*ct))**2 + (2*Math.sin(ct)-Math.sin(2*ct))**2);
+            if(ct===0) gCtx.moveTo(toGX(ct), toGY(d)); else gCtx.lineTo(toGX(ct), toGY(d));
+        }
+        gCtx.strokeStyle = '#ddd'; gCtx.lineWidth = 2; gCtx.stroke();
+
+        // 이론적 특이점 표기
+        drawPoint(MAX_T1, MAX_D, `Max(t:${MAX_T1.toFixed(2)}, d:${MAX_D.toFixed(2)})`, 'top');
+        drawPoint(MAX_T2, MAX_D, `Max(t:${MAX_T2.toFixed(2)}, d:${MAX_D.toFixed(2)})`, 'top');
+        drawPoint(MIN_T, MIN_D, `Min(t:${MIN_T.toFixed(2)}, d:${MIN_D.toFixed(2)})`, 'bottom');
+
+        // 현재 시점 강조
+        let curD = Math.sqrt((4+2*Math.cos(t)-Math.cos(2*t))**2 + (2*Math.sin(t)-Math.sin(2*t))**2);
+        gCtx.beginPath(); gCtx.setLineDash([4,4]); gCtx.strokeStyle = 'var(--accent)';
+        gCtx.moveTo(toGX(t), toGY(0)); gCtx.lineTo(toGX(t), toGY(curD)); gCtx.stroke();
+        gCtx.setLineDash([]);
+        gCtx.beginPath(); gCtx.arc(toGX(t), toGY(curD), 6, 0, 2*Math.PI);
+        gCtx.fillStyle = 'var(--accent)'; gCtx.fill();
+        gCtx.strokeStyle = '#fff'; gCtx.lineWidth = 2; gCtx.stroke();
+    }
+
+    function drawPoint(time, dist, txt, pos) {
+        let x = toGX(time), y = toGY(dist);
+        gCtx.beginPath(); gCtx.arc(x, y, 4, 0, 2*Math.PI);
+        gCtx.fillStyle = '#8e44ad'; gCtx.fill();
+        gCtx.fillStyle = '#000'; gCtx.font = 'bold 11px Arial';
+        gCtx.fillText(txt, x, pos === 'top' ? y - 12 : y + 25);
+    }
+
+    function updateAll() {
+        drawPlane(); drawGraph();
+        document.getElementById('t-slider').value = t;
+        document.getElementById('t-display').innerText = t.toFixed(3);
+    }
+
+    function manualUpdate() { t = parseFloat(document.getElementById('t-slider').value); updateAll(); }
+    
+    function togglePlay() {
+        isPlaying = !isPlaying;
+        const btn = document.getElementById('playBtn');
+        if(isPlaying) { btn.innerText = "⏸ 중지"; btn.classList.add('playing'); loop(); }
+        else { btn.innerText = "▶ 자동 재생"; btn.classList.remove('playing'); cancelAnimationFrame(animationId); }
+    }
+
+    function loop() {
+        t += 0.01; if(t > 2*Math.PI) t = 0;
+        updateAll(); if(isPlaying) animationId = requestAnimationFrame(loop);
+    }
+
+    updateAll();
+</script>
+</body>
+</html>

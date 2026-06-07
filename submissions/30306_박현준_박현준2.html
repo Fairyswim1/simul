@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>삼각기둥 ABC-DEF 평행이동 자취와 부피 분해 시뮬레이터</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['\\(', '\\)'], ['$', '$']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root{
+      --bg:#f5f7fb; --card:#ffffff; --ink:#1f2937; --muted:#64748b; --line:#d8e0ea;
+      --blue:#2563eb; --sky:#0ea5e9; --orange:#f97316; --green:#16a34a; --red:#dc2626; --purple:#7c3aed;
+      --soft-blue:#eff6ff; --soft-orange:#fff7ed; --soft-green:#f0fdf4; --soft-purple:#f5f3ff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink);}
+    header{padding:30px 24px 20px; border-bottom:1px solid var(--line); background:linear-gradient(130deg,#eaf3ff 0%,#ffffff 72%)}
+    .wrap{max-width:1320px; margin:0 auto; padding:22px}
+    h1{font-size:28px; letter-spacing:-.03em; margin:0 0 8px}
+    h2{font-size:22px; letter-spacing:-.02em; margin:0 0 12px}
+    h3{font-size:18px; margin:14px 0 8px}
+    p{line-height:1.68; margin:8px 0}
+    .sub{color:var(--muted); margin:0; line-height:1.6}
+    .card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px; margin:18px 0; box-shadow:0 10px 30px rgba(15,23,42,.06)}
+    .grid{display:grid; grid-template-columns:1.1fr .9fr; gap:18px; align-items:start}
+    .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
+    .grid2{display:grid; grid-template-columns:repeat(2,1fr); gap:18px}
+    .plot{height:630px; width:100%; border:1px solid #e5eaf2; border-radius:15px; overflow:hidden; background:white}
+    .smallplot{height:455px; width:100%; border:1px solid #e5eaf2; border-radius:15px; overflow:hidden; background:white}
+    .mediumplot{height:540px; width:100%; border:1px solid #e5eaf2; border-radius:15px; overflow:hidden; background:white}
+    .controlBox{border:1px solid var(--line); border-radius:15px; padding:15px; background:#fbfdff; margin-bottom:14px}
+    input[type=range]{width:100%}
+    .metric{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px}
+    .metric div{border:1px solid var(--line); border-radius:14px; padding:12px; background:#fbfdff}
+    .metric strong{display:block; font-size:22px; margin-top:3px}
+    .pill{display:inline-block; padding:4px 10px; border-radius:999px; background:#eef2ff; color:#3730a3; font-weight:700; font-size:13px; margin:3px 4px 3px 0}
+    .blue{background:var(--soft-blue); border-left:5px solid var(--blue)}
+    .orange{background:var(--soft-orange); border-left:5px solid var(--orange)}
+    .green{background:var(--soft-green); border-left:5px solid var(--green)}
+    .purple{background:var(--soft-purple); border-left:5px solid var(--purple)}
+    .formula{border:1px solid var(--line); border-radius:15px; padding:14px 16px; background:#fbfdff; margin:12px 0; overflow:auto}
+    .note{font-size:14px; color:var(--muted)}
+    table{width:100%; border-collapse:collapse; font-size:15px; margin:10px 0}
+    th,td{border:1px solid var(--line); padding:9px 10px; text-align:left; vertical-align:top}
+    th{background:#f1f5f9}
+    .legendRow{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0}
+    .legendItem{display:flex; align-items:center; gap:6px; font-size:14px; color:#334155}
+    .swatch{width:14px; height:14px; border-radius:4px; display:inline-block}
+    .warn{background:#fff7ed; border:1px solid #fed7aa; border-radius:14px; padding:12px; color:#7c2d12}
+    @media (max-width: 980px){.grid,.grid2,.grid3{grid-template-columns:1fr}.plot{height:520px}.smallplot,.mediumplot{height:430px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap" style="padding-top:0; padding-bottom:0">
+      <h1>삼각기둥 ABC-DEF의 z축 평행이동 자취와 부피 분해</h1>
+      <p class="sub">삼각기둥의 z축 평행이동으로 생기는 자취와 단면·부피 계산을 함께 확인하는 시뮬레이터입니다.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h2>0. 기본 설정</h2>
+      <p>주어진 삼각기둥을 \(P=ABC-DEF\)라 두고, 이를 z축 방향으로 \(h\)만큼 올린 도형을 \(P_h=P+(0,0,h)\)라 둡니다.</p>
+      <div class="formula">\[
+        A(1,0,0),\;B(0,1,-2),\;C(1,2,0),\quad
+        D(-1,0,1),\;E(-2,1,-1),\;F(-1,2,1)
+      \]</div>
+      <p>최종 다면체는 \(h=0\)부터 \(h=6\)까지 움직인 자취이므로</p>
+      <div class="formula">\[
+        V=P+[0,6]\mathbf e_z
+      \]</div>
+      <p class="note">아래 그림에서는 파란색 부분은 “세로 방향으로 길이 \(h\)만큼 형성되는 부분”, 주황색 부분은 “현재 위치의 삼각기둥 \(P_h\)”입니다.</p>
+    </section>
+
+    <section class="card grid">
+      <div>
+        <h2>1. \(h\)에 따라 생기는 자취</h2>
+        <div id="sweepPlot" class="plot"></div>
+      </div>
+      <div>
+        <h2>조작</h2>
+        <div class="controlBox">
+          <label for="hSlider"><b>평행이동 거리 \(h\)</b>: <span id="hValue">6.0</span></label>
+          <input id="hSlider" type="range" min="0" max="6" step="0.1" value="6" />
+          <div class="legendRow">
+            <span class="legendItem"><span class="swatch" style="background:#2563eb"></span> \(V'_h\): 길이 \(h\)인 세로 섬유 부분</span>
+            <span class="legendItem"><span class="swatch" style="background:#f97316"></span> \(P_h\): 현재 위치의 삼각기둥</span>
+            <span class="legendItem"><span class="swatch" style="background:#16a34a"></span> \(z=3\) 단면 오각형</span>
+          </div>
+        </div>
+
+        <div class="metric">
+          <div><span>오각형 단면 넓이</span><strong>5</strong></div>
+          <div><span>현재 세로 섬유 부분</span><strong id="vpVol">30.0</strong></div>
+          <div><span>현재 전체 부피</span><strong id="totalVol">35.0</strong></div>
+        </div>
+
+        <div class="formula">\[
+          V_h=V'_h\cup P_h,\qquad
+          \operatorname{Vol}(V_h)=5h+5
+        \]</div>
+        <div class="warn">
+          핵심은 \(h\)가 변할 때 <b>단면 오각형 자체가 움직이는 것</b>이 아니라, 삼각기둥이 위로 이동하면서 각 \((x,y)\) 위치에 <b>세로 길이 \(h\)</b>의 자취가 쌓인다는 점입니다.
+        </div>
+      </div>
+    </section>
+
+    <section class="card grid">
+      <div>
+        <h2>2. [문제 4-1] \(z=3\)에서 잘린 단면</h2>
+        <div id="sectionPlot" class="mediumplot"></div>
+      </div>
+      <div>
+        <h2>단면 D의 꼭짓점과 넓이</h2>
+        <p>최종 자취 \(V\)를 평면 \(z=3\)으로 자르면 다음 오각형이 생깁니다.</p>
+        <div class="formula">\[
+          (-2,1,3),\;(-1,0,3),\;(1,0,3),\;(1,2,3),\;(-1,2,3)
+        \]</div>
+        <p>풀이에서처럼 면의 정사영으로 보면, 삼각형 부분의 정사영 넓이가 \(1\), 사각형 부분의 정사영 넓이가 \(4\)가 되어</p>
+        <div class="formula">\[
+          S_D=1+4=5
+        \]</div>
+        <p class="note">이 오각형을 \(D\)라 두면, 부피 계산에서 \(V'\)의 기준 단면이 됩니다.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. 부피 분해: \(V=V'\cup P_6\)</h2>
+      <p>최종 도형 \(V\)는 다음 두 부분으로 나누어 보는 것이 가장 직관적입니다.</p>
+      <div class="grid2">
+        <div class="formula blue">
+          \[
+          V'=\{(x,y,z)\mid (x,y)\in D,
+          \; z_{\min}(x,y)\le z\le z_{\min}(x,y)+6\}
+          \]
+          <p>각 \((x,y)\)에서 세로 길이가 항상 \(6\)인 부분입니다. 바닥이 기울어져 있지만, 세로 섬유를 가지런히 펴면 높이 \(6\)인 오각기둥과 같은 부피입니다.</p>
+        </div>
+        <div class="formula orange">
+          \[
+          P_6=P+(0,0,6)
+          \]
+          <p>맨 위에 남는 부분입니다. 원래 삼각기둥 \(ABC-DEF\)가 그대로 위로 6만큼 이동한 것이므로 부피는 원래 삼각기둥의 부피와 같습니다.</p>
+        </div>
+      </div>
+      <div id="combinedPlot" class="plot"></div>
+    </section>
+
+    <section class="card">
+      <h2>4. 나누어진 각 도형의 3D 플롯</h2>
+      <div class="grid3">
+        <div>
+          <h3>① \(V'\): 세로 섬유 길이 6인 부분</h3>
+          <div id="vprimePlot" class="smallplot"></div>
+          <div class="formula">\[
+            \operatorname{Vol}(V')=6\times S_D=6\times5=30
+          \]</div>
+        </div>
+        <div>
+          <h3>② 같은 부피의 높이 6 오각기둥</h3>
+          <div id="straightPrismPlot" class="smallplot"></div>
+          <div class="formula">\[
+            \operatorname{Vol}=\text{밑넓이}\times\text{높이}=5\times6=30
+          \]</div>
+        </div>
+        <div>
+          <h3>③ 위쪽 삼각기둥 \(P_6\)</h3>
+          <div id="topPrismPlot" class="smallplot"></div>
+          <div class="formula">\[
+            \operatorname{Vol}(P_6)=\frac12\times2\sqrt5\times\sqrt5=5
+          \]</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>5. 계산 과정 요약</h2>
+      <table>
+        <thead><tr><th>단계</th><th>내용</th><th>값</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>4-1</td>
+            <td>평면 \(z=3\)으로 자른 단면 \(D\)</td>
+            <td>오각형</td>
+          </tr>
+          <tr>
+            <td>4-1</td>
+            <td>오각형 \(D\)의 넓이</td>
+            <td>\(S_D=5\)</td>
+          </tr>
+          <tr>
+            <td>4-2</td>
+            <td>아랫부분 \(V'\)은 세로 길이 6의 섬유를 오각형 \(D\) 전체에 세운 것과 같은 부피</td>
+            <td>\(6\times5=30\)</td>
+          </tr>
+          <tr>
+            <td>4-2</td>
+            <td>위쪽 삼각기둥은 원래 삼각기둥을 위로 6만큼 옮긴 것</td>
+            <td>\(5\)</td>
+          </tr>
+          <tr>
+            <td>결론</td>
+            <td>전체 부피</td>
+            <td>\(30+5=35\)</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="formula">\[
+        \boxed{\operatorname{Vol}(V)=6\times5+5=35}
+      \]</div>
+    </section>
+  </main>
+
+<script>
+const COLORS = {
+  blue:'#2563eb', orange:'#f97316', green:'#16a34a', red:'#dc2626', purple:'#7c3aed', gray:'#64748b'
+};
+
+const labels = ['A','B','C','D','E','F'];
+const P = {
+  A:[1,0,0], B:[0,1,-2], C:[1,2,0],
+  D:[-1,0,1], E:[-2,1,-1], F:[-1,2,1]
+};
+const baseOrder = ['A','B','C','D','E','F'];
+const triFaces = [
+  [0,1,2],       // ABC
+  [3,5,4],       // DFE
+  [0,2,5],[0,5,3], // ACFD
+  [0,3,4],[0,4,1], // ADEB
+  [1,4,5],[1,5,2]  // BEFC
+];
+const lowerFaces = [
+  [0,1,2],       // ABC
+  [3,1,0], [3,4,1], // ABED lower surface
+  [5,2,1], [5,1,4]  // BCEF lower surface
+];
+const vprimeFaces = [
+  ...lowerFaces,
+  [6,7,8], [9,7,6], [9,10,7], [11,8,7], [11,7,10],
+  [4,3,9], [4,9,10],     // E-D
+  [3,0,6], [3,6,9],      // D-A
+  [0,2,8], [0,8,6],      // A-C
+  [2,5,11], [2,11,8],    // C-F
+  [5,4,10], [5,10,11]    // F-E
+];
+const pentagonXY = [[-2,1],[-1,0],[1,0],[1,2],[-1,2]];
+const pentagonLabels = ['E','D','A','C','F'];
+
+function shiftedPoint(point, h){ return [point[0], point[1], point[2]+h]; }
+function prismVertices(h=0){ return baseOrder.map(k => shiftedPoint(P[k], h)); }
+function vprimeVertices(h=6){
+  const bottom = baseOrder.map(k => P[k]);
+  const top = baseOrder.map(k => shiftedPoint(P[k], h));
+  return bottom.concat(top);
+}
+function straightPentPrismVertices(z0=0, h=6){
+  const bottom = pentagonXY.map(([x,y]) => [x,y,z0]);
+  const top = pentagonXY.map(([x,y]) => [x,y,z0+h]);
+  return bottom.concat(top);
+}
+function straightPentPrismFaces(){
+  return [
+    [0,1,2],[0,2,3],[0,3,4],
+    [5,7,6],[5,8,7],[5,9,8],
+    [0,1,6],[0,6,5],
+    [1,2,7],[1,7,6],
+    [2,3,8],[2,8,7],
+    [3,4,9],[3,9,8],
+    [4,0,5],[4,5,9]
+  ];
+}
+function coords(vertices){
+  return {
+    x: vertices.map(p => p[0]),
+    y: vertices.map(p => p[1]),
+    z: vertices.map(p => p[2])
+  };
+}
+function meshTrace(vertices, faces, color, opacity, name, opts={}){
+  const c = coords(vertices);
+  return {
+    type:'mesh3d', mode:'markers', x:c.x, y:c.y, z:c.z,
+    i:faces.map(f => f[0]), j:faces.map(f => f[1]), k:faces.map(f => f[2]),
+    color, opacity, name, flatshading:true,
+    hoverinfo:'skip', showscale:false,
+    lighting:{ambient:0.55,diffuse:0.7,specular:0.25,roughness:0.7},
+    ...opts
+  };
+}
+function uniqueEdges(faces){
+  const set = new Set();
+  faces.forEach(f => {
+    [[f[0],f[1]],[f[1],f[2]],[f[2],f[0]]].forEach(([a,b]) => {
+      const key = a < b ? `${a}-${b}` : `${b}-${a}`;
+      set.add(key);
+    });
+  });
+  return Array.from(set).map(s => s.split('-').map(Number));
+}
+function edgeTrace(vertices, faces, color='#334155', width=3, name='모서리'){
+  const edges = uniqueEdges(faces);
+  const x=[], y=[], z=[];
+  edges.forEach(([a,b]) => {
+    x.push(vertices[a][0], vertices[b][0], null);
+    y.push(vertices[a][1], vertices[b][1], null);
+    z.push(vertices[a][2], vertices[b][2], null);
+  });
+  return {type:'scatter3d', mode:'lines', x,y,z, line:{color,width}, hoverinfo:'skip', showlegend:false, name};
+}
+function labelTrace(vertices, names, color='#111827', size=13, suffix=''){
+  return {
+    type:'scatter3d', mode:'text',
+    x:vertices.map(p=>p[0]), y:vertices.map(p=>p[1]), z:vertices.map(p=>p[2]),
+    text:names.map(n => n+suffix), textposition:'top center',
+    textfont:{color,size}, hoverinfo:'skip', showlegend:false
+  };
+}
+function pentagonAtZ(z=3, color=COLORS.green, name='z=3 단면 D'){
+  const pts = pentagonXY.map(([x,y]) => [x,y,z]);
+  pts.push([pentagonXY[0][0], pentagonXY[0][1], z]);
+  return {
+    type:'scatter3d', mode:'lines+markers+text',
+    x:pts.map(p=>p[0]), y:pts.map(p=>p[1]), z:pts.map(p=>p[2]),
+    text:['E','D','A','C','F',''], textposition:'top center',
+    marker:{size:5,color}, line:{color,width:6},
+    name, hoverinfo:'skip'
+  };
+}
+function zPlaneTrace(z=3){
+  return {
+    type:'mesh3d',
+    x:[-2.4,1.4,1.4,-2.4], y:[-0.3,-0.3,2.3,2.3], z:[z,z,z,z],
+    i:[0,0], j:[1,2], k:[2,3],
+    color:'#22c55e', opacity:0.08, hoverinfo:'skip', showscale:false, name:'z=3 평면'
+  };
+}
+function verticalGuideTrace(){
+  const x=[], y=[], z=[];
+  pentagonXY.forEach(([px,py]) => { x.push(px,px,null); y.push(py,py,null); z.push(-2.2,7.4,null); });
+  return {type:'scatter3d', mode:'lines', x,y,z, line:{color:'rgba(100,116,139,.28)', width:2, dash:'dot'}, hoverinfo:'skip', showlegend:false, name:'세로 자취선'};
+}
+function getLayout(title, camera={eye:{x:1.55,y:1.45,z:1.05}}){
+  return {
+    title:{text:title, font:{size:16}},
+    margin:{l:0,r:0,b:0,t:44},
+    scene:{
+      xaxis:{title:'x', range:[-2.6,1.6], backgroundcolor:'#fbfdff', gridcolor:'#e5e7eb', zerolinecolor:'#cbd5e1'},
+      yaxis:{title:'y', range:[-0.45,2.45], backgroundcolor:'#fbfdff', gridcolor:'#e5e7eb', zerolinecolor:'#cbd5e1'},
+      zaxis:{title:'z', range:[-2.4,7.6], backgroundcolor:'#fbfdff', gridcolor:'#e5e7eb', zerolinecolor:'#cbd5e1'},
+      aspectmode:'manual', aspectratio:{x:0.85,y:0.62,z:1.75},
+      camera
+    },
+    legend:{orientation:'h', x:0.01, y:0.99, bgcolor:'rgba(255,255,255,.8)'},
+    paper_bgcolor:'white', plot_bgcolor:'white'
+  };
+}
+
+function tracesForSweep(h){
+  const traces=[];
+  const hRender = Math.max(h, 0.001);
+  if(h > 0){
+    const vv = vprimeVertices(hRender);
+    traces.push(meshTrace(vv, vprimeFaces, COLORS.blue, 0.26, `V'_h`));
+    traces.push(edgeTrace(vv, vprimeFaces, 'rgba(37,99,235,.75)', 2));
+  }
+  const pv = prismVertices(h);
+  traces.push(meshTrace(pv, triFaces, COLORS.orange, 0.55, '현재 삼각기둥 P_h'));
+  traces.push(edgeTrace(pv, triFaces, 'rgba(194,65,12,.95)', 3));
+  traces.push(labelTrace(pv, labels, '#7c2d12', 12, h===0?'':"′"));
+  traces.push(zPlaneTrace(3));
+  traces.push(pentagonAtZ(3));
+  traces.push(verticalGuideTrace());
+  return traces;
+}
+function updateSweep(){
+  const h = Number(document.getElementById('hSlider').value);
+  document.getElementById('hValue').textContent = h.toFixed(1);
+  document.getElementById('vpVol').textContent = (5*h).toFixed(1);
+  document.getElementById('totalVol').textContent = (5*h + 5).toFixed(1);
+  Plotly.react('sweepPlot', tracesForSweep(h), getLayout(`평행이동 거리 h = ${h.toFixed(1)}일 때의 자취`, {eye:{x:1.65,y:1.35,z:1.1}}), {responsive:true, displaylogo:false});
+}
+
+function makeSectionPlot(){
+  const traces = [
+    meshTrace(prismVertices(0), triFaces, '#94a3b8', 0.16, '원래 삼각기둥 P'),
+    edgeTrace(prismVertices(0), triFaces, 'rgba(71,85,105,.55)', 2),
+    meshTrace(prismVertices(6), triFaces, COLORS.orange, 0.12, '위쪽 삼각기둥 P_6'),
+    edgeTrace(prismVertices(6), triFaces, 'rgba(249,115,22,.35)', 2),
+    zPlaneTrace(3), pentagonAtZ(3, COLORS.green, '오각형 단면 D'), verticalGuideTrace()
+  ];
+  Plotly.newPlot('sectionPlot', traces, getLayout('z=3 단면: 오각형 D', {eye:{x:1.55,y:1.35,z:1.1}}), {responsive:true, displaylogo:false});
+}
+function makeCombinedPlot(){
+  const vpv = vprimeVertices(6);
+  const p6 = prismVertices(6);
+  const traces = [
+    meshTrace(vpv, vprimeFaces, COLORS.blue, 0.32, "V' : 높이 6 세로 섬유 부분"),
+    edgeTrace(vpv, vprimeFaces, 'rgba(37,99,235,.75)', 2),
+    meshTrace(p6, triFaces, COLORS.orange, 0.58, 'P_6 : 위쪽 삼각기둥'),
+    edgeTrace(p6, triFaces, 'rgba(194,65,12,.95)', 3),
+    pentagonAtZ(3, COLORS.green, '중간 단면 D'),
+    labelTrace(p6, labels, '#7c2d12', 12, '_6')
+  ];
+  Plotly.newPlot('combinedPlot', traces, getLayout("최종 도형 V = V' ∪ P_6", {eye:{x:1.72,y:1.38,z:1.05}}), {responsive:true, displaylogo:false});
+}
+function makeVprimePlot(){
+  const vv = vprimeVertices(6);
+  const traces = [
+    meshTrace(vv, vprimeFaces, COLORS.blue, 0.46, "V'"),
+    edgeTrace(vv, vprimeFaces, 'rgba(37,99,235,.9)', 3),
+    pentagonAtZ(3, COLORS.green, '단면 D'),
+    labelTrace(vv.slice(0,6), labels, '#1e3a8a', 12)
+  ];
+  Plotly.newPlot('vprimePlot', traces, getLayout("V'만 보기", {eye:{x:1.65,y:1.25,z:1.15}}), {responsive:true, displaylogo:false});
+}
+function makeStraightPrismPlot(){
+  const verts = straightPentPrismVertices(0,6);
+  const faces = straightPentPrismFaces();
+  const names = ['E','D','A','C','F','E+6','D+6','A+6','C+6','F+6'];
+  const traces = [
+    meshTrace(verts, faces, COLORS.purple, 0.38, '높이 6 오각기둥'),
+    edgeTrace(verts, faces, 'rgba(109,40,217,.9)', 3),
+    labelTrace(verts, names, '#4c1d95', 11)
+  ];
+  Plotly.newPlot('straightPrismPlot', traces, getLayout('V′와 같은 부피의 곧은 오각기둥', {eye:{x:1.65,y:1.25,z:1.15}}), {responsive:true, displaylogo:false});
+}
+function makeTopPrismPlot(){
+  const verts = prismVertices(6);
+  const traces = [
+    meshTrace(verts, triFaces, COLORS.orange, 0.62, 'P_6'),
+    edgeTrace(verts, triFaces, 'rgba(194,65,12,.95)', 3),
+    labelTrace(verts, labels, '#7c2d12', 12, '_6')
+  ];
+  Plotly.newPlot('topPrismPlot', traces, getLayout('위쪽 삼각기둥 P_6', {eye:{x:1.55,y:1.35,z:1.0}}), {responsive:true, displaylogo:false});
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateSweep();
+  makeSectionPlot();
+  makeCombinedPlot();
+  makeVprimePlot();
+  makeStraightPrismPlot();
+  makeTopPrismPlot();
+  document.getElementById('hSlider').addEventListener('input', updateSweep);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<!-- saved from url=(0161)file:///C:/Users/KATE%20KIM/Documents/%EC%B9%B4%EC%B9%B4%EC%98%A4%ED%86%A1%20%EB%B0%9B%EC%9D%80%20%ED%8C%8C%EC%9D%BC/simulatior%20number1_%EC%88%98%EC%A0%95.html -->
+<html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>번호판 확률 시뮬레이터</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f6f8; color: #222; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 18px 60px; }
+    h1 { margin: 0 0 10px; font-size: 28px; }
+    .subtitle { margin-bottom: 22px; color: #555; line-height: 1.6; }
+    .control-box, .card, .result-box { background: white; border-radius: 18px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin-bottom: 22px; }
+    .control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+    label { font-weight: bold; font-size: 17px; }
+    input[type="number"] { width: 100px; padding: 10px 12px; font-size: 18px; border: 2px solid #d0d7de; border-radius: 10px; text-align: center; }
+    button { border: none; background: #1f6feb; color: white; padding: 11px 16px; border-radius: 10px; font-size: 15px; cursor: pointer; transition: 0.15s; }
+    button:hover { background: #185abc; transform: translateY(-1px); }
+    .quick-buttons button { background: #eef4ff; color: #1f4f9e; border: 1px solid #c8dcff; padding: 8px 12px; }
+    .quick-buttons button:hover { background: #dceaff; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+    .card { min-height: 250px; }
+    .card h2 { margin: 0 0 12px; font-size: 22px; display: flex; align-items: center; gap: 8px; }
+    .badge { display: inline-block; min-width: 30px; text-align: center; border-radius: 999px; padding: 4px 8px; font-size: 15px; color: white; background: #1f6feb; }
+    .formula { font-size: 18px; line-height: 1.7; background: #f6f8fa; border-radius: 12px; padding: 12px; margin: 10px 0; }
+    .big-number { font-size: 32px; font-weight: bold; color: #1f6feb; margin: 10px 0; }
+    .small { color: #666; line-height: 1.6; font-size: 14px; }
+    .list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-height: 160px; overflow-y: auto; }
+    .pair { background: #eef4ff; border: 1px solid #c8dcff; border-radius: 8px; padding: 5px 8px; font-size: 14px; }
+    .result-title { font-size: 24px; font-weight: bold; margin-bottom: 12px; }
+    .answer { font-size: 32px; font-weight: bold; color: #d1242f; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    th, td { padding: 9px; text-align: center; border-bottom: 1px solid #eaeef2; font-size: 13px; }
+    th { background: #1f6feb; color: white; position: sticky; top: 0; }
+    tr:last-child td { border-bottom: none; }
+    .table-wrap { max-height: 520px; overflow: auto; border-radius: 16px; }
+    .step-view { display: flex; gap: 10px; margin: 18px 0; flex-wrap: wrap; }
+    .step-pill { flex: 1; min-width: 170px; padding: 14px; border-radius: 14px; background: #f6f8fa; border: 2px solid #d0d7de; cursor: pointer; text-align: center; font-weight: bold; }
+    .step-pill.active { background: #eef4ff; border-color: #1f6feb; color: #1f4f9e; }
+    .visible-step { border-left: 6px solid #1f6feb; padding-left: 14px; line-height: 1.75; font-size: 17px; }
+    @media (max-width: 850px) { .cards { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>번호판 확률 시뮬레이터</h1>
+    <div class="subtitle">
+      1부터 100까지의 번호판 중 하나를 세 번 뽑아 나온 수를 차례로 <b>a, b, c</b>라고 한다.<br>
+      번호판은 중복해서 뽑을 수 있다. 사건 <b>A: a+b=N</b>, 사건 <b>B: b≥c</b>일 때 <b>A 또는 B</b>가 일어날 확률을 계산한다.
+    </div>
+
+    <div class="control-box">
+      <label for="sumInput">a+b의 값 N 입력</label>
+      <div class="control-row">
+        <input id="sumInput" type="number" min="2" max="100" value="8">
+        <button onclick="updateAll()">계산하기</button>
+        <div class="quick-buttons" id="quickButtons"><button>2</button><button>3</button><button>4</button><button>5</button><button>8</button><button>10</button><button>20</button><button>30</button><button>50</button><button>70</button><button>100</button></div>
+      </div>
+      <div class="small" style="margin-top:10px;">
+        여기서는 N이 2부터 100까지 변할 때 확률이 어떻게 변하는지 확인한다. 전체 경우의 수는 100³ = 1,000,000가지이다.
+      </div>
+    </div>
+
+    <div class="step-view">
+      <div class="step-pill active" onclick="showStep(&#39;A&#39;)">A 단계<br>a+b=N</div>
+      <div class="step-pill" onclick="showStep(&#39;B&#39;)">B 단계<br>b≥c</div>
+      <div class="step-pill" onclick="showStep(&#39;C&#39;)">C 단계<br>A∩B</div>
+    </div>
+
+    <div class="result-box">
+      <div class="result-title">현재 선택한 단계 설명</div>
+      <div id="stepText" class="visible-step">
+          <b>A 단계</b>는 <b>a+b=8</b>인 경우를 세는 과정이다.<br>
+          가능한 (a,b) 쌍은 <b>7</b>개이다.<br>
+          여기에 c는 1부터 100까지 자유롭게 나올 수 있으므로<br>
+          <b>A = 7 × 100 = 700</b>가지이다.
+        </div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h2><span class="badge">A</span> a+b=N</h2>
+        <div class="formula" id="aFormula">(a,b)의 개수 = 7가지<br>c는 1~100까지 가능</div>
+        <div class="big-number" id="aCount">A = 700가지</div>
+        <div class="small">가능한 (a,b) 쌍</div>
+        <div class="list" id="pairList"><span class="pair">(1, 7)</span><span class="pair">(2, 6)</span><span class="pair">(3, 5)</span><span class="pair">(4, 4)</span><span class="pair">(5, 3)</span><span class="pair">(6, 2)</span><span class="pair">(7, 1)</span></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="badge">B</span> b≥c</h2>
+        <div class="formula">b=1일 때 1개<br>b=2일 때 2개<br>...<br>b=100일 때 100개</div>
+        <div class="big-number" id="bCount">B = 505,000가지</div>
+        <div class="small">즉 (b,c)는 1+2+...+100=5050가지이고 a는 100가지이다.</div>
+      </div>
+
+      <div class="card">
+        <h2><span class="badge">C</span> A∩B</h2>
+        <div class="formula" id="cFormula">각 (a,b)에서 c≤b<br>7 + 6 + 5 + 4 + 3 + 2 + 1 = 28</div>
+        <div class="big-number" id="cCount">C = 28가지</div>
+        <div class="small">A와 B를 단순히 더하면 겹치는 경우가 두 번 세어진다. 그래서 C를 한 번 빼야 한다.</div>
+      </div>
+    </div>
+
+    <div class="result-box">
+      <div class="result-title">포함배제 원리로 계산</div>
+      <div class="formula" id="unionFormula">A∪B = A + B - C = 700 + 505,000 - 28 = 505,672</div>
+      <div class="formula" id="probFormula">전체 경우의 수 = 100³ = 1,000,000<br>확률 = 505,672/1,000,000 = 63209/125000</div>
+      <div class="answer" id="finalAnswer">p = 63209, q = 125000, p+q = 188209, q/p = 125000/63209</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>N</th>
+            <th>A: a+b=N</th>
+            <th>B: b≥c</th>
+            <th>C: A∩B</th>
+            <th>A∪B</th>
+            <th>확률 p/q</th>
+            <th>p+q</th>
+            <th>q/p</th>
+          </tr>
+        </thead>
+        <tbody id="summaryTable"><tr>
+          <td>2</td>
+          <td>100</td>
+          <td>505,000</td>
+          <td>1</td>
+          <td>505,099</td>
+          <td>505099/1000000</td>
+          <td>1505099</td>
+          <td>1000000/505099</td>
+        </tr><tr>
+          <td>3</td>
+          <td>200</td>
+          <td>505,000</td>
+          <td>3</td>
+          <td>505,197</td>
+          <td>505197/1000000</td>
+          <td>1505197</td>
+          <td>1000000/505197</td>
+        </tr><tr>
+          <td>4</td>
+          <td>300</td>
+          <td>505,000</td>
+          <td>6</td>
+          <td>505,294</td>
+          <td>252647/500000</td>
+          <td>752647</td>
+          <td>500000/252647</td>
+        </tr><tr>
+          <td>5</td>
+          <td>400</td>
+          <td>505,000</td>
+          <td>10</td>
+          <td>505,390</td>
+          <td>50539/100000</td>
+          <td>150539</td>
+          <td>100000/50539</td>
+        </tr><tr>
+          <td>6</td>
+          <td>500</td>
+          <td>505,000</td>
+          <td>15</td>
+          <td>505,485</td>
+          <td>101097/200000</td>
+          <td>301097</td>
+          <td>200000/101097</td>
+        </tr><tr>
+          <td>7</td>
+          <td>600</td>
+          <td>505,000</td>
+          <td>21</td>
+          <td>505,579</td>
+          <td>505579/1000000</td>
+          <td>1505579</td>
+          <td>1000000/505579</td>
+        </tr><tr style="background: rgb(255, 248, 197); font-weight: bold;">
+          <td>8</td>
+          <td>700</td>
+          <td>505,000</td>
+          <td>28</td>
+          <td>505,672</td>
+          <td>63209/125000</td>
+          <td>188209</td>
+          <td>125000/63209</td>
+        </tr><tr>
+          <td>9</td>
+          <td>800</td>
+          <td>505,000</td>
+          <td>36</td>
+          <td>505,764</td>
+          <td>126441/250000</td>
+          <td>376441</td>
+          <td>250000/126441</td>
+        </tr><tr>
+          <td>10</td>
+          <td>900</td>
+          <td>505,000</td>
+          <td>45</td>
+          <td>505,855</td>
+          <td>101171/200000</td>
+          <td>301171</td>
+          <td>200000/101171</td>
+        </tr><tr>
+          <td>11</td>
+          <td>1,000</td>
+          <td>505,000</td>
+          <td>55</td>
+          <td>505,945</td>
+          <td>101189/200000</td>
+          <td>301189</td>
+          <td>200000/101189</td>
+        </tr><tr>
+          <td>12</td>
+          <td>1,100</td>
+          <td>505,000</td>
+          <td>66</td>
+          <td>506,034</td>
+          <td>253017/500000</td>
+          <td>753017</td>
+          <td>500000/253017</td>
+        </tr><tr>
+          <td>13</td>
+          <td>1,200</td>
+          <td>505,000</td>
+          <td>78</td>
+          <td>506,122</td>
+          <td>253061/500000</td>
+          <td>753061</td>
+          <td>500000/253061</td>
+        </tr><tr>
+          <td>14</td>
+          <td>1,300</td>
+          <td>505,000</td>
+          <td>91</td>
+          <td>506,209</td>
+          <td>506209/1000000</td>
+          <td>1506209</td>
+          <td>1000000/506209</td>
+        </tr><tr>
+          <td>15</td>
+          <td>1,400</td>
+          <td>505,000</td>
+          <td>105</td>
+          <td>506,295</td>
+          <td>101259/200000</td>
+          <td>301259</td>
+          <td>200000/101259</td>
+        </tr><tr>
+          <td>16</td>
+          <td>1,500</td>
+          <td>505,000</td>
+          <td>120</td>
+          <td>506,380</td>
+          <td>25319/50000</td>
+          <td>75319</td>
+          <td>50000/25319</td>
+        </tr><tr>
+          <td>17</td>
+          <td>1,600</td>
+          <td>505,000</td>
+          <td>136</td>
+          <td>506,464</td>
+          <td>15827/31250</td>
+          <td>47077</td>
+          <td>31250/15827</td>
+        </tr><tr>
+          <td>18</td>
+          <td>1,700</td>
+          <td>505,000</td>
+          <td>153</td>
+          <td>506,547</td>
+          <td>506547/1000000</td>
+          <td>1506547</td>
+          <td>1000000/506547</td>
+        </tr><tr>
+          <td>19</td>
+          <td>1,800</td>
+          <td>505,000</td>
+          <td>171</td>
+          <td>506,629</td>
+          <td>506629/1000000</td>
+          <td>1506629</td>
+          <td>1000000/506629</td>
+        </tr><tr>
+          <td>20</td>
+          <td>1,900</td>
+          <td>505,000</td>
+          <td>190</td>
+          <td>506,710</td>
+          <td>50671/100000</td>
+          <td>150671</td>
+          <td>100000/50671</td>
+        </tr><tr>
+          <td>21</td>
+          <td>2,000</td>
+          <td>505,000</td>
+          <td>210</td>
+          <td>506,790</td>
+          <td>50679/100000</td>
+          <td>150679</td>
+          <td>100000/50679</td>
+        </tr><tr>
+          <td>22</td>
+          <td>2,100</td>
+          <td>505,000</td>
+          <td>231</td>
+          <td>506,869</td>
+          <td>506869/1000000</td>
+          <td>1506869</td>
+          <td>1000000/506869</td>
+        </tr><tr>
+          <td>23</td>
+          <td>2,200</td>
+          <td>505,000</td>
+          <td>253</td>
+          <td>506,947</td>
+          <td>506947/1000000</td>
+          <td>1506947</td>
+          <td>1000000/506947</td>
+        </tr><tr>
+          <td>24</td>
+          <td>2,300</td>
+          <td>505,000</td>
+          <td>276</td>
+          <td>507,024</td>
+          <td>31689/62500</td>
+          <td>94189</td>
+          <td>62500/31689</td>
+        </tr><tr>
+          <td>25</td>
+          <td>2,400</td>
+          <td>505,000</td>
+          <td>300</td>
+          <td>507,100</td>
+          <td>5071/10000</td>
+          <td>15071</td>
+          <td>10000/5071</td>
+        </tr><tr>
+          <td>26</td>
+          <td>2,500</td>
+          <td>505,000</td>
+          <td>325</td>
+          <td>507,175</td>
+          <td>20287/40000</td>
+          <td>60287</td>
+          <td>40000/20287</td>
+        </tr><tr>
+          <td>27</td>
+          <td>2,600</td>
+          <td>505,000</td>
+          <td>351</td>
+          <td>507,249</td>
+          <td>507249/1000000</td>
+          <td>1507249</td>
+          <td>1000000/507249</td>
+        </tr><tr>
+          <td>28</td>
+          <td>2,700</td>
+          <td>505,000</td>
+          <td>378</td>
+          <td>507,322</td>
+          <td>253661/500000</td>
+          <td>753661</td>
+          <td>500000/253661</td>
+        </tr><tr>
+          <td>29</td>
+          <td>2,800</td>
+          <td>505,000</td>
+          <td>406</td>
+          <td>507,394</td>
+          <td>253697/500000</td>
+          <td>753697</td>
+          <td>500000/253697</td>
+        </tr><tr>
+          <td>30</td>
+          <td>2,900</td>
+          <td>505,000</td>
+          <td>435</td>
+          <td>507,465</td>
+          <td>101493/200000</td>
+          <td>301493</td>
+          <td>200000/101493</td>
+        </tr><tr>
+          <td>31</td>
+          <td>3,000</td>
+          <td>505,000</td>
+          <td>465</td>
+          <td>507,535</td>
+          <td>101507/200000</td>
+          <td>301507</td>
+          <td>200000/101507</td>
+        </tr><tr>
+          <td>32</td>
+          <td>3,100</td>
+          <td>505,000</td>
+          <td>496</td>
+          <td>507,604</td>
+          <td>126901/250000</td>
+          <td>376901</td>
+          <td>250000/126901</td>
+        </tr><tr>
+          <td>33</td>
+          <td>3,200</td>
+          <td>505,000</td>
+          <td>528</td>
+          <td>507,672</td>
+          <td>63459/125000</td>
+          <td>188459</td>
+          <td>125000/63459</td>
+        </tr><tr>
+          <td>34</td>
+          <td>3,300</td>
+          <td>505,000</td>
+          <td>561</td>
+          <td>507,739</td>
+          <td>507739/1000000</td>
+          <td>1507739</td>
+          <td>1000000/507739</td>
+        </tr><tr>
+          <td>35</td>
+          <td>3,400</td>
+          <td>505,000</td>
+          <td>595</td>
+          <td>507,805</td>
+          <td>101561/200000</td>
+          <td>301561</td>
+          <td>200000/101561</td>
+        </tr><tr>
+          <td>36</td>
+          <td>3,500</td>
+          <td>505,000</td>
+          <td>630</td>
+          <td>507,870</td>
+          <td>50787/100000</td>
+          <td>150787</td>
+          <td>100000/50787</td>
+        </tr><tr>
+          <td>37</td>
+          <td>3,600</td>
+          <td>505,000</td>
+          <td>666</td>
+          <td>507,934</td>
+          <td>253967/500000</td>
+          <td>753967</td>
+          <td>500000/253967</td>
+        </tr><tr>
+          <td>38</td>
+          <td>3,700</td>
+          <td>505,000</td>
+          <td>703</td>
+          <td>507,997</td>
+          <td>507997/1000000</td>
+          <td>1507997</td>
+          <td>1000000/507997</td>
+        </tr><tr>
+          <td>39</td>
+          <td>3,800</td>
+          <td>505,000</td>
+          <td>741</td>
+          <td>508,059</td>
+          <td>508059/1000000</td>
+          <td>1508059</td>
+          <td>1000000/508059</td>
+        </tr><tr>
+          <td>40</td>
+          <td>3,900</td>
+          <td>505,000</td>
+          <td>780</td>
+          <td>508,120</td>
+          <td>12703/25000</td>
+          <td>37703</td>
+          <td>25000/12703</td>
+        </tr><tr>
+          <td>41</td>
+          <td>4,000</td>
+          <td>505,000</td>
+          <td>820</td>
+          <td>508,180</td>
+          <td>25409/50000</td>
+          <td>75409</td>
+          <td>50000/25409</td>
+        </tr><tr>
+          <td>42</td>
+          <td>4,100</td>
+          <td>505,000</td>
+          <td>861</td>
+          <td>508,239</td>
+          <td>508239/1000000</td>
+          <td>1508239</td>
+          <td>1000000/508239</td>
+        </tr><tr>
+          <td>43</td>
+          <td>4,200</td>
+          <td>505,000</td>
+          <td>903</td>
+          <td>508,297</td>
+          <td>508297/1000000</td>
+          <td>1508297</td>
+          <td>1000000/508297</td>
+        </tr><tr>
+          <td>44</td>
+          <td>4,300</td>
+          <td>505,000</td>
+          <td>946</td>
+          <td>508,354</td>
+          <td>254177/500000</td>
+          <td>754177</td>
+          <td>500000/254177</td>
+        </tr><tr>
+          <td>45</td>
+          <td>4,400</td>
+          <td>505,000</td>
+          <td>990</td>
+          <td>508,410</td>
+          <td>50841/100000</td>
+          <td>150841</td>
+          <td>100000/50841</td>
+        </tr><tr>
+          <td>46</td>
+          <td>4,500</td>
+          <td>505,000</td>
+          <td>1,035</td>
+          <td>508,465</td>
+          <td>101693/200000</td>
+          <td>301693</td>
+          <td>200000/101693</td>
+        </tr><tr>
+          <td>47</td>
+          <td>4,600</td>
+          <td>505,000</td>
+          <td>1,081</td>
+          <td>508,519</td>
+          <td>508519/1000000</td>
+          <td>1508519</td>
+          <td>1000000/508519</td>
+        </tr><tr>
+          <td>48</td>
+          <td>4,700</td>
+          <td>505,000</td>
+          <td>1,128</td>
+          <td>508,572</td>
+          <td>127143/250000</td>
+          <td>377143</td>
+          <td>250000/127143</td>
+        </tr><tr>
+          <td>49</td>
+          <td>4,800</td>
+          <td>505,000</td>
+          <td>1,176</td>
+          <td>508,624</td>
+          <td>31789/62500</td>
+          <td>94289</td>
+          <td>62500/31789</td>
+        </tr><tr>
+          <td>50</td>
+          <td>4,900</td>
+          <td>505,000</td>
+          <td>1,225</td>
+          <td>508,675</td>
+          <td>20347/40000</td>
+          <td>60347</td>
+          <td>40000/20347</td>
+        </tr><tr>
+          <td>51</td>
+          <td>5,000</td>
+          <td>505,000</td>
+          <td>1,275</td>
+          <td>508,725</td>
+          <td>20349/40000</td>
+          <td>60349</td>
+          <td>40000/20349</td>
+        </tr><tr>
+          <td>52</td>
+          <td>5,100</td>
+          <td>505,000</td>
+          <td>1,326</td>
+          <td>508,774</td>
+          <td>254387/500000</td>
+          <td>754387</td>
+          <td>500000/254387</td>
+        </tr><tr>
+          <td>53</td>
+          <td>5,200</td>
+          <td>505,000</td>
+          <td>1,378</td>
+          <td>508,822</td>
+          <td>254411/500000</td>
+          <td>754411</td>
+          <td>500000/254411</td>
+        </tr><tr>
+          <td>54</td>
+          <td>5,300</td>
+          <td>505,000</td>
+          <td>1,431</td>
+          <td>508,869</td>
+          <td>508869/1000000</td>
+          <td>1508869</td>
+          <td>1000000/508869</td>
+        </tr><tr>
+          <td>55</td>
+          <td>5,400</td>
+          <td>505,000</td>
+          <td>1,485</td>
+          <td>508,915</td>
+          <td>101783/200000</td>
+          <td>301783</td>
+          <td>200000/101783</td>
+        </tr><tr>
+          <td>56</td>
+          <td>5,500</td>
+          <td>505,000</td>
+          <td>1,540</td>
+          <td>508,960</td>
+          <td>3181/6250</td>
+          <td>9431</td>
+          <td>6250/3181</td>
+        </tr><tr>
+          <td>57</td>
+          <td>5,600</td>
+          <td>505,000</td>
+          <td>1,596</td>
+          <td>509,004</td>
+          <td>127251/250000</td>
+          <td>377251</td>
+          <td>250000/127251</td>
+        </tr><tr>
+          <td>58</td>
+          <td>5,700</td>
+          <td>505,000</td>
+          <td>1,653</td>
+          <td>509,047</td>
+          <td>509047/1000000</td>
+          <td>1509047</td>
+          <td>1000000/509047</td>
+        </tr><tr>
+          <td>59</td>
+          <td>5,800</td>
+          <td>505,000</td>
+          <td>1,711</td>
+          <td>509,089</td>
+          <td>509089/1000000</td>
+          <td>1509089</td>
+          <td>1000000/509089</td>
+        </tr><tr>
+          <td>60</td>
+          <td>5,900</td>
+          <td>505,000</td>
+          <td>1,770</td>
+          <td>509,130</td>
+          <td>50913/100000</td>
+          <td>150913</td>
+          <td>100000/50913</td>
+        </tr><tr>
+          <td>61</td>
+          <td>6,000</td>
+          <td>505,000</td>
+          <td>1,830</td>
+          <td>509,170</td>
+          <td>50917/100000</td>
+          <td>150917</td>
+          <td>100000/50917</td>
+        </tr><tr>
+          <td>62</td>
+          <td>6,100</td>
+          <td>505,000</td>
+          <td>1,891</td>
+          <td>509,209</td>
+          <td>509209/1000000</td>
+          <td>1509209</td>
+          <td>1000000/509209</td>
+        </tr><tr>
+          <td>63</td>
+          <td>6,200</td>
+          <td>505,000</td>
+          <td>1,953</td>
+          <td>509,247</td>
+          <td>509247/1000000</td>
+          <td>1509247</td>
+          <td>1000000/509247</td>
+        </tr><tr>
+          <td>64</td>
+          <td>6,300</td>
+          <td>505,000</td>
+          <td>2,016</td>
+          <td>509,284</td>
+          <td>127321/250000</td>
+          <td>377321</td>
+          <td>250000/127321</td>
+        </tr><tr>
+          <td>65</td>
+          <td>6,400</td>
+          <td>505,000</td>
+          <td>2,080</td>
+          <td>509,320</td>
+          <td>12733/25000</td>
+          <td>37733</td>
+          <td>25000/12733</td>
+        </tr><tr>
+          <td>66</td>
+          <td>6,500</td>
+          <td>505,000</td>
+          <td>2,145</td>
+          <td>509,355</td>
+          <td>101871/200000</td>
+          <td>301871</td>
+          <td>200000/101871</td>
+        </tr><tr>
+          <td>67</td>
+          <td>6,600</td>
+          <td>505,000</td>
+          <td>2,211</td>
+          <td>509,389</td>
+          <td>509389/1000000</td>
+          <td>1509389</td>
+          <td>1000000/509389</td>
+        </tr><tr>
+          <td>68</td>
+          <td>6,700</td>
+          <td>505,000</td>
+          <td>2,278</td>
+          <td>509,422</td>
+          <td>254711/500000</td>
+          <td>754711</td>
+          <td>500000/254711</td>
+        </tr><tr>
+          <td>69</td>
+          <td>6,800</td>
+          <td>505,000</td>
+          <td>2,346</td>
+          <td>509,454</td>
+          <td>254727/500000</td>
+          <td>754727</td>
+          <td>500000/254727</td>
+        </tr><tr>
+          <td>70</td>
+          <td>6,900</td>
+          <td>505,000</td>
+          <td>2,415</td>
+          <td>509,485</td>
+          <td>101897/200000</td>
+          <td>301897</td>
+          <td>200000/101897</td>
+        </tr><tr>
+          <td>71</td>
+          <td>7,000</td>
+          <td>505,000</td>
+          <td>2,485</td>
+          <td>509,515</td>
+          <td>101903/200000</td>
+          <td>301903</td>
+          <td>200000/101903</td>
+        </tr><tr>
+          <td>72</td>
+          <td>7,100</td>
+          <td>505,000</td>
+          <td>2,556</td>
+          <td>509,544</td>
+          <td>63693/125000</td>
+          <td>188693</td>
+          <td>125000/63693</td>
+        </tr><tr>
+          <td>73</td>
+          <td>7,200</td>
+          <td>505,000</td>
+          <td>2,628</td>
+          <td>509,572</td>
+          <td>127393/250000</td>
+          <td>377393</td>
+          <td>250000/127393</td>
+        </tr><tr>
+          <td>74</td>
+          <td>7,300</td>
+          <td>505,000</td>
+          <td>2,701</td>
+          <td>509,599</td>
+          <td>509599/1000000</td>
+          <td>1509599</td>
+          <td>1000000/509599</td>
+        </tr><tr>
+          <td>75</td>
+          <td>7,400</td>
+          <td>505,000</td>
+          <td>2,775</td>
+          <td>509,625</td>
+          <td>4077/8000</td>
+          <td>12077</td>
+          <td>8000/4077</td>
+        </tr><tr>
+          <td>76</td>
+          <td>7,500</td>
+          <td>505,000</td>
+          <td>2,850</td>
+          <td>509,650</td>
+          <td>10193/20000</td>
+          <td>30193</td>
+          <td>20000/10193</td>
+        </tr><tr>
+          <td>77</td>
+          <td>7,600</td>
+          <td>505,000</td>
+          <td>2,926</td>
+          <td>509,674</td>
+          <td>254837/500000</td>
+          <td>754837</td>
+          <td>500000/254837</td>
+        </tr><tr>
+          <td>78</td>
+          <td>7,700</td>
+          <td>505,000</td>
+          <td>3,003</td>
+          <td>509,697</td>
+          <td>509697/1000000</td>
+          <td>1509697</td>
+          <td>1000000/509697</td>
+        </tr><tr>
+          <td>79</td>
+          <td>7,800</td>
+          <td>505,000</td>
+          <td>3,081</td>
+          <td>509,719</td>
+          <td>509719/1000000</td>
+          <td>1509719</td>
+          <td>1000000/509719</td>
+        </tr><tr>
+          <td>80</td>
+          <td>7,900</td>
+          <td>505,000</td>
+          <td>3,160</td>
+          <td>509,740</td>
+          <td>25487/50000</td>
+          <td>75487</td>
+          <td>50000/25487</td>
+        </tr><tr>
+          <td>81</td>
+          <td>8,000</td>
+          <td>505,000</td>
+          <td>3,240</td>
+          <td>509,760</td>
+          <td>1593/3125</td>
+          <td>4718</td>
+          <td>3125/1593</td>
+        </tr><tr>
+          <td>82</td>
+          <td>8,100</td>
+          <td>505,000</td>
+          <td>3,321</td>
+          <td>509,779</td>
+          <td>509779/1000000</td>
+          <td>1509779</td>
+          <td>1000000/509779</td>
+        </tr><tr>
+          <td>83</td>
+          <td>8,200</td>
+          <td>505,000</td>
+          <td>3,403</td>
+          <td>509,797</td>
+          <td>509797/1000000</td>
+          <td>1509797</td>
+          <td>1000000/509797</td>
+        </tr><tr>
+          <td>84</td>
+          <td>8,300</td>
+          <td>505,000</td>
+          <td>3,486</td>
+          <td>509,814</td>
+          <td>254907/500000</td>
+          <td>754907</td>
+          <td>500000/254907</td>
+        </tr><tr>
+          <td>85</td>
+          <td>8,400</td>
+          <td>505,000</td>
+          <td>3,570</td>
+          <td>509,830</td>
+          <td>50983/100000</td>
+          <td>150983</td>
+          <td>100000/50983</td>
+        </tr><tr>
+          <td>86</td>
+          <td>8,500</td>
+          <td>505,000</td>
+          <td>3,655</td>
+          <td>509,845</td>
+          <td>101969/200000</td>
+          <td>301969</td>
+          <td>200000/101969</td>
+        </tr><tr>
+          <td>87</td>
+          <td>8,600</td>
+          <td>505,000</td>
+          <td>3,741</td>
+          <td>509,859</td>
+          <td>509859/1000000</td>
+          <td>1509859</td>
+          <td>1000000/509859</td>
+        </tr><tr>
+          <td>88</td>
+          <td>8,700</td>
+          <td>505,000</td>
+          <td>3,828</td>
+          <td>509,872</td>
+          <td>31867/62500</td>
+          <td>94367</td>
+          <td>62500/31867</td>
+        </tr><tr>
+          <td>89</td>
+          <td>8,800</td>
+          <td>505,000</td>
+          <td>3,916</td>
+          <td>509,884</td>
+          <td>127471/250000</td>
+          <td>377471</td>
+          <td>250000/127471</td>
+        </tr><tr>
+          <td>90</td>
+          <td>8,900</td>
+          <td>505,000</td>
+          <td>4,005</td>
+          <td>509,895</td>
+          <td>101979/200000</td>
+          <td>301979</td>
+          <td>200000/101979</td>
+        </tr><tr>
+          <td>91</td>
+          <td>9,000</td>
+          <td>505,000</td>
+          <td>4,095</td>
+          <td>509,905</td>
+          <td>101981/200000</td>
+          <td>301981</td>
+          <td>200000/101981</td>
+        </tr><tr>
+          <td>92</td>
+          <td>9,100</td>
+          <td>505,000</td>
+          <td>4,186</td>
+          <td>509,914</td>
+          <td>254957/500000</td>
+          <td>754957</td>
+          <td>500000/254957</td>
+        </tr><tr>
+          <td>93</td>
+          <td>9,200</td>
+          <td>505,000</td>
+          <td>4,278</td>
+          <td>509,922</td>
+          <td>254961/500000</td>
+          <td>754961</td>
+          <td>500000/254961</td>
+        </tr><tr>
+          <td>94</td>
+          <td>9,300</td>
+          <td>505,000</td>
+          <td>4,371</td>
+          <td>509,929</td>
+          <td>509929/1000000</td>
+          <td>1509929</td>
+          <td>1000000/509929</td>
+        </tr><tr>
+          <td>95</td>
+          <td>9,400</td>
+          <td>505,000</td>
+          <td>4,465</td>
+          <td>509,935</td>
+          <td>101987/200000</td>
+          <td>301987</td>
+          <td>200000/101987</td>
+        </tr><tr>
+          <td>96</td>
+          <td>9,500</td>
+          <td>505,000</td>
+          <td>4,560</td>
+          <td>509,940</td>
+          <td>25497/50000</td>
+          <td>75497</td>
+          <td>50000/25497</td>
+        </tr><tr>
+          <td>97</td>
+          <td>9,600</td>
+          <td>505,000</td>
+          <td>4,656</td>
+          <td>509,944</td>
+          <td>63743/125000</td>
+          <td>188743</td>
+          <td>125000/63743</td>
+        </tr><tr>
+          <td>98</td>
+          <td>9,700</td>
+          <td>505,000</td>
+          <td>4,753</td>
+          <td>509,947</td>
+          <td>509947/1000000</td>
+          <td>1509947</td>
+          <td>1000000/509947</td>
+        </tr><tr>
+          <td>99</td>
+          <td>9,800</td>
+          <td>505,000</td>
+          <td>4,851</td>
+          <td>509,949</td>
+          <td>509949/1000000</td>
+          <td>1509949</td>
+          <td>1000000/509949</td>
+        </tr><tr>
+          <td>100</td>
+          <td>9,900</td>
+          <td>505,000</td>
+          <td>4,950</td>
+          <td>509,950</td>
+          <td>10199/20000</td>
+          <td>30199</td>
+          <td>20000/10199</td>
+        </tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let currentData = null;
+    let currentStep = 'A';
+
+    function gcd(x, y) {
+      x = Math.abs(x);
+      y = Math.abs(y);
+      while (y !== 0) {
+        const t = y;
+        y = x % y;
+        x = t;
+      }
+      return x;
+    }
+
+    function calcData(N) {
+      const total = 1000000;
+      const pairs = [];
+
+      for (let a = 1; a <= 100; a++) {
+        for (let b = 1; b <= 100; b++) {
+          if (a + b === N) pairs.push([a, b]);
+        }
+      }
+
+      const A = pairs.length * 100;
+      const B = 5050 * 100;
+
+      let C = 0;
+      const cDetails = [];
+      pairs.forEach(([a, b]) => {
+        C += b;
+        cDetails.push({ a, b, cCount: b });
+      });
+
+      const union = A + B - C;
+      const g = gcd(union, total);
+      const p = union / g;
+      const q = total / g;
+
+      return { N, total, pairs, A, B, C, union, p, q, pPlusQ: p + q, cDetails };
+    }
+
+    function updateAll() {
+      const input = document.getElementById('sumInput');
+      let N = parseInt(input.value, 10);
+
+      if (isNaN(N)) N = 8;
+      if (N < 2) N = 2;
+      if (N > 100) N = 100;
+      input.value = N;
+
+      currentData = calcData(N);
+      renderCurrentData();
+      renderSummaryTable();
+      showStep(currentStep);
+    }
+
+    function renderCurrentData() {
+      const d = currentData;
+
+      document.getElementById('aFormula').innerHTML = `(a,b)의 개수 = ${d.pairs.length}가지<br />c는 1~100까지 가능`;
+      document.getElementById('aCount').textContent = `A = ${d.A.toLocaleString()}가지`;
+
+      const pairList = document.getElementById('pairList');
+      pairList.innerHTML = '';
+      d.pairs.forEach(([a, b]) => {
+        const span = document.createElement('span');
+        span.className = 'pair';
+        span.textContent = `(${a}, ${b})`;
+        pairList.appendChild(span);
+      });
+
+      document.getElementById('bCount').textContent = `B = ${d.B.toLocaleString()}가지`;
+
+      const cSum = d.cDetails.map(x => x.b).join(' + ');
+      document.getElementById('cFormula').innerHTML = `각 (a,b)에서 c≤b<br />${cSum} = ${d.C.toLocaleString()}`;
+      document.getElementById('cCount').textContent = `C = ${d.C.toLocaleString()}가지`;
+
+      document.getElementById('unionFormula').innerHTML =
+        `A∪B = A + B - C = ${d.A.toLocaleString()} + ${d.B.toLocaleString()} - ${d.C.toLocaleString()} = ${d.union.toLocaleString()}`;
+
+      document.getElementById('probFormula').innerHTML =
+        `전체 경우의 수 = 100³ = 1,000,000<br />확률 = ${d.union.toLocaleString()}/1,000,000 = ${d.p}/${d.q}`;
+
+      document.getElementById('finalAnswer').textContent =
+        `p = ${d.p}, q = ${d.q}, p+q = ${d.pPlusQ}, q/p = ${d.q}/${d.p}`;
+    }
+
+    function showStep(step) {
+      currentStep = step;
+
+      document.querySelectorAll('.step-pill').forEach(el => el.classList.remove('active'));
+      const index = step === 'A' ? 0 : step === 'B' ? 1 : 2;
+      document.querySelectorAll('.step-pill')[index].classList.add('active');
+
+      const d = currentData;
+      let html = '';
+
+      if (step === 'A') {
+        html = `
+          <b>A 단계</b>는 <b>a+b=${d.N}</b>인 경우를 세는 과정이다.<br />
+          가능한 (a,b) 쌍은 <b>${d.pairs.length}</b>개이다.<br />
+          여기에 c는 1부터 100까지 자유롭게 나올 수 있으므로<br />
+          <b>A = ${d.pairs.length} × 100 = ${d.A.toLocaleString()}</b>가지이다.
+        `;
+      }
+
+      if (step === 'B') {
+        html = `
+          <b>B 단계</b>는 <b>b≥c</b>인 경우를 세는 과정이다.<br />
+          b=1이면 c는 1개, b=2이면 c는 2개, ..., b=100이면 c는 100개 가능하다.<br />
+          따라서 (b,c)의 경우는 <b>1+2+...+100=5050</b>가지이다.<br />
+          a는 1부터 100까지 자유롭게 나올 수 있으므로 <b>B=5050×100=${d.B.toLocaleString()}</b>가지이다.
+        `;
+      }
+
+      if (step === 'C') {
+        const detail = d.cDetails.map(x => `(a,b)=(${x.a},${x.b})일 때 c는 ${x.cCount}가지`).join('<br />');
+        html = `
+          <b>C 단계</b>는 <b>A와 B가 동시에 일어나는 경우</b>를 세는 과정이다.<br />
+          즉 <b>a+b=${d.N}</b>이면서 동시에 <b>b≥c</b>이어야 한다.<br />
+          ${detail}<br />
+          따라서 <b>C=${d.C.toLocaleString()}</b>가지이다.
+        `;
+      }
+
+      document.getElementById('stepText').innerHTML = html;
+    }
+
+    function renderSummaryTable() {
+      const tbody = document.getElementById('summaryTable');
+      tbody.innerHTML = '';
+
+      for (let N = 2; N <= 100; N++) {
+        const d = calcData(N);
+        const tr = document.createElement('tr');
+        if (N === currentData.N) {
+          tr.style.background = '#fff8c5';
+          tr.style.fontWeight = 'bold';
+        }
+
+        tr.innerHTML = `
+          <td>${N}</td>
+          <td>${d.A.toLocaleString()}</td>
+          <td>${d.B.toLocaleString()}</td>
+          <td>${d.C.toLocaleString()}</td>
+          <td>${d.union.toLocaleString()}</td>
+          <td>${d.p}/${d.q}</td>
+          <td>${d.pPlusQ}</td>
+          <td>${d.q}/${d.p}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function makeQuickButtons() {
+      const box = document.getElementById('quickButtons');
+      const nums = [2, 3, 4, 5, 8, 10, 20, 30, 50, 70, 100];
+      nums.forEach(N => {
+        const btn = document.createElement('button');
+        btn.textContent = N;
+        btn.onclick = () => {
+          document.getElementById('sumInput').value = N;
+          updateAll();
+        };
+        box.appendChild(btn);
+      });
+    }
+
+    makeQuickButtons();
+    updateAll();
+  </script>
+
+</body></html>

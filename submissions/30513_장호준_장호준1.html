@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>곡면 S의 부피 적분 입체 시뮬레이션</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root { --primary: #0078D7; --bg: #f5f7fb; --panel: #ffffff; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background-color: var(--bg); color: #333; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { padding: 12px 25px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        h2 { margin: 0; font-size: 1.3rem; color: #1a1a1a; }
+        
+        .tab { display: flex; background: #e0e6ed; padding: 5px 10px 0; gap: 5px; }
+        .tab button { border: none; padding: 10px 20px; cursor: pointer; border-radius: 8px 8px 0 0; background: #cfd8e3; font-weight: 600; transition: 0.2s; }
+        .tab button.active { background: white; color: var(--primary); }
+
+        .main-container { flex: 1; display: flex; overflow: hidden; }
+        .tabcontent { display: none; width: 100%; height: 100%; flex-direction: row; }
+        .tabcontent.active { display: flex; }
+
+        .control-panel { width: 420px; background: var(--panel); border-right: 1px solid #ddd; padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        .plot-container { flex: 1; position: relative; }
+        
+        .info-card { background: #f0f4f8; border-radius: 12px; padding: 12px; border-left: 4px solid var(--primary); font-size: 0.9rem; }
+        .math-display { margin-top: 5px; font-size: 1rem; background: white; padding: 10px; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+        
+        select, input[type=range] { width: 100%; margin-top: 8px; cursor: pointer; }
+        .slider-label { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.9rem; }
+        
+        .btn-solution { width: 100%; padding: 10px; font-weight: bold; background: #4a5568; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s; margin-top: 5px; }
+        .btn-solution:hover { background: #2d3748; }
+        .solution-container { display: none; border: 1px solid #cbd5e0; padding: 12px; border-radius: 6px; background: #f7fafc; max-height: 350px; overflow-y: auto; font-size: 0.88rem; line-height: 1.6; }
+        .solution-container h4 { margin: 0 0 8px 0; color: #2d3748; border-bottom: 2px solid #cbd5e0; padding-bottom: 3px; }
+        
+        /* 스크롤바 디자인 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>곡면 \( S: z = 1 - x^2 - 2y^2 \) 부피 및 정식 해법 시뮬레이션</h2>
+</header>
+
+<div class="tab">
+    <button class="tablinks active" onclick="openTab(event, 'Tab1')">1. 곡면 형성 시각화</button>
+    <button class="tablinks" onclick="openTab(event, 'Tab2')">2. 단면적 및 적분 전략</button>
+</div>
+
+<!-- 탭 1 -->
+<div id="Tab1" class="tabcontent active">
+    <div class="control-panel">
+        <div class="info-card">
+            <strong>곡선 B의 이동</strong>
+            <p style="margin:5px 0 0 0;">곡선 \( A(xz) \) 위를 따라 곡선 \( B(yz) \)의 꼭짓점이 기하학적으로 평행이동하며 곡면 \( S \)를 생성합니다.</p>
+        </div>
+        <div>
+            <div class="slider-label"><span>꼭짓점 위치 (x)</span> <span id="valA">0.00</span></div>
+            <input type="range" id="sliderA" min="-1" max="1" step="0.01" value="0">
+        </div>
+        <div class="math-display" id="math1">
+            \( B_x: z = (1-x^2) - 2y^2 \)
+        </div>
+        
+        <button class="btn-solution" onclick="toggleSolution('sol1')">정식 해법 및 유도 과정 보기</button>
+        <div id="sol1" class="solution-container">
+            <h4>곡면 S의 방정식 유도</h4>
+            <p>1. \( xz \)평면 위의 곡선 \( A \)의 방정식은 \( z = 1 - x^2 \) (\( y = 0 \))입니다.</p>
+            <p>2. \( yz \)평면 위의 곡선 \( B \)의 원래 방정식은 \( z = 1 - 2y^2 \) (\( x = 0 \))이며, 꼭짓점은 \( (0,0,1) \)입니다.</p>
+            <p>3. 곡선 \( B \)의 꼭짓점이 곡선 \( A \) 위의 임의의 점 \( (t, 0, 1-t^2) \)으로 평행이동하므로, 이동 벡터는 \( \vec{v} = (t, 0, -t^2) \)가 됩니다.</p>
+            <p>4. 형태를 유지한 채 이동하므로 꼭짓점이 바뀐 새로운 포물선의 식은 다음과 같습니다:
+            \[ z - (1-t^2) = -2(y - 0)^2 \]</p>
+            <p>5. 매개변수 \( t \)를 \( x \)로 환원하면, 생성되는 전체 곡면 \( S \)의 방정식은 아래와 같이 유도됩니다:
+            \[ z = 1 - x^2 - 2y^2 \quad (z \ge 0) \]</p>
+        </div>
+    </div>
+    <div id="plot1" class="plot-container"></div>
+</div>
+
+<!-- 탭 2 -->
+<div id="Tab2" class="tabcontent">
+    <div class="control-panel">
+        <div class="info-card">
+            <strong>적분 방법 선택</strong>
+            <select id="integrationMethod">
+                <option value="x">X축 수직 단면 (dy dz)</option>
+                <option value="y">Y축 수직 단면 (dx dz)</option>
+                <option value="z">Z축 수직 단면 (dx dy)</option>
+                <option value="polar">극좌표와 야코비안 (dr dθ)</option>
+            </select>
+        </div>
+        
+        <div>
+            <div class="slider-label"><span id="sliderName">단면 위치 (x)</span> <span id="valB">0.00</span></div>
+            <input type="range" id="sliderB" min="-1" max="1" step="0.01" value="0">
+        </div>
+
+        <div class="info-card" style="border-left-color: #28a745;">
+            <strong>실시간 계산 결과</strong>
+            <div id="math-equation" class="math-display"></div>
+            <div id="math-area" class="math-display" style="color: #28a745; font-weight: bold;"></div>
+        </div>
+
+        <button class="btn-solution" onclick="toggleSolution('sol2')">정식 해법 및 유도 과정 보기</button>
+        <div id="sol2" class="solution-container">
+            <h4 id="sol2-title">해법 선택 필요</h4>
+            <div id="sol2-content">방법을 선택하면 정식 유도 과정이 표시됩니다.</div>
+        </div>
+    </div>
+    <div id="plot2" class="plot-container"></div>
+</div>
+
+<!-- 수식 깨짐 방지를 위한 HTML 템플릿 영역 (화면에 보이지 않음) -->
+<div style="display:none;">
+    <template id="tpl-sol-x">
+        <p><b>1. 단면적 구하기:</b> 주어진 곡면과 \(xy\)평면의 교선은 타원 \(x^2+2y^2=1\)입니다. 임의의 \(x\) 고정 시 \(y\)의 범위는 \(-\sqrt{\frac{1-x^2}{2}} \le y \le \sqrt{\frac{1-x^2}{2}}\)가 됩니다.</p>
+        <p>단면적 \(S(x)\)는 포물선 아래의 면적이므로:
+        \[ S(x) = \int_{-\sqrt{\frac{1-x^2}{2}}}^{\sqrt{\frac{1-x^2}{2}}} (1-x^2-2y^2) dy \]</p>
+        <p>공식 \(\int_{-a}^a (a^2-x^2)dx = \frac{4}{3}a^3\) 형태를 적용하면:
+        \[ S(x) = \frac{2\sqrt{2}}{3}(1-x^2)^{3/2} \]</p>
+        <p><b>2. 총부피 적분:</b> \(x\)의 전체 범위 \([-1, 1]\)에 대해 정적분합니다.
+        \[ V = \int_{-1}^1 \frac{2\sqrt{2}}{3}(1-x^2)^{3/2} dx \]</p>
+        <p>\(x = \sin\theta\)로 치환하면 \(dx = \cos\theta d\theta\)가 되어:
+        \[ V = \frac{4\sqrt{2}}{3}\int_0^{\pi/2} \cos^4\theta d\theta = \frac{4\sqrt{2}}{3} \cdot \frac{3\pi}{16} = \frac{\sqrt{2}\pi}{4} \]</p>
+    </template>
+
+    <template id="tpl-sol-y">
+        <p><b>1. 단면적 구하기:</b> 타원 바닥에서 \(y\)를 고정하면 \(x\)의 이동 범위는 \(-\sqrt{1-2y^2} \le x \le \sqrt{1-2y^2}\)입니다.</p>
+        <p>해당 단면적 \(S(y)\)는 \(x\)에 대한 이차 포물선입니다:
+        \[ S(y) = \int_{-\sqrt{1-2y^2}}^{\sqrt{1-2y^2}} (1-2y^2-x^2) dx \]</p>
+        <p>적분을 계산하면 다음과 같습니다:
+        \[ S(y) = \frac{4}{3}(1-2y^2)^{3/2} \]</p>
+        <p><b>2. 총부피 적분:</b> \(y\)의 범위는 \([-\frac{1}{\sqrt{2}}, \frac{1}{\sqrt{2}}]\)이므로:
+        \[ V = \int_{-\frac{1}{\sqrt{2}}}^{\frac{1}{\sqrt{2}}} \frac{4}{3}(1-2y^2)^{3/2} dy \]</p>
+        <p>\(\sqrt{2}y = \sin\theta\)로 치환하면 \(dy = \frac{1}{\sqrt{2}}\cos\theta d\theta\) 가 되어 동일하게 유도됩니다:
+        \[ V = \frac{4}{3\sqrt{2}}\int_{-\pi/2}^{\pi/2} \cos^4\theta d\theta = \frac{\sqrt{2}\pi}{4} \]</p>
+    </template>
+
+    <template id="tpl-sol-z">
+        <p><b>1. 단면적 구하기:</b> 높이 \(z\) (\(0 \le z \le 1\))에서 수직 평면으로 자른 단면의 방정식은 다음과 같은 타원입니다:
+        \[ x^2 + 2y^2 = 1-z \implies \frac{x^2}{1-z} + \frac{y^2}{(1-z)/2} = 1 \]</p>
+        <p>타원의 장반경은 \(a=\sqrt{1-z}\), 단반경은 \(b=\sqrt{\frac{1-z}{2}}\)이므로, 타원의 넓이 공식 \(S = \pi ab\)에 의해 단면적은 아주 단순화됩니다:
+        \[ S(z) = \pi \cdot \sqrt{1-z} \cdot \frac{\sqrt{1-z}}{\sqrt{2}} = \frac{\pi(1-z)}{\sqrt{2}} \]</p>
+        <p><b>2. 총부피 적분:</b> \(z\)를 \(0\)부터 \(1\)까지 적분하면 매우 쉽게 부피가 계산됩니다:
+        \[ V = \int_0^1 \frac{\pi(1-z)}{\sqrt{2}} dz = \frac{\pi}{\sqrt{2}}\left[ z - \frac{z^2}{2} \right]_0^1 = \frac{\pi}{2\sqrt{2}} = \frac{\sqrt{2}\pi}{4} \]</p>
+    </template>
+
+    <template id="tpl-sol-polar">
+        <p><b>1. 변수 변환:</b> 타원형 도메인을 다루기 위해 다음과 같이 변형된 극좌표계를 도입합니다:
+        \[ x = r\cos\theta, \quad y = \frac{r}{\sqrt{2}}\sin\theta \]</p>
+        <p>이 변환 하에서 바닥 타원 영역은 \(0 \le r \le 1\), \(0 \le \theta \le 2\pi\)의 직사각형 영역으로 변환되며, 높이 함수는 \(z = 1-r^2\)이 됩니다.</p>
+        <p><b>2. 야코비안(Jacobian) 계산:</b> 미소 면적요소를 바꾸기 위한 야코비안 행렬식 \(|J|\)는 다음과 같습니다:
+        \[ |J| = \begin{vmatrix} \frac{\partial x}{\partial r} & \frac{\partial x}{\partial \theta} \\ \frac{\partial y}{\partial r} & \frac{\partial y}{\partial \theta} \end{vmatrix} = \begin{vmatrix} \cos\theta & -r\sin\theta \\ \frac{1}{\sqrt{2}}\sin\theta & \frac{r}{\sqrt{2}}\cos\theta \end{vmatrix} = \frac{r}{\sqrt{2}} \]</p>
+        <p><b>3. 이중적분 수행:</b>
+        \[ V = \int_0^{2\pi} \int_0^1 (1-r^2) \cdot \frac{r}{\sqrt{2}} \,dr\,d\theta \]</p>
+        <p>\[ V = \frac{2\pi}{\sqrt{2}} \int_0^1 (r - r^3) dr = \sqrt{2}\pi \left[ \frac{r^2}{2} - \frac{r^4}{4} \right]_0^1 = \frac{\sqrt{2}\pi}{4} \]</p>
+    </template>
+</div>
+
+<script>
+    // --- 데이터 생성 로직 (경계가 매끄러운 mesh3d) ---
+    function getSurfaceMesh() {
+        let x = [], y = [], z = [], i = [], j = [], k = [];
+        const nr = 30, nt = 70;
+        x.push(0); y.push(0); z.push(1); // 중심점
+        for(let r_idx=1; r_idx<=nr; r_idx++) {
+            let r = r_idx/nr;
+            for(let t_idx=0; t_idx<nt; t_idx++) {
+                let theta = (t_idx/nt)*2*Math.PI;
+                let px = r * Math.cos(theta);
+                let py = (r * Math.sin(theta)) / Math.sqrt(2);
+                x.push(px); y.push(py); z.push(1 - px*px - 2*py*py);
+            }
+        }
+        for(let t=0; t<nt; t++) {
+            i.push(0); j.push(t+1); k.push(((t+1)%nt)+1);
+        }
+        for(let r=0; r<nr-1; r++) {
+            for(let t=0; t<nt; t++) {
+                let curr = 1 + r*nt + t;
+                let next = 1 + r*nt + (t+1)%nt;
+                let bCurr = 1 + (r+1)*nt + t;
+                let bNext = 1 + (r+1)*nt + (t+1)%nt;
+                i.push(curr); j.push(next); k.push(bCurr);
+                i.push(next); j.push(bNext); k.push(bCurr);
+            }
+        }
+        return {x, y, z, i, j, k};
+    }
+
+    const mesh = getSurfaceMesh();
+    const commonLayout = {
+        scene: {
+            xaxis: {title: 'X', range: [-1.2, 1.2]},
+            yaxis: {title: 'Y', range: [-1.2, 1.2]},
+            zaxis: {title: 'Z', range: [0, 1.2]},
+            aspectmode: 'cube',
+            camera: { eye: {x: 1.6, y: -1.6, z: 1.0} }
+        },
+        margin: {l:0, r:0, b:0, t:0},
+        showlegend: false
+    };
+
+    const surfaceTrace = {
+        type: 'mesh3d', x: mesh.x, y: mesh.y, z: mesh.z, i: mesh.i, j: mesh.j, k: mesh.k,
+        opacity: 0.45, color: '#3182bd', flatshading: false, name: '곡면 S'
+    };
+
+    // --- Tab 1 로직 ---
+    function updateTab1() {
+        const x_val = parseFloat(document.getElementById('sliderA').value);
+        document.getElementById('valA').innerText = x_val.toFixed(2);
+        
+        let ax=[], ay=[], az=[];
+        for(let t=-1; t<=1; t+=0.02) { ax.push(t); ay.push(0); az.push(1-t*t); }
+        
+        let bx=[], by=[], bz=[];
+        let z_top = 1 - x_val*x_val;
+        let y_bound = Math.sqrt(Math.max(0, z_top/2));
+        for(let t=-y_bound; t<=y_bound; t+=0.01) { bx.push(x_val); by.push(t); bz.push(z_top - 2*t*t); }
+
+        Plotly.react('plot1', [
+            surfaceTrace,
+            {type: 'scatter3d', mode: 'lines', x: ax, y: ay, z: az, line: {color: 'red', width: 4}, name: '곡선 A'},
+            {type: 'scatter3d', mode: 'lines', x: bx, y: by, z: bz, line: {color: 'orange', width: 6}, name: '곡선 B'},
+            {type: 'scatter3d', mode: 'markers', x: [x_val], y: [0], z: [z_top], marker: {color: 'black', size: 5}}
+        ], commonLayout);
+    }
+
+    // --- Tab 2 로직 ---
+    function updateTab2() {
+        const method = document.getElementById('integrationMethod').value;
+        const val = parseFloat(document.getElementById('sliderB').value);
+        const slider = document.getElementById('sliderB');
+        const sName = document.getElementById('sliderName');
+        document.getElementById('valB').innerText = val.toFixed(2);
+
+        let traceSlice = {};
+        // 자바스크립트 문자열 내에서 LaTeX 이스케이프 문자(\)가 유실되지 않도록 이중 백슬래시(\\) 사용
+        let eq = "", area = "";
+        let solTitle = "", solTemplateId = "";
+
+        if(method === 'x') {
+            sName.innerText = "단면 위치 (x)";
+            slider.min = -1; slider.max = 1; slider.step = 0.01;
+            let c = 1 - val*val;
+            let yb = Math.sqrt(Math.max(0, c/2));
+            let py=[], pz=[];
+            for(let t=-yb; t<=yb; t+=0.01) { py.push(t); pz.push(c - 2*t*t); }
+            py.push(yb, -yb); pz.push(0, 0);
+            traceSlice = {type: 'scatter3d', mode: 'lines', x: py.map(()=>val), y: py, z: pz, fillcolor: 'rgba(40,167,69,0.5)', surfaceaxis: 0};
+            
+            eq = `\\( z = (${(1-val*val).toFixed(2)}) - 2y^2 \\)`;
+            let aVal = (4/3) * (1-val*val) * yb;
+            area = `\\( S(x) = \\frac{2\\sqrt{2}}{3}(1-x^2)^{3/2} \\approx ${aVal.toFixed(4)} \\)`;
+            solTitle = "X축 수직 단면 적분 해법";
+            solTemplateId = "tpl-sol-x";
+        } 
+        else if(method === 'y') {
+            sName.innerText = "단면 위치 (y)";
+            slider.min = -0.70; slider.max = 0.70; slider.step = 0.01;
+            let c = 1 - 2*val*val;
+            let xb = Math.sqrt(Math.max(0, c));
+            let px=[], pz=[];
+            for(let t=-xb; t<=xb; t+=0.01) { px.push(t); pz.push(c - t*t); }
+            px.push(xb, -xb); pz.push(0, 0);
+            traceSlice = {type: 'scatter3d', mode: 'lines', x: px, y: px.map(()=>val), z: pz, fillcolor: 'rgba(255,193,7,0.5)', surfaceaxis: 1};
+            
+            eq = `\\( z = (${(1-2*val*val).toFixed(2)}) - x^2 \\)`;
+            let aVal = (4/3) * (1-2*val*val) * xb;
+            area = `\\( S(y) = \\frac{4}{3}(1-2y^2)^{3/2} \\approx ${aVal.toFixed(4)} \\)`;
+            solTitle = "Y축 수직 단면 적분 해법";
+            solTemplateId = "tpl-sol-y";
+        }
+        else if(method === 'z') {
+            sName.innerText = "단면 높이 (z)";
+            slider.min = 0; slider.max = 1; slider.step = 0.01;
+            let r2 = 1 - val;
+            let px=[], py=[];
+            for(let t=0; t<=2*Math.PI; t+=0.05) { px.push(Math.sqrt(r2)*Math.cos(t)); py.push(Math.sqrt(r2/2)*Math.sin(t)); }
+            traceSlice = {type: 'scatter3d', mode: 'lines', x: px, y: py, z: px.map(()=>val), fillcolor: 'rgba(23,162,184,0.5)', surfaceaxis: 2};
+            
+            eq = `\\( x^2 + 2y^2 = 1 - ${val.toFixed(2)} \\)`;
+            let aVal = Math.PI * (1-val) / Math.sqrt(2);
+            area = `\\( S(z) = \\frac{\\pi(1-z)}{\\sqrt{2}} \\approx ${aVal.toFixed(4)} \\)`;
+            solTitle = "Z축 수직 단면 적분 해법 (추천)";
+            solTemplateId = "tpl-sol-z";
+        }
+        else if(method === 'polar') {
+            sName.innerText = "동경 반지름 (r)";
+            slider.min = 0; slider.max = 1; slider.step = 0.01;
+            let px=[], py=[], pz=[];
+            for(let t=0; t<=2*Math.PI; t+=0.05) {
+                let x = val * Math.cos(t);
+                let y = (val * Math.sin(t))/Math.sqrt(2);
+                px.push(x); py.push(y); pz.push(1-val*val);
+            }
+            traceSlice = {type: 'scatter3d', mode: 'lines', x: px, y: py, z: pz, line: {width: 6, color: 'purple'}};
+            
+            eq = `\\( x = r\\cos\\theta, y = \\frac{r}{\\sqrt{2}}\\sin\\theta \\)`;
+            area = `\\( |J| = \\frac{r}{\\sqrt{2}}, \\; dV = (1-r^2)\\frac{r}{\\sqrt{2}} dr d\\theta \\)`;
+            solTitle = "극좌표 변환 및 야코비안 해법";
+            solTemplateId = "tpl-sol-polar";
+        }
+
+        // 실시간 식 업데이트
+        document.getElementById('math-equation').innerHTML = eq;
+        document.getElementById('math-area').innerHTML = area;
+        
+        // 정식 해법 템플릿 복사 삽입 (문자열 이스케이프 이슈 원천 차단)
+        document.getElementById('sol2-title').innerText = solTitle;
+        document.getElementById('sol2-content').innerHTML = document.getElementById(solTemplateId).innerHTML;
+
+        // MathJax 리렌더링
+        MathJax.typesetPromise();
+        Plotly.react('plot2', [surfaceTrace, traceSlice], commonLayout);
+    }
+
+    // --- UI 조작 및 토글 기능 ---
+    function toggleSolution(id) {
+        const container = document.getElementById(id);
+        const btn = container.previousElementSibling;
+        if(container.style.display === 'block') {
+            container.style.display = 'none';
+            btn.innerText = "정식 해법 및 유도 과정 보기";
+        } else {
+            container.style.display = 'block';
+            btn.innerText = "해법 및 유도 과정 숨기기";
+            MathJax.typesetPromise([container]); // 창 열릴 때 안전하게 렌더링 검증
+        }
+    }
+
+    function openTab(evt, tabName) {
+        let i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) tabcontent[i].classList.remove("active");
+        tablinks = document.getElementsByClassName("tablinks");
+        for (i = 0; i < tablinks.length; i++) tablinks[i].classList.remove("active");
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+        
+        if(tabName === 'Tab1') updateTab1();
+        else updateTab2();
+    }
+
+    document.getElementById('sliderA').addEventListener('input', updateTab1);
+    document.getElementById('sliderB').addEventListener('input', updateTab2);
+    document.getElementById('integrationMethod').addEventListener('change', () => {
+        const method = document.getElementById('integrationMethod').value;
+        // 방법 변경 시 슬라이더 기본값 보기 좋은 위치로 조정
+        document.getElementById('sliderB').value = (method === 'z') ? 0.5 : (method === 'polar' ? 0.7 : 0);
+        updateTab2();
+    });
+
+    window.onload = () => { updateTab1(); };
+</script>
+
+</body>
+</html>

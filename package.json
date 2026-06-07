@@ -1,0 +1,11 @@
+{
+  "name": "math-sim-gallery",
+  "version": "1.0.0",
+  "description": "학생 수학 시뮬레이션 전시 갤러리",
+  "scripts": {
+    "generate": "node scripts/generate-data.mjs",
+    "build": "node scripts/generate-data.mjs",
+    "serve": "npx --yes serve . -l 3000",
+    "start": "npm run generate && npm run serve"
+  }
+}

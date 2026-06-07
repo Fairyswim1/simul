@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>문제 16 시뮬레이터 – 원과 삼각형 AQR</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    background: #f5f4f0;
+    color: #2c2c2a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 40px;
+  }
+
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 4px; color: #1a1a18; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 24px; text-align: center; line-height: 1.6; }
+
+  .container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 920px;
+    flex-wrap: wrap;
+  }
+
+  canvas {
+    border: 1px solid #ddd;
+    border-radius: 14px;
+    background: #ffffff;
+    display: block;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+    flex-shrink: 0;
+  }
+
+  .panel {
+    flex: 1;
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ctrl {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 1px solid #e8e6e0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .ctrl-label {
+    font-size: 13px; color: #666; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .ctrl-label .big { font-size: 18px; font-weight: 600; color: #185FA5; }
+  input[type=range] { width: 100%; accent-color: #185FA5; cursor: pointer; height: 4px; margin-top: 4px; }
+
+  .btn-row { display: flex; gap: 8px; }
+  button {
+    flex: 1; padding: 9px 12px; font-size: 13px; font-family: inherit;
+    cursor: pointer; border-radius: 10px; border: 1px solid #d0cec8;
+    background: #fff; color: #2c2c2a; font-weight: 500;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  button:hover { background: #f0ede8; }
+  button.active { background: #185FA5; color: #fff; border-color: #185FA5; }
+
+  .info-box {
+    background: #fff; border-radius: 12px; padding: 14px 16px;
+    border: 1px solid #e8e6e0; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .info-box .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #aaa; margin-bottom: 2px; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .info-label { color: #888; }
+  .info-val { font-weight: 600; color: #1a1a18; font-variant-numeric: tabular-nums; }
+  .info-val.blue { color: #185FA5; }
+  .info-val.green { color: #0F6E56; }
+  .info-val.amber { color: #854F0B; }
+
+  .area-card {
+    background: #185FA5; border-radius: 12px; padding: 14px 16px;
+    color: #fff; box-shadow: 0 2px 10px rgba(24,95,165,0.25);
+  }
+  .area-card .label { font-size: 12px; opacity: 0.75; margin-bottom: 4px; }
+  .area-card .val { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+  .area-card .formula { font-size: 11px; opacity: 0.65; margin-top: 4px; line-height: 1.5; }
+
+  .max-badge {
+    display: inline-block; background: #EF9F27; color: #fff;
+    font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px;
+    margin-top: 5px; opacity: 0; transform: scale(0.85);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .max-badge.show { opacity: 1; transform: scale(1); }
+
+  /* 넓이 그래프 */
+  .graph-box {
+    background: #fff; border-radius: 12px; padding: 12px 14px;
+    border: 1px solid #e8e6e0; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .graph-box .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: #aaa; margin-bottom: 8px; }
+  #graph-canvas { width: 100%; display: block; border-radius: 6px; }
+
+  /* 넓이 인사이트 */
+  .insight-box {
+    background: #fff; border-radius: 12px; padding: 14px 16px;
+    border: 1px solid #e8e6e0; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+  .insight-toggle {
+    width: 100%; padding: 9px 12px; font-size: 13px; font-family: inherit;
+    cursor: pointer; border-radius: 10px; border: 1px solid #185FA5;
+    background: #EEF5FF; color: #185FA5; font-weight: 600;
+    transition: background 0.15s; text-align: left;
+  }
+  .insight-toggle:hover { background: #dceeff; }
+  .insight-content { display: none; margin-top: 12px; }
+  .insight-content.open { display: block; }
+
+  .formula-btn {
+    display: block; width: 100%; text-align: left; padding: 9px 12px;
+    margin-bottom: 6px; font-size: 13px; font-family: inherit;
+    cursor: pointer; border-radius: 8px; border: 1px solid #e8e6e0;
+    background: #fafaf8; color: #2c2c2a; font-weight: 500;
+    transition: background 0.15s, border-color 0.15s;
+    flex: none;
+  }
+  .formula-btn:hover { background: #f0ede8; border-color: #ccc; }
+  .formula-btn.selected-bad  { background: #FFF0F0; border-color: #E24B4A; color: #A32D2D; }
+  .formula-btn.selected-good { background: #EEF5FF; border-color: #185FA5; color: #185FA5; }
+
+  .formula-explain {
+    display: none; font-size: 12px; line-height: 1.7; padding: 10px 12px;
+    border-radius: 8px; margin-bottom: 8px;
+  }
+  .formula-explain.bad  { display: block; background: #FFF5F5; border-left: 3px solid #E24B4A; color: #7a2020; }
+  .formula-explain.good { display: block; background: #F0F7FF; border-left: 3px solid #185FA5; color: #0c3a6e; }
+
+  /* 기하 인사이트 */
+  .geo-btn {
+    margin-top: 8px; width: 100%; padding: 8px 12px; font-size: 12px;
+    font-family: inherit; cursor: pointer; border-radius: 8px;
+    border: 1px solid #0F6E56; background: #E8F7F2; color: #0F6E56;
+    font-weight: 600; transition: background 0.15s;
+  }
+  .geo-btn:hover { background: #d0f0e6; }
+  .geo-steps { display: none; margin-top: 10px; }
+  .geo-steps.open { display: block; }
+  .geo-step {
+    font-size: 12px; line-height: 1.7; padding: 8px 10px;
+    border-radius: 7px; margin-bottom: 6px;
+    background: #f5fdf9; border-left: 3px solid #1D9E75; color: #0a3d2b;
+    opacity: 0; transform: translateY(6px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .geo-step.visible { opacity: 1; transform: translateY(0); }
+
+  .legend {
+    background: #fff; border-radius: 12px; padding: 12px 16px;
+    border: 1px solid #e8e6e0; display: flex; flex-wrap: wrap; gap: 10px;
+  }
+  .leg { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  .problem-box {
+    background: #fff; border-left: 3px solid #185FA5;
+    border-radius: 0 12px 12px 0; padding: 12px 14px; font-size: 12.5px;
+    line-height: 1.7; color: #444;
+    border-top: 1px solid #e8e6e0; border-right: 1px solid #e8e6e0; border-bottom: 1px solid #e8e6e0;
+  }
+  .problem-box b { color: #1a1a18; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>문제 16 시뮬레이터</h1>
+<p class="subtitle">
+  평면상에 길이가 2인 선분 AB를 지름으로 하는 원 C가 있다.<br>
+  슬라이더로 점 P를 움직여 △AQR의 넓이 변화를 관찰하세요.
+</p>
+
+<div class="container">
+  <canvas id="cv" width="420" height="420"></canvas>
+
+  <div class="panel">
+
+    <div class="ctrl">
+      <div class="ctrl-label">
+        <span>θ = ∠PAB</span>
+        <span class="big" id="theta-disp">30.0°</span>
+      </div>
+      <input type="range" id="theta-slider" min="1" max="89" value="30" step="0.5">
+    </div>
+
+    <div class="btn-row">
+      <button id="btn-play">▶ 자동 재생</button>
+      <button id="btn-reset">↺ 초기화</button>
+    </div>
+
+    <div class="info-box">
+      <div class="section-title">측정값</div>
+      <div class="info-row">
+        <span class="info-label">AP = AQ</span>
+        <span class="info-val blue" id="ap-val">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">AR</span>
+        <span class="info-val" id="ar-val">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">∠AQR</span>
+        <span class="info-val green" id="aqr-ang">—</span>
+      </div>
+    </div>
+
+    <div class="area-card">
+      <div class="label">△AQR의 넓이</div>
+      <div class="val" id="area-val">—</div>
+      <div class="formula">= ½ · AQ · AR · sin(∠QAR)</div>
+      <div class="max-badge" id="max-badge">📌 현재 θ에서 넓이 최대!</div>
+    </div>
+
+    <div class="graph-box">
+      <div class="section-title">θ에 따른 △AQR 넓이 변화</div>
+      <canvas id="graph-canvas" height="90"></canvas>
+    </div>
+
+    <div class="insight-box">
+      <button class="insight-toggle" id="insight-toggle">💡 넓이 구하기 인사이트</button>
+      <div class="insight-content" id="insight-content">
+        <p style="font-size:12px;color:#888;margin-bottom:10px;">각 공식을 클릭해서 이 문제에 적합한지 확인해보세요.</p>
+
+        <button class="formula-btn" id="btn-shoelace" onclick="selectFormula('shoelace')">
+          📐 신발끈 정리 (Shoelace formula)
+        </button>
+        <div class="formula-explain bad" id="exp-shoelace" style="display:none">
+          <b>쓰기 어려운 이유</b><br>
+          신발끈 정리는 꼭짓점 좌표를 직접 알아야 합니다. A=(0,0), Q=(2cosθ, 0)은 쉽지만,
+          R의 좌표는 직선 PQ와 원의 교점을 연립해서 구해야 하므로 식이 매우 복잡해집니다.
+          θ로 깔끔하게 정리되기 어렵습니다.
+        </div>
+
+        <button class="formula-btn" id="btn-base" onclick="selectFormula('base')">
+          📏 ½ × 밑변 × 높이
+        </button>
+        <div class="formula-explain bad" id="exp-base" style="display:none">
+          <b>쓰기 어려운 이유</b><br>
+          AQ를 밑변으로 잡으면 높이는 R에서 AB까지의 수선의 길이, 즉 R의 y좌표입니다.
+          이 값을 θ로 표현하려면 결국 R의 좌표를 구해야 하므로 계산이 복잡해집니다.
+        </div>
+
+        <button class="formula-btn" id="btn-sin" onclick="selectFormula('sin')">
+          ✅ ½ · AQ · AR · sin(∠QAR)  ← sin 넓이 공식
+        </button>
+        <div class="formula-explain good" id="exp-sin" style="display:none">
+          <b>이 공식이 적합한 이유</b><br>
+          ∠PAB = θ이고 이등변 삼각형의 정의와 원주각을 이용해 ∠QAR을 표현할 수 있습니다. 
+	  AQ = AP = 2cosθ로 이미 알고 있습니다.
+          AR을  θ로 표현할 수 있습니다. AR은 원에서 삼각형의 닮음비로
+          깔끔하게 구할 수 있어서, 이 공식이 가장 효율적입니다.
+
+          <button class="geo-btn" id="geo-btn" onclick="startGeoInsight()">
+            🔍 기하 인사이트: 각도·길이를 θ로 나타내기
+          </button>
+          <div class="geo-steps" id="geo-steps">
+            <div class="geo-step" id="gs0">
+              <b>Step 1. ∠QAR을 θ 로 표현</b><br>
+              삼각형 APQ에서 ∠APQ = ∠AQP = 파이/2 - θ/2이므로  ∠AQR = 파이/2 + θ/2입니다.
+              삼각형 APB에서 ∠PBA = 파이/2 - θ 이므로 원주각에 의해 ∠QRA = 파이/2 - θ 입니다.
+              삼각형 AQR에서 ∠QAR을 구할 수 있습니다.
+            </div>
+            <div class="geo-step" id="gs1">
+              <b>Step 2. AQ = 2cosθ 확인</b><br>
+              조건에서 AQ = AP. AB = 2(지름), ∠PAB = θ이므로
+              삼각형 APB에서 AP = AB·cosθ = 2cosθ. 그림의 AP=AQ 틱 마크 확인!
+            </div>
+            <div class="geo-step" id="gs2">
+              <b>Step 3. AR을 θ로 표현</b><br>
+              삼각형 PQB와 삼각형 AQR은 AA닮음입니다.               
+              삼각형 APB에서 구한 선분 PB의 길이와 삼각형 PAQ에서 구한 선분 PQ의 길이, 그리고 선분 AQ의 길이를 이용해 
+	      닮음비로 선분 AR의 길이를 구해보세요!
+            </div>
+            <div class="geo-step" id="gs3">
+              <b>Step 4. 넓이 조립</b><br>
+              S = ½ · AQ · AR · sin(∠QAR)<br>
+              = ½ · (2cosθ) · sin(θ)/sin(θ/2) · sin (θ/2)<br>
+              = sinθ · cosθ S(θ) 완성!<br>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="leg"><div class="dot" style="background:#185FA5"></div>원 C / A, B</div>
+      <div class="leg"><div class="dot" style="background:#E24B4A"></div>점 P</div>
+      <div class="leg"><div class="dot" style="background:#1D9E75"></div>점 Q</div>
+      <div class="leg"><div class="dot" style="background:#BA7517"></div>점 R</div>
+      <div class="leg"><div class="dot" style="background:rgba(24,95,165,0.25);border:1px solid #185FA5;border-radius:2px"></div>△AQR</div>
+    </div>
+
+    <div class="problem-box">
+      <b>조건 정리</b><br>
+      · AB = 2 (지름) → 반지름 = 1<br>
+      · P는 원 위의 점, <b>θ = ∠PAB</b><br>
+      · AP = AQ (Q는 AB 위) → AQ = <b>2cosθ</b><br>
+      · R = 직선 PQ ∩ 원 (P 아닌 교점)
+    </div>
+
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('cv');
+const ctx    = canvas.getContext('2d');
+const W = 420, H = 420;
+
+const PAD   = 58;
+const SCALE = (W - 2*PAD) / 2.4;
+const OX    = PAD + 0.2 * SCALE;
+const OY    = H / 2 + 45;
+
+function toC(x, y) { return [OX + x * SCALE, OY - y * SCALE]; }
+
+let theta     = 30;
+let playing   = false;
+let playDir   = 1;
+let playTheta = 30;
+let animId    = null;
+
+let geoAnimId = null;
+const geoOverlay = {
+  active: false,
+  highlight: null,
+  labels: new Set(),
+  arcAP: false,
+  blink: false
+};
+
+/* ── 최댓값 수치 탐색 ── */
+let maxTheta = 35.26;
+(function findMax() {
+  let best = -1, bestT = 30;
+  for (let t = 1; t <= 89; t += 0.1) {
+    const r = t * Math.PI / 180;
+    const AP = 2 * Math.cos(r);
+    const Px = AP * Math.cos(r), Py = AP * Math.sin(r);
+    const Qx = AP, Qy = 0;
+    const dx = Qx-Px, dy = Qy-Py;
+    const ex = Px-1, ey = Py;
+    const a2 = dx*dx+dy*dy, b2 = 2*(ex*dx+ey*dy), c2 = ex*ex+ey*ey-1;
+    const disc = b2*b2-4*a2*c2;
+    if (disc < 0 || a2 < 1e-12) continue;
+    const t1 = (-b2+Math.sqrt(disc))/(2*a2), t2 = (-b2-Math.sqrt(disc))/(2*a2);
+    const tt = Math.abs(t1)>Math.abs(t2)?t1:t2;
+    const Rx = Px+tt*dx, Ry = Py+tt*dy;
+    const area = 0.5 * Math.abs(Qx * Ry);
+    if (area > best) { best = area; bestT = t; }
+  }
+  maxTheta = bestT;
+})();
+
+function computeGeom(th) {
+  const rad = th * Math.PI / 180;
+  const AP  = 2 * Math.cos(rad);
+  const Px  = AP * Math.cos(rad);
+  const Py  = AP * Math.sin(rad);
+  const Qx  = AP, Qy = 0;
+  const dx  = Qx-Px, dy = Qy-Py;
+  const ex  = Px-1,  ey = Py;
+  const a2  = dx*dx+dy*dy;
+  const b2  = 2*(ex*dx+ey*dy);
+  const c2  = ex*ex+ey*ey-1;
+  const disc= b2*b2-4*a2*c2;
+  let Rx = Px, Ry = Py;
+  if (disc >= 0 && a2 > 1e-12) {
+    const t1 = (-b2+Math.sqrt(disc))/(2*a2);
+    const t2 = (-b2-Math.sqrt(disc))/(2*a2);
+    const t  = Math.abs(t1)>Math.abs(t2)?t1:t2;
+    Rx = Px+t*dx; Ry = Py+t*dy;
+  }
+  const area = 0.5 * Math.abs(Qx) * Math.abs(Ry);
+  const AR   = Math.sqrt(Rx*Rx+Ry*Ry);
+  const AQ   = AP;
+  const qaX  = 0-Qx, qaY = 0-Qy;
+  const qrX  = Rx-Qx, qrY = Ry-Qy;
+  const cosAQR = (qaX*qrX+qaY*qrY)/(Math.sqrt(qaX*qaX+qaY*qaY)*Math.sqrt(qrX*qrX+qrY*qrY));
+  const aqrAng = Math.acos(Math.max(-1,Math.min(1,cosAQR))) * 180/Math.PI;
+  return { rad, AP, Px, Py, Qx, Qy, Rx, Ry, area, AR, AQ, aqrAng };
+}
+
+
+function stopPlaying() {
+  playing = false;
+  cancelAnimationFrame(animId);
+  const btn = document.getElementById('btn-play');
+  btn.textContent = '▶ 자동 재생';
+  btn.classList.remove('active');
+}
+
+function setThetaValue(v) {
+  theta = v;
+  playTheta = v;
+  document.getElementById('theta-slider').value = v;
+  drawScene();
+}
+
+function resetGeoOverlay() {
+  geoOverlay.active = false;
+  geoOverlay.highlight = null;
+  geoOverlay.labels = new Set();
+  geoOverlay.arcAP = false;
+  geoOverlay.blink = false;
+  cancelAnimationFrame(geoAnimId);
+}
+
+function runGeoOverlayLoop() {
+  drawScene();
+  if (geoOverlay.active) geoAnimId = requestAnimationFrame(runGeoOverlayLoop);
+}
+
+function drawGeoOverlay(g) {
+  if (!geoOverlay.active) return;
+
+  const { Px, Py, Qx, Qy, Rx, Ry, rad } = g;
+  const A = toC(0, 0), B = toC(2, 0), C = toC(1, 0);
+  const P = toC(Px, Py), Q = toC(Qx, Qy), R = toC(Rx, Ry);
+
+  const blinkOn = !geoOverlay.blink || (Math.floor(Date.now() / 260) % 2 === 0);
+
+  function poly(points, fill, stroke) {
+    if (!blinkOn) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    points.slice(1).forEach(pt => ctx.lineTo(pt[0], pt[1]));
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (geoOverlay.highlight === 'APQ') poly([A, P, Q], 'rgba(29,158,117,0.22)', '#1D9E75');
+  if (geoOverlay.highlight === 'APB') poly([A, P, B], 'rgba(239,159,39,0.20)', '#EF9F27');
+  if (geoOverlay.highlight === 'AQR') poly([A, Q, R], 'rgba(24,95,165,0.24)', '#185FA5');
+  if (geoOverlay.highlight === 'PQB_AQR') {
+    poly([P, Q, B], 'rgba(226,75,74,0.22)', '#E24B4A');
+    poly([A, Q, R], 'rgba(24,95,165,0.24)', '#185FA5');
+  }
+
+  if (geoOverlay.arcAP && blinkOn) {
+    const start = Math.PI;
+    let end = Math.atan2(-Py, Px - 1);
+
+    // 항상 A와 P 사이의 짧은 호만 표시
+    let diff = end - start;
+    while (diff > Math.PI) diff -= 2 * Math.PI;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(C[0], C[1], SCALE, start, start + diff, diff < 0);
+    ctx.strokeStyle = '#E24B4A';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function label(txt, x, y, color) {
+    ctx.save();
+    ctx.font = '700 13px "Noto Sans KR", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const w = ctx.measureText(txt).width + 14;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, x - w/2, y - 13, w, 26, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.fillText(txt, x, y);
+    ctx.restore();
+  }
+
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x+r, y);
+    c.lineTo(x+w-r, y);
+    c.quadraticCurveTo(x+w, y, x+w, y+r);
+    c.lineTo(x+w, y+h-r);
+    c.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    c.lineTo(x+r, y+h);
+    c.quadraticCurveTo(x, y+h, x, y+h-r);
+    c.lineTo(x, y+r);
+    c.quadraticCurveTo(x, y, x+r, y);
+    c.closePath();
+  }
+
+  function angleArc(V, p1, p2, r, color) {
+    const a1 = Math.atan2(p1[1]-V[1], p1[0]-V[0]);
+    const a2 = Math.atan2(p2[1]-V[1], p2[0]-V[0]);
+    let s = a1, e = a2, ccw = false;
+    let diff = e - s;
+    while (diff < 0) diff += Math.PI*2;
+    if (diff > Math.PI) { s = a2; e = a1; diff = Math.PI*2 - diff; }
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(V[0], V[1], r, s, e, ccw);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (geoOverlay.labels.has('AQP')) {
+    angleArc(Q, A, P, 28, '#1D9E75');
+    label('∠AQP = π/2 - θ/2', Q[0]-36, Q[1]-46, '#1D9E75');
+  }
+  if (geoOverlay.labels.has('AQR')) {
+    angleArc(Q, A, R, 34, '#1D9E75');
+    label('∠AQR = π/2 + θ/2', Q[0]-38, Q[1]-54, '#1D9E75');
+  }
+  if (geoOverlay.labels.has('ABP')) {
+    angleArc(B, A, P, 28, '#EF9F27');
+    label('∠ABP = π/2 - θ', B[0]-54, B[1]-42, '#EF9F27');
+  }
+  if (geoOverlay.labels.has('ARQ')) {
+    angleArc(R, A, Q, 30, '#BA7517');
+    label('∠ARQ = π/2 - θ', R[0]+24, R[1]+36, '#BA7517');
+  }
+  if (geoOverlay.labels.has('QAR')) {
+    angleArc(A, Q, R, 42, '#185FA5');
+    label('∠QAR = θ/2', A[0]+58, A[1]-38, '#185FA5');
+  }
+  if (geoOverlay.labels.has('AQ_LEN')) {
+    ctx.save();
+    ctx.strokeStyle = '#E24B4A';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(A[0], A[1]);
+    ctx.lineTo(Q[0], Q[1]);
+    ctx.stroke();
+    ctx.restore();
+    label('AQ = 2cosθ', (A[0]+Q[0])/2, A[1]+30, '#E24B4A');
+  }
+
+  if (geoOverlay.labels.has('AP_LEN')) {
+    ctx.save();
+    ctx.strokeStyle = '#E24B4A';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(A[0], A[1]);
+    ctx.lineTo(P[0], P[1]);
+    ctx.stroke();
+    ctx.restore();
+    label('AP = 2cosθ', (A[0]+P[0])/2 - 36, (A[1]+P[1])/2 - 18, '#E24B4A');
+  }
+
+  if (geoOverlay.labels.has('PB_LEN')) {
+    const PBval = (2 * Math.sin(rad)).toFixed(3);
+    ctx.save();
+    ctx.strokeStyle = '#EF9F27';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(P[0], P[1]);
+    ctx.lineTo(B[0], B[1]);
+    ctx.stroke();
+    ctx.restore();
+    label(`PB = 2sinθ`, (P[0]+B[0])/2 + 30, (P[1]+B[1])/2 - 14, '#EF9F27');
+  }
+
+  if (geoOverlay.labels.has('PQ_LEN')) {
+    const PQval = (2 * Math.sin(rad) * Math.cos(rad)).toFixed(3);
+    ctx.save();
+    ctx.strokeStyle = '#1D9E75';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(P[0], P[1]);
+    ctx.lineTo(Q[0], Q[1]);
+    ctx.stroke();
+    ctx.restore();
+    label(`PQ = sin2θ`, (P[0]+Q[0])/2 - 36, (P[1]+Q[1])/2 - 18, '#1D9E75');
+  }
+
+  if (geoOverlay.labels.has('AQ_LEN2')) {
+    ctx.save();
+    ctx.strokeStyle = '#E24B4A';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(A[0], A[1]);
+    ctx.lineTo(Q[0], Q[1]);
+    ctx.stroke();
+    ctx.restore();
+    label('AQ = 2cosθ', (A[0]+Q[0])/2, A[1]+30, '#E24B4A');
+  }
+
+  if (geoOverlay.labels.has('AR_LEN')) {
+    const ARval = (Math.sin(rad) / Math.sin(rad/2)).toFixed(3);
+    ctx.save();
+    ctx.strokeStyle = '#185FA5';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(A[0], A[1]);
+    ctx.lineTo(R[0], R[1]);
+    ctx.stroke();
+    ctx.restore();
+    label(`AR = sinθ / sin(θ/2)`, (A[0]+R[0])/2 + 52, (A[1]+R[1])/2, '#185FA5');
+  }
+
+  /* AA닮음 배지 */
+  if (geoOverlay.labels.has('AA_SIM') && blinkOn) {
+    ctx.save();
+    ctx.font = '700 14px "Noto Sans KR", sans-serif';
+    const txt = '△PQB ∽ △AQR  (AA 닮음)';
+    const tw = ctx.measureText(txt).width + 22;
+    const bx = (W - tw) / 2, by = 18;
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.strokeStyle = '#185FA5';
+    ctx.lineWidth = 2;
+    roundRect(ctx, bx, by, tw, 32, 10);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#185FA5';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(txt, W/2, by + 16);
+    ctx.restore();
+  }
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runAngleAQRDemo() {
+  resetGeoOverlay();
+  stopPlaying();
+  setThetaValue(45);
+  alert('1. 각 AQR을 구하겠습니까?');
+
+  geoOverlay.active = true;
+  geoOverlay.blink = true;
+  runGeoOverlayLoop();
+
+  geoOverlay.highlight = 'APQ';
+  await sleep(1400);
+
+  geoOverlay.blink = false;
+  geoOverlay.highlight = null;
+  geoOverlay.labels.add('AQP');
+  drawScene();
+  await sleep(1800);
+
+  geoOverlay.labels.delete('AQP');
+  geoOverlay.labels.add('AQR');
+  drawScene();
+  await sleep(1800);
+
+  geoOverlay.blink = true;
+  geoOverlay.highlight = 'APB';
+  await sleep(1400);
+
+  geoOverlay.blink = false;
+  geoOverlay.highlight = null;
+  geoOverlay.labels.add('ABP');
+  drawScene();
+  await sleep(1800);
+
+  geoOverlay.labels.delete('ABP');
+  geoOverlay.arcAP = true;
+  geoOverlay.blink = true;
+  await sleep(1400);
+
+  geoOverlay.arcAP = false;
+  geoOverlay.blink = false;
+  geoOverlay.labels.add('ARQ');
+  drawScene();
+  await sleep(1800);
+
+  geoOverlay.blink = true;
+  geoOverlay.highlight = 'AQR';
+  await sleep(1400);
+
+  geoOverlay.blink = false;
+  geoOverlay.highlight = null;
+  geoOverlay.labels.delete('AQR');
+  geoOverlay.labels.delete('ARQ');
+  geoOverlay.labels.add('QAR');
+  drawScene();
+
+  await sleep(900);
+  alert('2. 선분 AQ의 길이를 구하겠습니까?');
+
+  // 두 번째 단계: △APB 깜빡 → AP 길이 표시 → AP 사라지고 AQ 길이 표시
+  geoOverlay.blink = true;
+  geoOverlay.highlight = 'APB';
+  runGeoOverlayLoop();
+  await sleep(1400);
+
+  geoOverlay.blink = false;
+  geoOverlay.highlight = null;
+  geoOverlay.labels.add('AP_LEN');
+  drawScene();
+  await sleep(1800);
+
+  geoOverlay.labels.delete('AP_LEN');
+  geoOverlay.labels.add('AQ_LEN');
+  drawScene();
+
+  await sleep(900);
+  alert('3. 선분 AR의 길이를 구하겠습니까?');
+
+  /* ── 3단계 시작 ── */
+  geoOverlay.labels.delete('QAR');
+  geoOverlay.labels.delete('AQ_LEN');
+
+  // △PQB, △AQR 동시 깜빡 + AA닮음 배지
+  geoOverlay.blink = true;
+  geoOverlay.highlight = 'PQB_AQR';
+  geoOverlay.labels.add('AA_SIM');
+  runGeoOverlayLoop();
+  await sleep(2200);
+
+  // AA닮음 배지 유지, 깜빡 중지
+  geoOverlay.blink = false;
+  geoOverlay.highlight = null;
+  drawScene();
+  await sleep(1200);
+
+  // AA닮음 배지 제거
+  geoOverlay.labels.delete('AA_SIM');
+
+  // △PAB 깜빡 → PB 길이 표시
+  geoOverlay.blink = true;
+  geoOverlay.highlight = 'APB';
+  runGeoOverlayLoop();
+  await sleep(1400);
+
+  geoOverlay.blink = false;
+  geoOverlay.highlight = null;
+  geoOverlay.labels.add('PB_LEN');
+  drawScene();
+  await sleep(1600);
+
+  // △PAQ 깜빡 (PB_LEN 유지) → PQ 길이 추가
+  geoOverlay.blink = true;
+  geoOverlay.highlight = 'APQ';
+  runGeoOverlayLoop();
+  await sleep(1400);
+
+  geoOverlay.blink = false;
+  geoOverlay.highlight = null;
+  geoOverlay.labels.add('PQ_LEN');
+  drawScene();
+  await sleep(1600);
+
+  // PB, PQ 유지한 채로 AQ 길이 추가
+  geoOverlay.labels.add('AQ_LEN2');
+  drawScene();
+  await sleep(2000);
+
+  // 다시 △PQB, △AQR 동시 깜빡
+  geoOverlay.blink = true;
+  geoOverlay.highlight = 'PQB_AQR';
+  runGeoOverlayLoop();
+  await sleep(2000);
+
+  // PB, PQ 유지한 채로 AR 길이 등장
+  geoOverlay.blink = false;
+  geoOverlay.highlight = null;
+  geoOverlay.labels.add('AR_LEN');
+  drawScene();
+}
+
+function drawScene() {
+  ctx.clearRect(0, 0, W, H);
+  const g = computeGeom(theta);
+  const { rad, Px, Py, Qx, Qy, Rx, Ry, area, AR, AQ, aqrAng } = g;
+
+  const [cAx, cAy] = toC(0, 0);
+  const [cBx, cBy] = toC(2, 0);
+  const [cCx, cCy] = toC(1, 0);
+  const [cPx, cPy] = toC(Px, Py);
+  const [cQx, cQy] = toC(Qx, Qy);
+  const [cRx, cRy] = toC(Rx, Ry);
+
+  /* 원 채우기 */
+  ctx.beginPath();
+  ctx.arc(cCx, cCy, SCALE, 0, 2*Math.PI);
+  ctx.fillStyle = 'rgba(24,95,165,0.04)';
+  ctx.fill();
+
+  /* △AQR */
+  ctx.beginPath();
+  ctx.moveTo(cAx, cAy); ctx.lineTo(cQx, cQy); ctx.lineTo(cRx, cRy);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(24,95,165,0.13)'; ctx.fill();
+  ctx.strokeStyle = '#185FA5'; ctx.lineWidth = 1.8;
+  ctx.setLineDash([5,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  /* 원 */
+  ctx.beginPath();
+  ctx.arc(cCx, cCy, SCALE, 0, 2*Math.PI);
+  ctx.strokeStyle = '#185FA5'; ctx.lineWidth = 1.8; ctx.stroke();
+
+  /* AB */
+  ctx.beginPath();
+  ctx.moveTo(toC(-0.18,0)[0], toC(-0.18,0)[1]);
+  ctx.lineTo(toC(2.18,0)[0],  toC(2.18,0)[1]);
+  ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 1.8; ctx.stroke();
+
+  /* AP 보조선 */
+  ctx.beginPath();
+  ctx.moveTo(cAx, cAy); ctx.lineTo(cPx, cPy);
+  ctx.strokeStyle = 'rgba(224,75,74,0.45)'; ctx.lineWidth = 1.3;
+  ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  /* P→R */
+  ctx.beginPath();
+  ctx.moveTo(cPx, cPy); ctx.lineTo(cRx, cRy);
+  ctx.strokeStyle = 'rgba(186,117,23,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  /* ── AP = AQ 틱 마크 ── */
+  function drawTick(x1, y1, x2, y2) {
+    const mx  = (x1+x2)/2, my = (y1+y2)/2;
+    const ang = Math.atan2(y2-y1, x2-x1);
+    const perp= ang + Math.PI/2;
+    const sz  = 5, gap = 5;
+    [-gap/2, gap/2].forEach(off => {
+      const bx = mx + Math.cos(ang)*off;
+      const by = my + Math.sin(ang)*off;
+      ctx.beginPath();
+      ctx.moveTo(bx - Math.cos(perp)*sz, by - Math.sin(perp)*sz);
+      ctx.lineTo(bx + Math.cos(perp)*sz, by + Math.sin(perp)*sz);
+      ctx.strokeStyle = '#E24B4A'; ctx.lineWidth = 1.8; ctx.stroke();
+    });
+  }
+  drawTick(cAx, cAy, cPx, cPy);
+  drawTick(cAx, cAy, cQx, cQy);
+
+  /* AP=AQ 레이블 */
+  const midPx = (cAx+cPx)/2, midPy = (cAy+cPy)/2;
+  ctx.fillStyle = '#E24B4A';
+  ctx.font = '11px "Noto Sans KR", sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('AP=AQ', midPx + 6, midPy - 6);
+
+  /* θ 호 */
+  const arcR = 32;
+  ctx.beginPath();
+  ctx.arc(cAx, cAy, arcR, -rad, 0);
+  ctx.strokeStyle = '#E24B4A'; ctx.lineWidth = 1.8; ctx.stroke();
+  ctx.fillStyle = '#E24B4A';
+  ctx.font = 'italic 14px serif'; ctx.textAlign = 'left';
+  ctx.fillText('θ', cAx + arcR*0.6, cAy - arcR*0.4);
+
+  /* ∠AQR 호 */
+  const vQA_ang = Math.atan2(-(0-Qy), 0-Qx);
+  const vQR_ang = Math.atan2(-(Ry-Qy), Rx-Qx);
+  let aMin = Math.min(vQA_ang, vQR_ang), aMax = Math.max(vQA_ang, vQR_ang);
+  if (aMax - aMin > Math.PI) { const tmp=aMin; aMin=aMax; aMax=tmp+2*Math.PI; }
+  ctx.beginPath();
+  ctx.arc(cQx, cQy, 22, aMin, aMax);
+  ctx.strokeStyle = '#1D9E75'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#1D9E75';
+  ctx.font = 'italic 11px serif'; ctx.textAlign = 'center';
+  const labelAng = (aMin+aMax)/2;
+  ctx.fillText('∠AQR', cQx + Math.cos(labelAng)*36, cQy + Math.sin(labelAng)*36);
+
+  /* AQ 레이블 */
+  ctx.fillStyle = '#1D9E75';
+  ctx.font = '12px "Noto Sans KR", sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('AQ = 2cosθ', (cAx+cQx)/2, cAy+22);
+
+  /* 점 */
+  function drawPt(cx, cy, col, label, ox, oy, r2) {
+    ctx.beginPath(); ctx.arc(cx, cy, r2||5.5, 0, 2*Math.PI);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#1a1a18';
+    ctx.font = '600 14px "Noto Sans KR", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(label, cx+(ox||0), cy+(oy||0));
+  }
+  drawPt(cAx, cAy, '#185FA5', 'A', -16, 0);
+  drawPt(cBx, cBy, '#185FA5', 'B',  16, 0);
+  drawPt(cCx, cCy, '#185FA5', 'C',   0,-14, 3);
+  drawPt(cPx, cPy, '#E24B4A', 'P',  14,-10);
+  drawPt(cQx, cQy, '#1D9E75', 'Q',   0, 17);
+  drawPt(cRx, cRy, '#BA7517', 'R',  14,-10);
+
+  drawGeoOverlay(g);
+
+  /* 패널 */
+  document.getElementById('theta-disp').textContent = theta.toFixed(1) + '°';
+  document.getElementById('ap-val').textContent     = AQ.toFixed(4);
+  document.getElementById('ar-val').textContent     = AR.toFixed(4);
+  document.getElementById('aqr-ang').textContent    = aqrAng.toFixed(1) + '°';
+  document.getElementById('area-val').textContent   = area.toFixed(5);
+  document.getElementById('max-badge').classList.toggle('show', Math.abs(theta - maxTheta) < 1.5);
+
+  drawGraph();
+}
+
+/* ── 넓이 그래프 ── */
+function drawGraph() {
+  const gc   = document.getElementById('graph-canvas');
+  const gctx = gc.getContext('2d');
+  const gW   = gc.offsetWidth || 240;
+  const gH   = 90;
+  gc.width = gW; gc.height = gH;
+  gctx.clearRect(0,0,gW,gH);
+  gctx.fillStyle = '#fafaf8'; gctx.fillRect(0,0,gW,gH);
+
+  const pts = [];
+  let maxArea = 0;
+  for (let t = 1; t <= 89; t += 0.5) {
+    const g2 = computeGeom(t);
+    if (g2.area > maxArea) maxArea = g2.area;
+    pts.push([t, g2.area]);
+  }
+  if (maxArea < 1e-9) return;
+
+  const lp=28, rp=8, tp=10, bp=20;
+  function gx(t)    { return lp + (t-1)/(89-1)*(gW-lp-rp); }
+  function gy(area) { return tp + (1-area/maxArea)*(gH-tp-bp); }
+
+  gctx.strokeStyle='rgba(0,0,0,0.06)'; gctx.lineWidth=0.8;
+  [0.25,0.5,0.75,1].forEach(frac => {
+    const y = tp+(1-frac)*(gH-tp-bp);
+    gctx.beginPath(); gctx.moveTo(lp,y); gctx.lineTo(gW-rp,y); gctx.stroke();
+    gctx.fillStyle='#bbb'; gctx.font='9px sans-serif'; gctx.textAlign='right';
+    gctx.fillText((maxArea*frac).toFixed(3), lp-2, y+3);
+  });
+
+  const mxX = gx(maxTheta);
+  gctx.strokeStyle='rgba(239,159,39,0.5)'; gctx.lineWidth=1;
+  gctx.setLineDash([3,3]);
+  gctx.beginPath(); gctx.moveTo(mxX,tp); gctx.lineTo(mxX,gH-bp); gctx.stroke();
+  gctx.setLineDash([]);
+  gctx.fillStyle='#EF9F27'; gctx.font='9px sans-serif'; gctx.textAlign='center';
+  gctx.fillText('max', mxX, tp-1);
+
+  gctx.beginPath();
+  pts.forEach(([t,a],i) => { if(i===0) gctx.moveTo(gx(t),gy(a)); else gctx.lineTo(gx(t),gy(a)); });
+  gctx.strokeStyle='#185FA5'; gctx.lineWidth=1.8; gctx.stroke();
+
+  const cur = computeGeom(theta);
+  gctx.beginPath(); gctx.arc(gx(theta), gy(cur.area), 4, 0, 2*Math.PI);
+  gctx.fillStyle='#E24B4A'; gctx.fill();
+  gctx.strokeStyle='#fff'; gctx.lineWidth=1.5; gctx.stroke();
+
+  gctx.fillStyle='#aaa'; gctx.font='9px sans-serif'; gctx.textAlign='center';
+  [0,30,60,90].forEach(t => gctx.fillText(t+'°', gx(t<1?1:t>89?89:t), gH-bp+12));
+  gctx.fillText('θ', gW/2, gH-2);
+}
+
+/* ── 인사이트 토글 ── */
+document.getElementById('insight-toggle').addEventListener('click', function() {
+  const c    = document.getElementById('insight-content');
+  const open = c.classList.toggle('open');
+  this.textContent = open ? '💡 넓이 구하기 인사이트 ▲' : '💡 넓이 구하기 인사이트';
+});
+
+function selectFormula(key) {
+  ['shoelace','base','sin'].forEach(id => {
+    document.getElementById('btn-'+id).classList.remove('selected-bad','selected-good');
+    const exp = document.getElementById('exp-'+id);
+    exp.style.display='none';
+    exp.classList.remove('bad','good');
+  });
+  const isSin = key==='sin';
+  document.getElementById('btn-'+key).classList.add(isSin?'selected-good':'selected-bad');
+  const exp = document.getElementById('exp-'+key);
+  exp.classList.add(isSin?'good':'bad');
+  exp.style.display='block';
+}
+
+/* ── 기하 인사이트 ── */
+function startGeoInsight() {
+  const steps = document.getElementById('geo-steps');
+  steps.classList.add('open');
+  steps.querySelectorAll('.geo-step').forEach(el => el.classList.remove('visible'));
+  steps.querySelectorAll('.geo-step').forEach((el, i) => {
+    setTimeout(() => el.classList.add('visible'), i * 500);
+  });
+  runAngleAQRDemo();
+}
+
+/* ── 재생 ── */
+drawScene();
+
+document.getElementById('theta-slider').addEventListener('input', function() {
+  resetGeoOverlay();
+  theta = parseFloat(this.value); drawScene();
+});
+
+function playStep() {
+  playTheta += playDir * 0.35;
+  if (playTheta >= 89) { playTheta=89; playDir=-1; }
+  if (playTheta <=  1) { playTheta= 1; playDir= 1; }
+  theta = playTheta;
+  document.getElementById('theta-slider').value = theta;
+  drawScene();
+  if (playing) animId = requestAnimationFrame(playStep);
+}
+
+document.getElementById('btn-play').addEventListener('click', function() {
+  resetGeoOverlay();
+  playing = !playing;
+  this.textContent = playing ? '⏸ 일시정지' : '▶ 자동 재생';
+  this.classList.toggle('active', playing);
+  if (playing) { playTheta=theta; playStep(); }
+  else cancelAnimationFrame(animId);
+});
+
+document.getElementById('btn-reset').addEventListener('click', function() {
+  resetGeoOverlay();
+  playing=false; cancelAnimationFrame(animId);
+  theta=30; playTheta=30; playDir=1;
+  document.getElementById('theta-slider').value=30;
+  document.getElementById('btn-play').textContent='▶ 자동 재생';
+  document.getElementById('btn-play').classList.remove('active');
+  drawScene();
+});
+
+window.addEventListener('resize', drawGraph);
+</script>
+</body>
+</html>

@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수직이등분선의 포락선 시뮬레이터 (마우스 드래그 지원)</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+    
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+            --bg-color: #f1f5f9;
+            --panel-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #0f172a;
+            font-size: 1.8rem;
+        }
+
+        .header p {
+            margin: 0;
+            color: var(--text-muted);
+        }
+
+        /* 메인 앱 레이아웃 */
+        .app-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* 패널 공통 스타일 */
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid var(--border-color);
+        }
+
+        /* 좌측 컨트롤 패널 */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-top: 0;
+            margin-bottom: 5px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .input-group label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #334155;
+        }
+
+        input[type="number"], input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 1rem;
+        }
+        
+        .coord-display {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: -3px;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover { background-color: var(--primary-hover); }
+        button.secondary { background-color: #64748b; }
+        button.secondary:hover { background-color: #475569; }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        /* 방정식 표시 영역 */
+        .equation-box {
+            background-color: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        
+        .equation-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: var(--primary);
+        }
+
+        .eq-text {
+            font-family: 'Fira Code', Consolas, monospace;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #1e293b;
+            word-break: keep-all;
+        }
+
+        /* 우측 캔버스 및 하단 설명 패널 */
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .math-explanation {
+            line-height: 1.7;
+        }
+
+        .math-explanation h3 { margin-top: 0; color: var(--primary); }
+        .math-explanation p { margin-bottom: 10px; }
+        
+        .proof-box {
+            background: #fbfbfb;
+            border-left: 4px solid var(--primary);
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        @media (max-width: 900px) {
+            .app-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>수직이등분선의 포락선 시뮬레이터</h1>
+        <p>마우스 드래그 또는 슬라이더를 사용하여 점 A, B 및 반지름을 자유롭게 변경해 보세요.</p>
+    </div>
+
+    <div class="app-container">
+        <div class="panel control-panel">
+            <h2 class="panel-title">매개변수 설정</h2>
+            
+            <div class="input-group">
+                <label>고정점 A (x, y) <span style="color: #ef4444; font-size: 0.8rem;">● 드래그 가능</span></label>
+                <input type="range" id="ax_slider" min="-10" max="10" step="0.5" value="4">
+                <input type="range" id="ay_slider" min="-10" max="10" step="0.5" value="0">
+                <div class="coord-display">A: (<span id="ax_val">4</span>, <span id="ay_val">0</span>)</div>
+            </div>
+
+            <div class="input-group">
+                <label>원의 중심 B (x, y) <span style="color: #22c55e; font-size: 0.8rem;">● 드래그 가능</span></label>
+                <input type="range" id="bx_slider" min="-10" max="10" step="0.5" value="-4">
+                <input type="range" id="by_slider" min="-10" max="10" step="0.5" value="0">
+                <div class="coord-display">B: (<span id="bx_val">-4</span>, <span id="by_val">0</span>)</div>
+            </div>
+
+            <div class="input-group">
+                <label>원의 반지름 (R)</label>
+                <input type="range" id="rad_slider" min="0.5" max="10" step="0.5" value="4">
+                <div class="coord-display">R: <span id="rad_val">4</span></div>
+            </div>
+
+            <div class="input-group" style="margin-top: 10px;">
+                <label>애니메이션 속도</label>
+                <input type="range" id="simSpeed" min="0.005" max="0.1" step="0.005" value="0.015">
+            </div>
+
+            <label class="checkbox-group">
+                <input type="checkbox" id="showEnvelope" checked>
+                <span>이론적 포락선(정답 궤적) 표시</span>
+            </label>
+
+            <div class="button-group">
+                <button id="btnPlay">일시정지</button>
+                <button id="btnClear" class="secondary">자취 지우기</button>
+            </div>
+
+            <div class="equation-box">
+                <h3>실시간 포락선 정보</h3>
+                <div id="eqOutput" class="eq-text">계산 중...</div>
+            </div>
+        </div>
+
+        <div class="right-column">
+            <div id="canvas-container" class="canvas-wrapper"></div>
+
+            <div class="panel math-explanation">
+                <h3>수학적 원리: 왜 이차곡선이 나올까?</h3>
+                <p>동점 $P$가 중심이 $B$이고 반지름이 $R$인 원 위를 움직일 때, 선분 $AP$의 수직이등분선을 $l$이라고 합시다.</p>
+                <div class="proof-box">
+                    <p>직선 $l$이 감싸는 포락선(Envelope) 위의 한 점을 $Q$라고 하면, 점 $Q$는 수직이등분선 $l$ 위에 있으므로 다음이 성립합니다.</p>
+                    <p style="text-align: center;">$$ |QA| = |QP| $$</p>
+                    <p>또한 점 $P$는 원 위의 점이므로 중심 $B$와의 거리는 항상 $R$입니다.</p>
+                    <p style="text-align: center;">$$ |BP| = R $$</p>
+                    <p>점 $B, P, Q$의 위치 관계(삼각형의 결정조건 또는 일직선)를 고려하면, $|QB|$와 $|QP|$의 합 또는 차는 항상 $|BP|$와 같습니다.</p>
+                    <p style="text-align: center;">$$ \big| |QB| \pm |QP| \big| = |BP| = R $$</p>
+                    <p>여기서 $|QP|$ 대신 $|QA|$를 대입하면 다음과 같은 최종 식을 얻습니다.</p>
+                    <p style="text-align: center; font-weight: bold; color: var(--primary);">$$ \big| |QB| \pm |QA| \big| = R $$</p>
+                </div>
+                <p>
+                    이 식은 점 $Q$에서 두 정점 $A, B$까지의 <strong>거리의 합 또는 차가 일정한 점들의 자취</strong>를 의미합니다.<br>
+                    - $A$가 원 내부에 있을 때 ($|AB| < R$): 거리의 합이 $R$로 일정한 <strong>타원</strong><br>
+                    - $A$가 원 외부에 있을 때 ($|AB| > R$): 거리의 차가 $R$로 일정한 <strong>쌍곡선</strong><br>
+                    좌측 패널에서 점 $A$의 위치나 반지름 $R$을 변경하여 타원และ 쌍곡선이 전환되는 과정을 직접 확인해 보세요!
+                </p>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- p5.js 전역 스코프 ---
+    let sf = 30; // Scale Factor (수학 1단위를 화면 몇 픽셀로 그릴지)
+    let originX, originY;
+    
+    // 매개변수 상태
+    let A = { x: 4, y: 0 };
+    let B = { x: -4, y: 0 };
+    let R = 4;
+    
+    // 애니메이션 상태
+    let theta = 0;
+    let isPlaying = true;
+    
+    // 어떤 점을 드래그 중인지 판별하기 위한 변수 ('none', 'A', 'B', 'P')
+    let draggedPoint = 'none'; 
+    
+    // 궤적을 그릴 버퍼
+    let traceBuffer;
+
+    // 이전 값 캐싱 (변경 감지용)
+    let prevA, prevB, prevR;
+
+    // 슬라이더 요소들
+    let sliders = {
+        ax: document.getElementById('ax_slider'),
+        ay: document.getElementById('ay_slider'),
+        bx: document.getElementById('bx_slider'),
+        by: document.getElementById('by_slider'),
+        rad: document.getElementById('rad_slider')
+    };
+
+    // 값 표시 요소들
+    let valDisplays = {
+        ax: document.getElementById('ax_val'),
+        ay: document.getElementById('ay_val'),
+        bx: document.getElementById('bx_val'),
+        by: document.getElementById('by_val'),
+        rad: document.getElementById('rad_val')
+    };
+
+    function setup() {
+        let canvas = createCanvas(800, 500);
+        canvas.parent('canvas-container');
+        
+        originX = width / 2;
+        originY = height / 2;
+        
+        traceBuffer = createGraphics(width, height);
+        traceBuffer.clear();
+        
+        // 이벤트 리스너 등록
+        document.getElementById('btnPlay').addEventListener('click', function() {
+            isPlaying = !isPlaying;
+            this.innerText = isPlaying ? "일시정지" : "재생";
+        });
+        
+        document.getElementById('btnClear').addEventListener('click', clearTrace);
+        
+        // 슬라이더 변경 시 즉시 반영
+        Object.keys(sliders).forEach(key => {
+            sliders[key].addEventListener('input', updateParamsFromUI);
+        });
+
+        updateParamsFromUI();
+    }
+
+    function clearTrace() {
+        traceBuffer.clear();
+    }
+
+    // 수학 좌표 -> 픽셀 좌표
+    function sX(val) { return originX + val * sf; }
+    function sY(val) { return originY - val * sf; } // y축 반전
+    
+    // 픽셀 좌표 -> 수학 좌표
+    function mX(val) { return (val - originX) / sf; }
+    function mY(val) { return (originY - val) / sf; }
+
+    // 슬라이더 조작 -> 변수 업데이트
+    function updateParamsFromUI() {
+        A.x = parseFloat(sliders.ax.value);
+        A.y = parseFloat(sliders.ay.value);
+        B.x = parseFloat(sliders.bx.value);
+        B.y = parseFloat(sliders.by.value);
+        R = parseFloat(sliders.rad.value);
+
+        syncUIToValues();
+    }
+
+    // 내부 변수 -> 슬라이더 및 텍스트 매칭
+    function syncUIToValues() {
+        sliders.ax.value = A.x;
+        sliders.ay.value = A.y;
+        sliders.bx.value = B.x;
+        sliders.by.value = B.y;
+        sliders.rad.value = R;
+
+        valDisplays.ax.innerText = A.x.toFixed(1);
+        valDisplays.ay.innerText = A.y.toFixed(1);
+        valDisplays.bx.innerText = B.x.toFixed(1);
+        valDisplays.by.innerText = B.y.toFixed(1);
+        valDisplays.rad.innerText = R.toFixed(1);
+
+        // 값이 실시간으로 변경되면 누적 자취를 자동으로 지움
+        if (prevA && (prevA.x !== A.x || prevA.y !== A.y || prevB.x !== B.x || prevB.y !== B.y || prevR !== R)) {
+            clearTrace();
+        }
+
+        prevA = { ...A };
+        prevB = { ...B };
+        prevR = R;
+
+        calculateEnvelopeEquation();
+    }
+
+    // 수학적 정보 계산 및 출력
+    function calculateEnvelopeEquation() {
+        let d = dist(A.x, A.y, B.x, B.y);
+        let out = document.getElementById('eqOutput');
+        
+        if (Math.abs(d - R) < 0.1) {
+            out.innerHTML = `<strong>특이 케이스</strong><br>점 A가 원주 근처에 있습니다.<br>모든 직선은 점 B를 통과하는 경향을 보입니다.`;
+            return;
+        }
+
+        let type = d < R ? "타원 (Ellipse)" : "쌍곡선 (Hyperbola)";
+        let cx = (A.x + B.x) / 2;
+        let cy = (A.y + B.y) / 2;
+        
+        let a = R / 2;
+        let c = d / 2;
+        
+        let b = 0;
+        if (d < R) {
+            b = Math.sqrt(Math.max(0, a*a - c*c));
+        } else {
+            b = Math.sqrt(Math.max(0, c*c - a*a));
+        }
+
+        out.innerHTML = `
+            <strong>도형:</strong> ${type}<br>
+            <strong>초점:</strong> A(${A.x.toFixed(1)}, ${A.y.toFixed(1)}), B(${B.x.toFixed(1)}, ${B.y.toFixed(1)})<br>
+            <strong>중심:</strong> (${cx.toFixed(2)}, ${cy.toFixed(2)})<br>
+            <strong>매개변수:</strong><br>
+            a = ${a.toFixed(2)}, b = ${b.toFixed(2)}, c = ${c.toFixed(2)}
+        `;
+    }
+
+    function draw() {
+        background(255);
+        
+        drawGrid();
+        
+        // 동점 P의 위치
+        let P = {
+            x: B.x + R * Math.cos(theta),
+            y: B.y + R * Math.sin(theta)
+        };
+        
+        // 중점 M
+        let M = {
+            x: (A.x + P.x) / 2,
+            y: (A.y + P.y) / 2
+        };
+        
+        // 수직이등분선의 방향 벡터
+        let dx = P.x - A.x;
+        let dy = P.y - A.y;
+        let perpDx = -dy;
+        let perpDy = dx;
+        
+        // 1. 자취 누적 버퍼 그리기
+        if (isPlaying || draggedPoint !== 'none') {
+            traceBuffer.stroke(2, 132, 199, 50); 
+            traceBuffer.strokeWeight(2.0); 
+            let len = 100; 
+            traceBuffer.line(
+                sX(M.x - perpDx * len), sY(M.y - perpDy * len),
+                sX(M.x + perpDx * len), sY(M.y + perpDy * len)
+            );
+        }
+        image(traceBuffer, 0, 0);
+
+        // 2. 이론적 포락선 그리기 (선택)
+        if (document.getElementById('showEnvelope').checked) {
+            drawTheoreticalEnvelope();
+        }
+        
+        // 3. 고정 요소 및 도형 그리기
+        // 중심 B, 반지름 R인 원
+        stroke(150); strokeWeight(1); noFill();
+        circle(sX(B.x), sY(B.y), R * 2 * sf);
+        
+        // 마우스 호버 시 커서 모양 변경 로직
+        updateCursorMode(P);
+
+        // 점 A (고정점 - 빨간색)
+        fill(239, 68, 68); noStroke();
+        circle(sX(A.x), sY(A.y), 12); 
+        fill(15, 23, 42); fontBold();
+        text("A", sX(A.x) + 12, sY(A.y) - 12);
+        
+        // 점 B (원의 중심 - 초록색)
+        fill(34, 197, 94); noStroke();
+        circle(sX(B.x), sY(B.y), 12); 
+        fill(15, 23, 42);
+        text("B", sX(B.x) + 12, sY(B.y) - 12);
+
+        // 선분 AP (점선 처리)
+        stroke(180); strokeWeight(1.5); drawingContext.setLineDash([5, 5]);
+        line(sX(A.x), sY(A.y), sX(P.x), sY(P.y));
+        drawingContext.setLineDash([]);
+        
+        // 점 P (동점 - 검은색)
+        fill(0); noStroke();
+        circle(sX(P.x), sY(P.y), 12); 
+        text("P", sX(P.x) + 12, sY(P.y) - 12);
+        
+        // 중점 M
+        fill(245, 158, 11);
+        circle(sX(M.x), sY(M.y), 8); 
+        
+        // 현재 수직이등분선 l
+        stroke(15, 23, 42); strokeWeight(3); 
+        let displayLen = 20;
+        line(
+            sX(M.x - perpDx * displayLen), sY(M.y - perpDy * displayLen),
+            sX(M.x + perpDx * displayLen), sY(M.y + perpDy * displayLen)
+        );
+        
+        // 애니메이션 진행
+        if (isPlaying && draggedPoint === 'none') {
+            let speed = parseFloat(document.getElementById('simSpeed').value);
+            theta += speed;
+        }
+    }
+
+    function fontBold() {
+        textSize(13);
+        textAlign(LEFT, CENTER);
+    }
+
+    function drawGrid() {
+        stroke(241, 245, 249);
+        strokeWeight(1);
+        for (let i = -20; i <= 20; i++) {
+            line(sX(i), 0, sX(i), height);
+            line(0, sY(i), width, sY(i));
+        }
+        stroke(203, 213, 225);
+        strokeWeight(2);
+        line(sX(0), 0, sX(0), height); 
+        line(0, sY(0), width, sY(0));  
+    }
+
+    function drawTheoreticalEnvelope() {
+        let d = dist(A.x, A.y, B.x, B.y);
+        if (Math.abs(d - R) < 0.1 || d === 0) return;
+
+        let cx = (A.x + B.x) / 2;
+        let cy = (A.y + B.y) / 2;
+        let a = R / 2;
+        let c = d / 2;
+        
+        let angle = atan2(A.y - B.y, A.x - B.x); 
+        
+        push();
+        translate(sX(cx), sY(cy));
+        rotate(-angle); 
+
+        noFill();
+        stroke(239, 68, 68); 
+        strokeWeight(3); 
+
+        if (d < R) { // 타원
+            let b = Math.sqrt(Math.max(0, a*a - c*c));
+            ellipse(0, 0, a * 2 * sf, b * 2 * sf);
+        } else { // 쌍곡선
+            let b = Math.sqrt(Math.max(0, c*c - a*a));
+            
+            beginShape();
+            for (let t = -PI/2 + 0.1; t < PI/2 - 0.1; t += 0.05) {
+                let hx = a / cos(t);
+                let hy = b * tan(t);
+                vertex(hx * sf, -hy * sf);
+            }
+            endShape();
+            
+            beginShape();
+            for (let t = -PI/2 + 0.1; t < PI/2 - 0.1; t += 0.05) {
+                let hx = -a / cos(t);
+                let hy = b * tan(t);
+                vertex(hx * sf, -hy * sf);
+            }
+            endShape();
+        }
+        pop();
+    }
+
+    // 마우스가 어떤 점 근처에 가 있으면 손가락 모양 커서(pointer)로 바꿔주는 기능
+    function updateCursorMode(P) {
+        let mx = mX(mouseX);
+        let my = mY(mouseY);
+        
+        let dA = dist(mx, my, A.x, A.y);
+        let dB = dist(mx, my, B.x, B.y);
+        let dP = dist(mx, my, P.x, P.y);
+        
+        if (dA < 0.5 || dB < 0.5 || dP < 0.5 || draggedPoint !== 'none') {
+            cursor(HAND);
+        } else {
+            cursor(ARROW);
+        }
+    }
+
+    // --- 인터랙션 마우스 드래그 로직 ---
+    function mousePressed() {
+        let mx = mX(mouseX);
+        let my = mY(mouseY);
+        
+        let P = {
+            x: B.x + R * Math.cos(theta),
+            y: B.y + R * Math.sin(theta)
+        };
+        
+        // 클릭 영역 판정 (반경 0.5 유닛 이내 클릭 시 홀드)
+        if (dist(mx, my, A.x, A.y) < 0.6) {
+            draggedPoint = 'A';
+        } else if (dist(mx, my, B.x, B.y) < 0.6) {
+            draggedPoint = 'B';
+        } else if (dist(mx, my, P.x, P.y) < 0.6) {
+            draggedPoint = 'P';
+        }
+    }
+
+    function mouseDragged() {
+        let mx = mX(mouseX);
+        let my = mY(mouseY);
+        
+        // 화면 밖으로 너무 멀리 나가지 않도록 캔버스 좌표계 제한 (-10 ~ 10)
+        mx = constrain(mx, -10, 10);
+        my = constrain(my, -10, 10);
+        
+        // 0.5 단위로 딱딱 끊어지게 스냅(Snap)을 주어 조작 편의성 증대
+        let snappedX = Math.round(mx * 2) / 2;
+        let snappedY = Math.round(my * 2) / 2;
+
+        if (draggedPoint === 'A') {
+            A.x = snappedX;
+            A.y = snappedY;
+            syncUIToValues();
+        } else if (draggedPoint === 'B') {
+            B.x = snappedX;
+            B.y = snappedY;
+            syncUIToValues();
+        } else if (draggedPoint === 'P') {
+            // P를 드래그할 때는 B를 기준으로 하는 각도(theta)를 변경함
+            theta = atan2(my - B.y, mx - B.x);
+        }
+    }
+
+    function mouseReleased() {
+        draggedPoint = 'none';
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<!-- saved from url=(0163)file:///C:/Users/KATE%20KIM/Documents/%EC%B9%B4%EC%B9%B4%EC%98%A4%ED%86%A1%20%EB%B0%9B%EC%9D%80%20%ED%8C%8C%EC%9D%BC/simulatior%20number2%20%EC%88%98%EC%A0%95.html -->
+<html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>반원 위 점 P와 사각형 ABQP 넓이 시뮬레이터</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      background: #f4f6f8;
+      color: #222;
+    }
+
+    header {
+      background: #1f2937;
+      color: white;
+      padding: 18px 24px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 18px;
+      padding: 18px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .panel, .canvas-panel, .result-panel {
+      background: white;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+
+    .panel h2, .result-panel h2 {
+      margin-top: 0;
+      font-size: 20px;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 8px;
+    }
+
+    .control-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .slider-value {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 15px;
+      color: #334155;
+    }
+
+    .slider-value strong {
+      font-size: 18px;
+      color: #111827;
+    }
+
+    .ratio-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .mini-label {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    button {
+      width: 100%;
+      padding: 11px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .canvas-panel {
+      min-height: 560px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 520px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #ffffff;
+    }
+
+    .result-panel {
+      grid-column: 1 / 3;
+    }
+
+    .formula-box {
+      background: #f8fafc;
+      border-left: 5px solid #2563eb;
+      padding: 14px;
+      line-height: 1.8;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    .value-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .value-card {
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .value-card .title {
+      font-size: 14px;
+      color: #475569;
+      margin-bottom: 6px;
+    }
+
+    .value-card .value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #111827;
+    }
+
+    .note {
+      font-size: 14px;
+      color: #475569;
+      line-height: 1.6;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+
+      .result-panel {
+        grid-column: 1;
+      }
+
+      .value-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>반원 위 점 P와 사각형 ABQP 넓이 시뮬레이터</h1>
+  </header>
+
+  <div class="container">
+    <section class="panel">
+      <h2>조건 설정</h2>
+
+      <div class="control-group">
+        <label for="diameterSlider">선분 AB의 길이</label>
+        <div class="slider-value">
+          <span>1</span>
+          <strong id="diameterText">2.0</strong>
+          <span>20</span>
+        </div>
+        <input id="diameterSlider" type="range" min="1" max="20" step="0.1" value="2">
+      </div>
+
+      <div class="control-group">
+        <label>AP : BP 비율</label>
+        <div class="ratio-row">
+          <div>
+            <div class="mini-label">AP 비율값</div>
+            <div class="slider-value">
+              <span>0.5</span>
+              <strong id="apRatioText">1.0</strong>
+              <span>10</span>
+            </div>
+            <input id="apRatioSlider" type="range" min="0.5" max="10" step="0.1" value="1">
+          </div>
+          <div>
+            <div class="mini-label">BP 비율값</div>
+            <div class="slider-value">
+              <span>0.5</span>
+              <strong id="bpRatioText">3.0</strong>
+              <span>10</span>
+            </div>
+            <input id="bpRatioSlider" type="range" min="0.5" max="10" step="0.1" value="3">
+          </div>
+        </div>
+        <button onclick="applyRatioTheta()">현재 비율에 맞는 θ 계산</button>
+      </div>
+
+      <div class="control-group">
+        <label for="thetaSlider">θ 직접 조절</label>
+        <div class="slider-value">
+          <span>45°</span>
+          <strong id="thetaText">71.600°</strong>
+          <span>90°</span>
+        </div>
+        <input id="thetaSlider" type="range" min="45.1" max="89.9" step="0.1" value="71.565">
+      </div>
+
+      <div class="note">
+        위 두 슬라이드 값으로 AB의 길이와 AP:BP 비율을 자유롭게 바꿀 수 있다. 비율을 바꾼 뒤 버튼을 누르면 조건을 만족하는 θ 위치로 점 P가 이동한다. θ 슬라이더를 직접 움직이면 비율 조건과 상관없이 점 P의 위치에 따른 넓이 변화를 볼 수 있다.
+      </div>
+    </section>
+
+    <section class="canvas-panel">
+      <canvas id="mainCanvas" width="900" height="520"></canvas>
+    </section>
+
+    <section class="result-panel">
+      <h2>계산 결과</h2>
+      <div class="formula-box" id="formulaBox">
+        <b>현재 입력값</b><br>
+        AB = 2.0, AP : BP = 1.0 : 3.0<br><br>
+
+        <b>비율 조건</b><br>
+        AP = AB cosθ, BP = AB sinθ<br>
+        AP : BP = cosθ : sinθ<br>
+        따라서 비율 조건을 만족할 때 tanθ = BP비율 / AP비율 = 3.0000<br><br>
+
+        <b>현재 θ에서의 실제 비율</b><br>
+        AP : BP = 0.6313 : 1.8978<br>
+        AP / BP = 0.3327<br><br>
+
+        <b>넓이식</b><br>
+        f(θ) = r²(1 - cos2θ)sin2θ<br>
+        현재 f(θ) = 1.0787<br><br>
+
+        <b>미분값</b><br>
+        f'(θ) = 2r²(1 + cos2θ - 2cos²2θ)<br>
+        현재 f'(θ) = -2.1661
+      </div>
+
+      <div class="value-grid">
+        <div class="value-card">
+          <div class="title">θ</div>
+          <div class="value" id="thetaValue">71.600°</div>
+        </div>
+        <div class="value-card">
+          <div class="title">AP</div>
+          <div class="value" id="apValue">0.6313</div>
+        </div>
+        <div class="value-card">
+          <div class="title">BP</div>
+          <div class="value" id="bpValue">1.8978</div>
+        </div>
+        <div class="value-card">
+          <div class="title">넓이 f(θ)</div>
+          <div class="value" id="areaValue">1.0787</div>
+        </div>
+        <div class="value-card">
+          <div class="title">PQ</div>
+          <div class="value" id="pqValue">1.6015</div>
+        </div>
+        <div class="value-card">
+          <div class="title">높이</div>
+          <div class="value" id="heightValue">0.5990</div>
+        </div>
+        <div class="value-card">
+          <div class="title">tan θ</div>
+          <div class="value" id="tanValue">3.0061</div>
+        </div>
+        <div class="value-card">
+          <div class="title">f'(θ)</div>
+          <div class="value" id="derivativeValue">-2.1661</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("mainCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const diameterSlider = document.getElementById("diameterSlider");
+    const apRatioSlider = document.getElementById("apRatioSlider");
+    const bpRatioSlider = document.getElementById("bpRatioSlider");
+    const thetaSlider = document.getElementById("thetaSlider");
+
+    const diameterText = document.getElementById("diameterText");
+    const apRatioText = document.getElementById("apRatioText");
+    const bpRatioText = document.getElementById("bpRatioText");
+    const thetaText = document.getElementById("thetaText");
+
+    function degToRad(deg) {
+      return deg * Math.PI / 180;
+    }
+
+    function radToDeg(rad) {
+      return rad * 180 / Math.PI;
+    }
+
+    function round(value, digits = 4) {
+      return Number(value).toFixed(digits);
+    }
+
+    function applyRatioTheta() {
+      const apRatio = Number(apRatioSlider.value);
+      const bpRatio = Number(bpRatioSlider.value);
+
+      // AP = d cosθ, BP = d sinθ
+      // AP:BP = cosθ:sinθ
+      // 따라서 tanθ = BP비율 / AP비율
+      const theta = radToDeg(Math.atan(bpRatio / apRatio));
+      const limitedTheta = Math.max(45.1, Math.min(89.9, theta));
+
+      thetaSlider.value = limitedTheta;
+      update();
+    }
+
+    function getValues() {
+      const d = Number(diameterSlider.value);
+      const r = d / 2;
+      const thetaDeg = Number(thetaSlider.value);
+      const theta = degToRad(thetaDeg);
+
+      const ap = d * Math.cos(theta);
+      const bp = d * Math.sin(theta);
+
+      // A=(-r,0), B=(r,0)
+      // θ가 π/4~π/2일 때 P는 왼쪽 위 호에 있다.
+      const xP = r * Math.cos(2 * theta);
+      const yP = r * Math.sin(2 * theta);
+      const xQ = -r * Math.cos(2 * theta);
+      const yQ = yP;
+
+      const pq = xQ - xP;
+      const height = yP;
+      const area = (d + pq) * height / 2;
+
+      // f(θ) = r²(1 - cos2θ)sin2θ
+      const derivative = 2 * r * r * (1 + Math.cos(2 * theta) - 2 * Math.pow(Math.cos(2 * theta), 2));
+
+      return {
+        d, r, thetaDeg, theta, ap, bp,
+        xP, yP, xQ, yQ,
+        pq, height, area, derivative,
+        tanTheta: Math.tan(theta)
+      };
+    }
+
+    function draw() {
+      const v = getValues();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const margin = 90;
+      const scale = (canvas.width - margin * 2) / (v.d * 1.25);
+      const cx = canvas.width / 2;
+      const cy = 410;
+
+      function toCanvasX(x) {
+        return cx + x * scale;
+      }
+
+      function toCanvasY(y) {
+        return cy - y * scale;
+      }
+
+      const A = { x: -v.r, y: 0 };
+      const B = { x: v.r, y: 0 };
+      const P = { x: v.xP, y: v.yP };
+      const Q = { x: v.xQ, y: v.yQ };
+
+      // 반원
+      ctx.beginPath();
+      ctx.arc(cx, cy, v.r * scale, Math.PI, 0, false);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#111827";
+      ctx.stroke();
+
+      // 사각형 ABQP
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(A.x), toCanvasY(A.y));
+      ctx.lineTo(toCanvasX(B.x), toCanvasY(B.y));
+      ctx.lineTo(toCanvasX(Q.x), toCanvasY(Q.y));
+      ctx.lineTo(toCanvasX(P.x), toCanvasY(P.y));
+      ctx.closePath();
+      ctx.fillStyle = "rgba(37, 99, 235, 0.18)";
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#2563eb";
+      ctx.stroke();
+
+      // AP, BP 보조선
+      ctx.beginPath();
+      ctx.moveTo(toCanvasX(A.x), toCanvasY(A.y));
+      ctx.lineTo(toCanvasX(P.x), toCanvasY(P.y));
+      ctx.moveTo(toCanvasX(B.x), toCanvasY(B.y));
+      ctx.lineTo(toCanvasX(P.x), toCanvasY(P.y));
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#64748b";
+      ctx.setLineDash([6, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      drawPoint(A, "A", -18, 24);
+      drawPoint(B, "B", 12, 24);
+      drawPoint(P, "P", -26, -10);
+      drawPoint(Q, "Q", 12, -10);
+
+      // AB 길이 표시
+      ctx.font = "bold 18px Arial";
+      ctx.fillStyle = "#111827";
+      ctx.fillText("AB = " + round(v.d, 1), cx - 45, cy + 45);
+
+      // θ 표시
+      const angleRadius = 55;
+      ctx.beginPath();
+      ctx.arc(toCanvasX(A.x), toCanvasY(A.y), angleRadius, 0, -v.theta, true);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ef4444";
+      ctx.stroke();
+      ctx.fillStyle = "#ef4444";
+      ctx.fillText("θ", toCanvasX(A.x) + 45, toCanvasY(A.y) - 20);
+
+      // 넓이 표시
+      ctx.font = "bold 22px Arial";
+      ctx.fillStyle = "#1d4ed8";
+      ctx.fillText("f(θ)", cx - 25, cy - v.height * scale / 2);
+
+      function drawPoint(point, label, dx, dy) {
+        ctx.beginPath();
+        ctx.arc(toCanvasX(point.x), toCanvasY(point.y), 6, 0, Math.PI * 2);
+        ctx.fillStyle = "#dc2626";
+        ctx.fill();
+
+        ctx.font = "bold 18px Arial";
+        ctx.fillStyle = "#111827";
+        ctx.fillText(label, toCanvasX(point.x) + dx, toCanvasY(point.y) + dy);
+      }
+    }
+
+    function updateText() {
+      const v = getValues();
+      const apRatio = Number(apRatioSlider.value);
+      const bpRatio = Number(bpRatioSlider.value);
+      const targetTan = bpRatio / apRatio;
+      const currentRatio = v.ap / v.bp;
+
+      diameterText.textContent = round(v.d, 1);
+      apRatioText.textContent = round(apRatio, 1);
+      bpRatioText.textContent = round(bpRatio, 1);
+      thetaText.textContent = round(v.thetaDeg, 3) + "°";
+
+      document.getElementById("thetaValue").textContent = round(v.thetaDeg, 3) + "°";
+      document.getElementById("apValue").textContent = round(v.ap, 4);
+      document.getElementById("bpValue").textContent = round(v.bp, 4);
+      document.getElementById("areaValue").textContent = round(v.area, 4);
+      document.getElementById("pqValue").textContent = round(v.pq, 4);
+      document.getElementById("heightValue").textContent = round(v.height, 4);
+      document.getElementById("tanValue").textContent = round(v.tanTheta, 4);
+      document.getElementById("derivativeValue").textContent = round(v.derivative, 4);
+
+      document.getElementById("formulaBox").innerHTML = `
+        <b>현재 입력값</b><br>
+        AB = ${round(v.d, 1)}, AP : BP = ${round(apRatio, 1)} : ${round(bpRatio, 1)}<br><br>
+
+        <b>비율 조건</b><br>
+        AP = AB cosθ, BP = AB sinθ<br>
+        AP : BP = cosθ : sinθ<br>
+        따라서 비율 조건을 만족할 때 tanθ = BP비율 / AP비율 = ${round(targetTan, 4)}<br><br>
+
+        <b>현재 θ에서의 실제 비율</b><br>
+        AP : BP = ${round(v.ap, 4)} : ${round(v.bp, 4)}<br>
+        AP / BP = ${round(currentRatio, 4)}<br><br>
+
+        <b>넓이식</b><br>
+        f(θ) = r²(1 - cos2θ)sin2θ<br>
+        현재 f(θ) = ${round(v.area, 4)}<br><br>
+
+        <b>미분값</b><br>
+        f'(θ) = 2r²(1 + cos2θ - 2cos²2θ)<br>
+        현재 f'(θ) = ${round(v.derivative, 4)}
+      `;
+    }
+
+    function update() {
+      draw();
+      updateText();
+    }
+
+    diameterSlider.addEventListener("input", update);
+    apRatioSlider.addEventListener("input", update);
+    bpRatioSlider.addEventListener("input", update);
+    thetaSlider.addEventListener("input", update);
+
+    applyRatioTheta();
+  </script>
+
+
+</body></html>

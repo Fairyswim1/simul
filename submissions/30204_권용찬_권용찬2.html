@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>등차수열 합 조건 시뮬레이터</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; color: #222; }
+    .wrap { max-width: 1220px; margin: 28px auto; padding: 22px; background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    .intro { font-size: 14px; color: #555; line-height: 1.6; margin-bottom: 18px; }
+    .layout { display: grid; grid-template-columns: 1fr 360px; gap: 20px; align-items: start; }
+    .leftBox, .panel { border: 1px solid #ddd; border-radius: 12px; padding: 16px; min-height: 670px; }
+    .leftBox { background: #fff; }
+    .panel { background: #fafafa; }
+    h2 { font-size: 18px; margin: 0 0 10px; }
+    canvas { width: 100%; max-width: 800px; height: auto; border: 1px solid #ddd; border-radius: 12px; background: white; margin-bottom: 14px; }
+    .info { white-space: pre-line; line-height: 1.75; font-size: 14px; }
+    .box { margin-top: 16px; padding: 12px; background: white; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; line-height: 1.8; }
+    .controls { margin-top: 18px; display: grid; grid-template-columns: 80px 1fr 70px; gap: 10px; align-items: center; }
+    input[type="range"] { width: 100%; }
+    .buttons { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+    button { border: none; background: #222; color: white; padding: 10px 15px; border-radius: 10px; cursor: pointer; font-size: 14px; }
+    button:hover { background: #444; }
+    .secondary { background: #666; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 7px; text-align: center; }
+    th { background: #eee; }
+    .tableBox { max-height: 260px; overflow-y: auto; border-radius: 10px; }
+    .aList { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 7px; max-height: 145px; overflow-y: auto; }
+    .chip { padding: 6px 9px; border-radius: 999px; background: #222; color: white; font-size: 13px; }
+    .empty { color: #777; font-size: 14px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>등차수열 합 조건 시뮬레이터</h1>
+    <div class="intro">
+      공차가 1이고 첫째항이 자연수인 등차수열에서, 앞에서부터 홀수 개 m개 항의 합이 N 이하가 되는 경우를 확인하는 시뮬레이터입니다. m은 항상 홀수로만 선택되며, f(N)은 각 홀수 m에 대해 m × g_N(m)을 더한 값으로 계산합니다.
+    </div>
+
+    <div class="layout">
+      <div class="leftBox">
+        <h2>홀수 m별 m × g_N(m) 막대그래프</h2>
+        <canvas id="graphCanvas" width="800" height="390"></canvas>
+
+        <h2>N이 고정되었을 때 홀수 m에 대한 값</h2>
+        <div id="tableBox" class="tableBox"></div>
+      </div>
+
+      <div class="panel">
+        <h2>현재 정보</h2>
+        <div id="info" class="info"></div>
+
+        <div class="box">
+          <b>합 조건식</b><br>
+          등차수열: a_n = a1 + (n - 1)<br>
+          합 조건: a1 + a2 + ... + am ≤ N<br>
+          정리한 식:<br>
+          m × a1 + m(m - 1)/2 ≤ N<br>
+          단, m은 홀수만 사용
+        </div>
+
+        <div class="box">
+          <b>가능한 첫째항 a1</b>
+          <div id="aList" class="aList"></div>
+        </div>
+
+        <div class="box">
+          <b>f(N) 계산 과정</b>
+          <div id="fBreakdown" class="info"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label for="nSlider">N 값</label>
+      <input id="nSlider" type="range" min="1" max="200" step="1" value="21" />
+      <span id="nValue">21</span>
+
+      <label for="mSlider">m 값</label>
+      <input id="mSlider" type="range" min="1" max="39" step="2" value="3" />
+      <span id="mValue">3</span>
+    </div>
+
+    <div class="buttons">
+      <button id="autoBtn">N 자동 증가</button>
+      <button id="resetBtn" class="secondary">초기화</button>
+    </div>
+  </div>
+
+  <script>
+    const nSlider = document.getElementById("nSlider");
+    const mSlider = document.getElementById("mSlider");
+    const nValue = document.getElementById("nValue");
+    const mValue = document.getElementById("mValue");
+    const info = document.getElementById("info");
+    const aList = document.getElementById("aList");
+    const tableBox = document.getElementById("tableBox");
+    const fBreakdown = document.getElementById("fBreakdown");
+    const autoBtn = document.getElementById("autoBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const graphCanvas = document.getElementById("graphCanvas");
+    const ctx = graphCanvas.getContext("2d");
+
+    let playing = false;
+    let timer = null;
+
+    function makeOdd(m) {
+      m = Number(m);
+      if (m % 2 === 0) m += 1;
+      return Math.max(1, m);
+    }
+
+    function g(N, m) {
+      m = makeOdd(m);
+      const base = (m * (m - 1)) / 2;
+      const remain = N - base;
+      if (remain < m) return 0;
+      return Math.floor(remain / m);
+    }
+
+    function maxOddM(N) {
+      let m = 1;
+      let last = 1;
+      while ((m * (m + 1)) / 2 <= N) {
+        last = m;
+        m += 2;
+      }
+      return last;
+    }
+
+    function oddMs(N) {
+      const max = maxOddM(N);
+      const arr = [];
+      for (let m = 1; m <= max; m += 2) arr.push(m);
+      return arr;
+    }
+
+    function fValue(N) {
+      let total = 0;
+      oddMs(N).forEach(m => {
+        total += m * g(N, m);
+      });
+      return total;
+    }
+
+    function possibleA1List(N, m) {
+      const count = g(N, m);
+      const result = [];
+      for (let a1 = 1; a1 <= count; a1++) result.push(a1);
+      return result;
+    }
+
+    function drawGraph(N, selectedM) {
+      selectedM = makeOdd(selectedM);
+      const ms = oddMs(N);
+      const values = ms.map(m => m * g(N, m));
+      const maxValue = Math.max(1, ...values);
+
+      ctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+      const left = 60, right = 760, top = 35, bottom = 330;
+
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(left, top);
+      ctx.lineTo(left, bottom);
+      ctx.lineTo(right, bottom);
+      ctx.stroke();
+
+      ctx.fillStyle = "#222";
+      ctx.font = "bold 16px Arial";
+      ctx.fillText("m×g_N(m)", 10, 35);
+      ctx.fillText("m", right - 8, bottom + 32);
+      ctx.fillText(`N = ${N}, f(N) = ${fValue(N)}`, 305, 24);
+
+      ctx.font = "12px Arial";
+      for (let i = 0; i <= 5; i++) {
+        const yVal = Math.round(maxValue * i / 5);
+        const y = bottom - (yVal / maxValue) * (bottom - top);
+        ctx.strokeStyle = "#e6e6e6";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
+        ctx.stroke();
+        ctx.fillStyle = "#555";
+        ctx.fillText(yVal, left - 40, y + 4);
+      }
+
+      const gap = 5;
+      const barWidth = Math.max(8, (right - left - gap * (ms.length + 1)) / Math.max(ms.length, 1));
+
+      ms.forEach((m, idx) => {
+        const value = values[idx];
+        const h = (value / maxValue) * (bottom - top);
+        const x = left + gap + idx * (barWidth + gap);
+        const y = bottom - h;
+
+        ctx.fillStyle = m === selectedM ? "#d00000" : "#4c78a8";
+        ctx.fillRect(x, y, barWidth, h);
+
+        if (ms.length <= 25 || idx % 2 === 0 || m === selectedM) {
+          ctx.fillStyle = "#222";
+          ctx.font = "11px Arial";
+          ctx.fillText(m, x + barWidth / 2 - 4, bottom + 16);
+        }
+
+        if (m === selectedM) {
+          ctx.fillStyle = "#d00000";
+          ctx.font = "bold 13px Arial";
+          ctx.fillText(`m=${m}, 값=${value}`, Math.min(x, right - 95), Math.max(y - 8, top + 12));
+        }
+      });
+    }
+
+    function updateCurrentInfo(N, m) {
+      m = makeOdd(m);
+      const base = (m * (m - 1)) / 2;
+      const count = g(N, m);
+      const arr = possibleA1List(N, m);
+      const term = m * count;
+      const totalF = fValue(N);
+
+      nValue.textContent = N;
+      mValue.textContent = m;
+      mSlider.value = m;
+
+      const listText = arr.length <= 18 ? arr.join(", ") : arr.slice(0, 18).join(", ") + ", ...";
+
+      info.textContent =
+        `N = ${N}\n` +
+        `m = ${m}  (홀수)\n\n` +
+        `합 조건식:\n` +
+        `${m}a1 + ${base} ≤ ${N}\n\n` +
+        `가능한 첫째항 a1:\n` +
+        `${count === 0 ? "없음" : listText}\n\n` +
+        `g_N(m) = ${count}\n` +
+        `현재 값으로 쓰면: g_${N}(${m}) = ${count}\n\n` +
+        `m × g_N(m) = ${m} × ${count} = ${term}\n\n` +
+        `f(N) = ${totalF}\n` +
+        `현재 값으로 쓰면: f(${N}) = ${totalF}`;
+
+      if (arr.length === 0) {
+        aList.innerHTML = `<span class="empty">조건을 만족하는 첫째항 a1이 없습니다.</span>`;
+      } else {
+        aList.innerHTML = arr.map(v => `<span class="chip">a1 = ${v}</span>`).join("");
+      }
+
+      updateFBreakdown(N);
+    }
+
+    function updateFBreakdown(N) {
+      const ms = oddMs(N);
+      const lines = [];
+      const terms = [];
+      let total = 0;
+
+      ms.forEach(m => {
+        const count = g(N, m);
+        const term = m * count;
+        total += term;
+        lines.push(`m = ${m}: g_${N}(${m}) = ${count}, ${m} × ${count} = ${term}`);
+        terms.push(term);
+      });
+
+      fBreakdown.textContent =
+        lines.join("\n") +
+        `\n\n따라서\n` +
+        `f(${N}) = ${terms.join(" + ")}\n` +
+        `f(${N}) = ${total}`;
+    }
+
+    function updateTable(N) {
+      const ms = oddMs(N);
+      let html = `<table><thead><tr><th>홀수 m</th><th>가능한 첫째항 a1</th><th>g_N(m)</th><th>m × g_N(m)</th></tr></thead><tbody>`;
+
+      ms.forEach(m => {
+        const count = g(N, m);
+        const range = count === 0 ? "없음" : `1 ~ ${count}`;
+        html += `<tr><td>${m}</td><td>${range}</td><td>${count}</td><td>${m * count}</td></tr>`;
+      });
+
+      html += `</tbody></table>`;
+      tableBox.innerHTML = html;
+    }
+
+    function draw() {
+      const N = Number(nSlider.value);
+      let m = makeOdd(Number(mSlider.value));
+      if (m > 39) m = 39;
+      mSlider.value = m;
+
+      drawGraph(N, m);
+      updateCurrentInfo(N, m);
+      updateTable(N);
+    }
+
+    nSlider.addEventListener("input", draw);
+    mSlider.addEventListener("input", draw);
+
+    autoBtn.addEventListener("click", () => {
+      playing = !playing;
+      autoBtn.textContent = playing ? "정지" : "N 자동 증가";
+
+      if (playing) {
+        timer = setInterval(() => {
+          let N = Number(nSlider.value) + 1;
+          if (N > 200) N = 1;
+          nSlider.value = N;
+          draw();
+        }, 140);
+      } else {
+        clearInterval(timer);
+      }
+    });
+
+    resetBtn.addEventListener("click", () => {
+      playing = false;
+      clearInterval(timer);
+      autoBtn.textContent = "N 자동 증가";
+      nSlider.value = 21;
+      mSlider.value = 3;
+      draw();
+    });
+
+    draw();
+  </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>최종 완성: A-B 운동 분석 시뮬레이터</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f4f7f6; margin: 0; padding: 20px; }
+        .main-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; max-width: 1200px; }
+        .left-panel { background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 12px; padding: 15px; }
+        canvas { display: block; border-radius: 8px; }
+        #speedCanvas { border-top: 1px solid #eee; background: #fafafa; margin-top: 10px; }
+        .right-panel { width: 440px; display: flex; flex-direction: column; gap: 15px; }
+        .controls { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .solution-box { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); font-size: 0.95em; line-height: 1.7; color: #333; }
+        .solution-box h3 { margin-top: 0; color: #007bff; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; }
+        .math-block { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #007bff; }
+        .step-label { font-weight: bold; color: #495057; display: block; margin-top: 15px; }
+        input[type="range"] { width: 100%; margin-bottom: 15px; cursor: pointer; }
+        .btn-group { display: flex; gap: 8px; }
+        button { flex: 1; padding: 12px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; color: white; transition: 0.2s; }
+        #play-btn { background: #28a745; } #play-btn:hover { background: #218838; }
+        #stop-btn { background: #dc3545; } #stop-btn:hover { background: #c82333; }
+        #reset { background: #6c757d; } #reset:hover { background: #5a6268; }
+    </style>
+</head>
+<body>
+
+    <h2 style="margin-bottom: 25px;">점 A, B의 운동 궤적 및 수학적 분석</h2>
+
+    <div class="main-container">
+        <div class="left-panel">
+            <canvas id="trajectoryCanvas" width="550" height="550"></canvas>
+            <canvas id="speedCanvas" width="550" height="180"></canvas>
+        </div>
+
+        <div class="right-panel">
+            <div class="controls">
+                <div style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom:8px;">
+                    <span>매개변수 t (시간)</span> <span id="t-val" style="color:#007bff; font-size: 1.2em;">0.00</span>
+                </div>
+                <input type="range" id="t-slider" min="0" max="6.28318" step="0.001" value="0">
+                <div class="btn-group">
+                    <button id="play-btn">시뮬레이션 시작</button>
+                    <button id="stop-btn">정지</button>
+                    <button id="reset">초기화</button>
+                </div>
+            </div>
+
+            <div class="solution-box">
+                <h3>수학적 해설</h3>
+                <span class="step-label">(1) 점 B의 매개변수 방정식</span>
+                <div class="math-block">
+                    $$ \begin{cases} x(t) = 3 \cos t + \cos 3t \\ y(t) = 3 \sin t - \sin 3t \end{cases} $$
+                </div>
+
+                <span class="step-label">(2) 속력이 0인 시각과 곡선의 길이</span>
+                <div>속력 \( v(t) = 6|\sin 2t| \)가 0이 되는 시점은:</div>
+                <div class="math-block">
+                    $$ t = 0, \frac{\pi}{2}, \pi, \frac{3\pi}{2}, 2\pi $$
+                </div>
+                <div>곡선의 길이는 \( 0 \)부터 \( 2\pi \)까지 적분합니다:</div>
+                <div class="math-block">
+                    $$ L = \int_{0}^{2\pi} 6|\sin 2t| \, dt = 24 $$
+                </div>
+
+                <span class="step-label">(3) 영역의 넓이</span>
+                <div class="math-block">
+                    $$ S = \int_{0}^{2\pi} x(t) y'(t) \, dt = 6\pi $$
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tCanvas = document.getElementById('trajectoryCanvas');
+        const tCtx = tCanvas.getContext('2d');
+        const sCanvas = document.getElementById('speedCanvas');
+        const sCtx = sCanvas.getContext('2d');
+        const tSlider = document.getElementById('t-slider');
+        const tVal = document.getElementById('t-val');
+
+        const SCALE = 60, OFF_X = 275, OFF_Y = 275;
+        let animId = null;
+        const zeroTimes = [0, Math.PI/2, Math.PI, 3*Math.PI/2, Math.PI*2];
+
+        function getPos(t) {
+            return {
+                ax: 3 * Math.cos(t), ay: 3 * Math.sin(t),
+                bx: 3 * Math.cos(t) + Math.cos(3 * t),
+                by: 3 * Math.sin(t) - Math.sin(3 * t)
+            };
+        }
+
+        function draw() {
+            const T = parseFloat(tSlider.value);
+            tVal.innerText = T.toFixed(2);
+            
+            // --- 1. 궤적 캔버스 ---
+            tCtx.clearRect(0, 0, 550, 550);
+            
+            // 격자 & 축
+            tCtx.strokeStyle = '#eee'; tCtx.lineWidth = 0.5;
+            tCtx.beginPath();
+            for(let i=0; i<=550; i+=SCALE) { tCtx.moveTo(i,0); tCtx.lineTo(i,550); tCtx.moveTo(0,i); tCtx.lineTo(550,i); }
+            tCtx.stroke();
+            
+            tCtx.strokeStyle = '#333'; tCtx.lineWidth = 1.2;
+            tCtx.beginPath();
+            tCtx.moveTo(0, OFF_Y); tCtx.lineTo(550, OFF_Y);
+            tCtx.moveTo(OFF_X, 0); tCtx.lineTo(OFF_X, 550);
+            tCtx.stroke();
+
+            // 원점 중심 반지름 3 기준 원 (점선)
+            tCtx.setLineDash([5, 8]);
+            tCtx.strokeStyle = '#bbb';
+            tCtx.beginPath(); tCtx.arc(OFF_X, OFF_Y, 3 * SCALE, 0, Math.PI * 2); tCtx.stroke();
+            tCtx.setLineDash([]);
+
+            // 점 B 자취
+            tCtx.strokeStyle = 'rgba(255, 0, 0, 0.6)'; tCtx.lineWidth = 2.5;
+            tCtx.beginPath();
+            for(let i=0; i<=T+0.01; i+=0.01) {
+                const p = getPos(i);
+                if(i===0) tCtx.moveTo(OFF_X + p.bx*SCALE, OFF_Y - p.by*SCALE);
+                else tCtx.lineTo(OFF_X + p.bx*SCALE, OFF_Y - p.by*SCALE);
+            }
+            tCtx.stroke();
+
+            // 속력 0 지점 표시
+            zeroTimes.forEach(zp => {
+                if(T >= zp - 0.02) {
+                    const p = getPos(zp);
+                    tCtx.fillStyle = '#28a745';
+                    tCtx.beginPath(); tCtx.arc(OFF_X + p.bx*SCALE, OFF_Y - p.by*SCALE, 5, 0, 7); tCtx.fill();
+                    tCtx.fillStyle = '#000'; tCtx.font = 'bold 11px sans-serif';
+                    let yOff = (zp > 6) ? -15 : 12; 
+                    let label = zp === 0 ? "t = 0" : (zp > 6 ? "t = 2π" : `t = ${(zp/Math.PI).toFixed(1)}π`);
+                    tCtx.fillText(label, OFF_X + p.bx*SCALE + 6, OFF_Y - p.by*SCALE + yOff);
+                }
+            });
+
+            // 점 A 및 보조 원
+            const curP = getPos(T);
+            
+            // [추가] 점 A 중심 반지름 1 보조원 (회색 점선)
+            tCtx.setLineDash([3, 4]);
+            tCtx.strokeStyle = '#888';
+            tCtx.beginPath();
+            tCtx.arc(OFF_X + curP.ax * SCALE, OFF_Y - curP.ay * SCALE, 1 * SCALE, 0, Math.PI * 2);
+            tCtx.stroke();
+            tCtx.setLineDash([]);
+
+            // 점 A (Blue)
+            tCtx.fillStyle = 'blue';
+            tCtx.beginPath(); tCtx.arc(OFF_X + curP.ax * SCALE, OFF_Y - curP.ay * SCALE, 5, 0, 7); tCtx.fill();
+            
+            // 점 B (Red)
+            tCtx.fillStyle = 'red';
+            tCtx.beginPath(); tCtx.arc(OFF_X + curP.bx * SCALE, OFF_Y - curP.by * SCALE, 7, 0, 7); tCtx.fill();
+
+            // --- 2. 속력 그래프 캔버스 ---
+            sCtx.clearRect(0,0,550,180);
+            const graphW = 460, graphH = 100, padX = 50, padY = 40;
+            const tToX = (t) => padX + (t/(Math.PI*2)) * graphW;
+            const vToY = (v) => 180 - padY - (v/6) * graphH;
+
+            // 속력 축 그리기
+            sCtx.strokeStyle = '#333'; sCtx.lineWidth = 1;
+            sCtx.beginPath();
+            sCtx.moveTo(padX, 180 - padY); sCtx.lineTo(padX + graphW + 15, 180 - padY); // X축
+            sCtx.moveTo(padX, 180 - padY + 5); sCtx.lineTo(padX, 20); // Y축
+            sCtx.stroke();
+
+            // 축 라벨 및 눈금
+            sCtx.fillStyle = '#333'; sCtx.font = '10px sans-serif'; sCtx.textAlign = 'center';
+            zeroTimes.forEach(zp => {
+                const x = tToX(zp);
+                sCtx.fillText(zp === 0 ? "0" : (zp > 6 ? "2π" : `${(zp/Math.PI).toFixed(1)}π`), x, 180 - padY + 18);
+                sCtx.strokeStyle = '#eee';
+                sCtx.beginPath(); sCtx.moveTo(x, 180-padY); sCtx.lineTo(x, 20); sCtx.stroke();
+                
+                // 속력이 0일 때 그래프 표시 (녹색 원)
+                if (T >= zp - 0.02) {
+                    sCtx.fillStyle = '#28a745';
+                    sCtx.beginPath(); sCtx.arc(x, vToY(0), 4, 0, 7); sCtx.fill();
+                    sCtx.fillStyle = '#333';
+                }
+            });
+            sCtx.textAlign = 'right';
+            sCtx.fillText("v=6", padX - 8, vToY(6) + 3);
+            sCtx.fillText("v(t)", padX - 8, 30);
+
+            // 속력 선 그래프
+            sCtx.strokeStyle = '#007bff'; sCtx.lineWidth = 2;
+            sCtx.beginPath();
+            for(let i=0; i<=T+0.01; i+=0.01) {
+                const v = 6 * Math.abs(Math.sin(2*i));
+                if(i===0) sCtx.moveTo(tToX(i), vToY(v));
+                else sCtx.lineTo(tToX(i), vToY(v));
+            }
+            sCtx.stroke();
+
+            // 현재 속력 마커 (Red)
+            const curV = 6 * Math.abs(Math.sin(2*T));
+            sCtx.fillStyle = 'red';
+            sCtx.beginPath(); sCtx.arc(tToX(T), vToY(curV), 5, 0, 7); sCtx.fill();
+        }
+
+        function animate() {
+            let v = parseFloat(tSlider.value);
+            v += 0.01;
+            if(v > 6.283) { v = 6.283; draw(); cancelAnimationFrame(animId); return; }
+            tSlider.value = v; draw();
+            animId = requestAnimationFrame(animate);
+        }
+
+        tSlider.oninput = draw;
+        document.getElementById('play-btn').onclick = () => { if(tSlider.value>=6.28) tSlider.value=0; animate(); };
+        document.getElementById('stop-btn').onclick = () => cancelAnimationFrame(animId);
+        document.getElementById('reset').onclick = () => { tSlider.value=0; draw(); };
+        draw();
+    </script>
+</body>
+</html>

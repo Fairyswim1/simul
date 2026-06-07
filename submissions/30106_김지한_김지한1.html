@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>부등식 영역 및 포락선 시뮬레이터</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #f8f9fa; padding: 20px; color: #333; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 700px; text-align: center; }
+        .formula-box { background: #e9ecef; padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 1.3rem; font-weight: bold; border-left: 5px solid #007bff; }
+        canvas { border: 1px solid #dee2e6; background-color: #fff; border-radius: 5px; margin-top: 10px; }
+        .controls { margin-top: 25px; display: flex; flex-direction: column; gap: 15px; }
+        .slider-group { display: flex; align-items: center; gap: 15px; background: #f1f3f5; padding: 10px 20px; border-radius: 30px; }
+        input[type="range"] { flex-grow: 1; cursor: pointer; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; }
+        button { padding: 10px 20px; cursor: pointer; border-radius: 25px; border: none; background: #007bff; color: white; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #0056b3; transform: translateY(-2px); }
+        button.secondary { background: #6c757d; }
+        .legend { margin-top: 15px; font-size: 0.85rem; text-align: left; line-height: 1.6; color: #555; }
+        .math-info { color: #d63384; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="formula-box">
+        a cos(2θ) + b cos(θ) < 1
+    </div>
+    
+    <canvas id="canvas" width="600" height="600"></canvas>
+
+    <div class="controls">
+        <div class="slider-group">
+            <label>θ 값 제어:</label>
+            <input type="range" id="thetaSlider" min="0" max="6.283" step="0.01" value="0">
+            <span id="thetaVal" style="width: 50px; font-weight: bold;">0.00</span>
+        </div>
+        <div class="btn-group">
+            <button id="playBtn">자동 재생</button>
+            <button id="traceBtn" class="secondary">잔상 유지: OFF</button>
+            <button id="clearBtn" class="secondary">지우기</button>
+        </div>
+    </div>
+
+    <div class="legend">
+        <strong>[분석 결과]</strong><br>
+        1. <strong>경계 직선:</strong> θ = 0일 때 <span class="math-info">b = 1 - a</span>, θ = π일 때 <span class="math-info">b = a - 1</span><br>
+        2. <strong>포락선(곡선):</strong> <span class="math-info">b² = -8a(a + 1)</span> (타원의 일부)<br>
+        3. <strong>해석:</strong> 위 모든 선들이 지나가는 안쪽의 공통 영역이 점 (a, b)의 범위입니다.
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const thetaSlider = document.getElementById('thetaSlider');
+    const thetaVal = document.getElementById('thetaVal');
+    const playBtn = document.getElementById('playBtn');
+    const traceBtn = document.getElementById('traceBtn');
+    const clearBtn = document.getElementById('clearBtn');
+
+    let theta = 0;
+    let isPlaying = false;
+    let isTraceOn = false;
+    let traces = [];
+
+    const scale = 150; // 확대 비율
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    function drawGrid() {
+        ctx.strokeStyle = '#f0f0f0';
+        ctx.lineWidth = 1;
+        
+        // 보조선 및 숫자
+        for(let i = -2; i <= 2; i += 0.5) {
+            let pos = centerX + i * scale;
+            ctx.beginPath();
+            ctx.moveTo(pos, 0); ctx.lineTo(pos, canvas.height);
+            ctx.moveTo(0, centerY - i * scale); ctx.lineTo(canvas.width, centerY - i * scale);
+            ctx.stroke();
+            
+            // 숫자 표기
+            ctx.fillStyle = '#999';
+            ctx.font = '12px Arial';
+            if(i !== 0) {
+                ctx.fillText(i, pos - 5, centerY + 15);
+                ctx.fillText(i, centerX + 5, centerY - i * scale + 5);
+            }
+        }
+
+        // 메인 축
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height);
+        ctx.moveTo(0, centerY); ctx.lineTo(canvas.width, centerY);
+        ctx.stroke();
+
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 14px Arial";
+        ctx.fillText("a", canvas.width - 20, centerY - 10);
+        ctx.fillText("b", centerX + 10, 20);
+    }
+
+    // 이론적 포락선 가이드 그리기 (타원 및 직선)
+    function drawEnvelopeGuide() {
+        ctx.strokeStyle = 'rgba(0, 123, 255, 0.2)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        
+        // 1. 직선 b = 1-a 및 b = a-1
+        ctx.beginPath();
+        ctx.moveTo(centerX + (-2)*scale, centerY - (3)*scale);
+        ctx.lineTo(centerX + (2)*scale, centerY - (-1)*scale);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX + (-2)*scale, centerY - (-3)*scale);
+        ctx.lineTo(centerX + (2)*scale, centerY - (1)*scale);
+        ctx.stroke();
+
+        // 2. 타원 포락선 b^2 = -8a^2 - 8a
+        ctx.beginPath();
+        for(let a = -1; a <= 0; a += 0.01) {
+            let bSq = -8*a*a - 8*a;
+            if(bSq >= 0) {
+                let b = Math.sqrt(bSq);
+                let x = centerX + a * scale;
+                let y1 = centerY - b * scale;
+                let y2 = centerY + b * scale;
+                if(a === -1) ctx.moveTo(x, y1); else ctx.lineTo(x, y1);
+            }
+        }
+        for(let a = 0; a >= -1; a -= 0.01) {
+            let bSq = -8*a*a - 8*a;
+            if(bSq >= 0) {
+                let b = -Math.sqrt(bSq);
+                let x = centerX + a * scale;
+                ctx.lineTo(x, centerY - b * scale);
+            }
+        }
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(0, 123, 255, 0.05)';
+        ctx.fill();
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function drawLine(t, color, width, alpha = 1) {
+        const c1 = Math.cos(t);
+        const c2 = Math.cos(2 * t);
+        // 식: a*c2 + b*c1 = 1
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+
+        if (Math.abs(c1) < 0.001) { // b의 계수가 0일 때 (수직선)
+            let a = 1 / c2;
+            ctx.moveTo(centerX + a * scale, 0);
+            ctx.lineTo(centerX + a * scale, canvas.height);
+        } else {
+            // 두 점을 연결하여 직선 그리기
+            let x1 = -2;
+            let y1 = (1 - x1 * c2) / c1;
+            let x2 = 2;
+            let y2 = (1 - x2 * c2) / c1;
+            ctx.moveTo(centerX + x1 * scale, centerY - y1 * scale);
+            ctx.lineTo(centerX + x2 * scale, centerY - y2 * scale);
+        }
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawGrid();
+        drawEnvelopeGuide();
+
+        if (isTraceOn) {
+            traces.forEach(t => drawLine(t, '#ffb3b3', 1, 0.2));
+        }
+
+        drawLine(theta, '#dc3545', 3, 1);
+        thetaVal.innerText = theta.toFixed(2);
+    }
+
+    thetaSlider.oninput = (e) => {
+        theta = parseFloat(e.target.value);
+        if(isTraceOn && !traces.includes(theta)) traces.push(theta);
+        render();
+    };
+
+    playBtn.onclick = () => {
+        isPlaying = !isPlaying;
+        playBtn.innerText = isPlaying ? "정지" : "자동 재생";
+        if(isPlaying) animate();
+    };
+
+    traceBtn.onclick = () => {
+        isTraceOn = !isTraceOn;
+        traceBtn.innerText = isTraceOn ? "잔상 유지: ON" : "잔상 유지: OFF";
+        if(!isTraceOn) traces = [];
+        render();
+    };
+
+    clearBtn.onclick = () => {
+        traces = [];
+        theta = 0;
+        thetaSlider.value = 0;
+        render();
+    }
+
+    function animate() {
+        if(!isPlaying) return;
+        theta += 0.02;
+        if(theta > Math.PI * 2) theta = 0;
+        thetaSlider.value = theta;
+        if(isTraceOn) traces.push(theta);
+        render();
+        requestAnimationFrame(animate);
+    }
+
+    render();
+</script>
+
+</body>
+</html>

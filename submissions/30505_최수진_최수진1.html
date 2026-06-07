@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>정육면체 내 직원기둥 정밀 분석기</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f0f2f5; font-family: 'Malgun Gothic', sans-serif; }
+        #ui-container { 
+            position: absolute; top: 15px; left: 15px; 
+            background: rgba(255, 255, 255, 0.95); padding: 15px; 
+            border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            width: 370px; z-index: 10;
+        }
+        .data-panel { margin-top: 10px; padding: 10px; background: #fff; border-radius: 6px; font-size: 0.85em; border: 1px solid #eee; }
+        canvas#graph-canvas { background: #fff; margin-top: 10px; border-radius: 4px; border: 1px solid #ddd; }
+        .max-label { color: #d9534f; font-weight: bold; animation: blink 1s infinite; margin-top: 5px;}
+        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.3;} 100% {opacity: 1;} }
+        h4 { margin: 5px 0; color: #2c3e50; }
+        input[type=range] { width: 100%; cursor: pointer; margin-top: 10px; }
+        
+        #mode-toggle {
+            width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 5px;
+            background-color: #007BFF; color: white; border: none; border-radius: 6px;
+            font-weight: bold; cursor: pointer; transition: background-color 0.3s;
+        }
+        #mode-toggle:hover { background-color: #0056b3; }
+        
+        .formula-line { margin: 5px 0; color: #444; }
+        .highlight { color: #d35400; font-weight: bold; }
+        
+        .legend { font-size: 11px; color: #555; margin-top: 10px; line-height: 1.5; }
+        .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="ui-container">
+        <h4>직원기둥 시뮬레이터</h4>
+        <button id="mode-toggle">2번 문제 (정사영 분석) 보기</button>
+        
+        <label style="display:block; margin-top:10px;">반지름 (r): <span id="r-val" style="color:#007BFF; font-weight:bold;">0.408</span></label>
+        <input type="range" id="r-slider" min="0.01" max="0.612" step="0.001" value="0.408">
+        
+        <div id="prob1-ui">
+            <div class="data-panel">
+                <div id="h-formula" class="formula-line">h = √3 - 2√2r = 0.577</div>
+                <div id="v-formula" class="formula-line highlight">V = πr²h = 0.302</div>
+                <div id="status" class="max-label" style="display:none;">★ 현재 부피 최대 (r ≈ 0.408) ★</div>
+            </div>
+            <canvas id="graph-canvas" width="340" height="130"></canvas>
+            <div style="font-size: 11px; text-align: center; color: #666;">r에 따른 부피 변화 그래프</div>
+            <div class="legend">
+                <div><span style="background: #888;"></span>정육면체 대각선 (중심축)</div>
+                <div><span style="background: #228b22;"></span>각 면의 대각선 (기준선)</div>
+                <div><span style="background: #ff0000;"></span>정육면체-직원기둥 접점</div>
+            </div>
+        </div>
+
+        <div id="prob2-ui" style="display: none;">
+            <div class="data-panel">
+                <div style="font-weight:bold; margin-bottom:8px; color:#2c3e50;">정사영 면적 분석</div>
+                <div class="formula-line" style="color: #007BFF; font-weight: bold;">cos θ = √6 / 3</div>
+                <div id="area-rect" class="formula-line">몸통 = 2rh × cos θ = 0.000</div>
+                <div id="area-ellipse" class="formula-line">밑면(반쪽 1개) = (√3/6)πr² = 0.000</div>
+                <hr style="border: 0.5px solid #eee;">
+                <div id="area-total" class="formula-line highlight">전체 넓이 = 몸통 + 2×(밑면) = 0.000</div>
+            </div>
+            <div style="font-size: 11px; color: #666; margin-top: 10px; line-height: 1.5;">
+                <span style="color:#ff0000; font-weight:bold; font-size:14px;">ㅡ</span> 기둥 중심축 (3D)<br>
+                <span style="color:#0000ff; font-weight:bold; font-size:14px;">ㅡ</span> 중심축의 정사영 (2D 바닥)<br>
+                <span style="color:#228b22; font-weight:bold; font-size:14px;">ㅡ</span> 교점에서의 사이 각 <strong>θ (theta)</strong><br>
+                <span style="color:#8a2be2; font-weight:bold; font-size:14px;">---</span> 기둥 내부 교단면 직사각형 (점선)<br>
+                <span style="color:#ff4500; font-weight:bold; font-size:14px;">⌒</span> 정사영되는 밑면 반원 (점선)<br>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 1;
+
+        // --- Three.js 초기화 ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(2.8, 2.2, 3.2);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0.5, 0.5, 0.5);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const camLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        camLight.position.set(0, 0, 1);
+        camera.add(camLight);
+        scene.add(camera);
+
+        // --- 그룹 설정 ---
+        const cubeGroup = new THREE.Group();
+        const mode2Group = new THREE.Group();
+        const projGroup = new THREE.Group(); 
+        mode2Group.add(projGroup);
+        scene.add(cubeGroup);
+        scene.add(mode2Group);
+        mode2Group.visible = false; 
+
+        // ==========================================
+        // 1번 모드: 정육면체 및 관련 선분들
+        // ==========================================
+        const cube = new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0.5, 0.5);
+        cubeGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(cube), new THREE.LineBasicMaterial({color: 0x000000, transparent: true, opacity: 0.3})));
+        cubeGroup.add(new THREE.Mesh(cube, new THREE.MeshPhongMaterial({
+            color: 0xadd8e6, transparent: true, opacity: 0.15, depthWrite: false, side: THREE.DoubleSide
+        })));
+
+        const axisGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(1,1,1)]);
+        const axisLine = new THREE.Line(axisGeo, new THREE.LineDashedMaterial({color: 0x666666, dashSize: 0.05, gapSize: 0.05}));
+        axisLine.computeLineDistances();
+        cubeGroup.add(axisLine);
+
+        const faceDiagMaterial = new THREE.LineDashedMaterial({color: 0x228b22, dashSize: 0.04, gapSize: 0.04});
+        const faceDiags = [
+            [new THREE.Vector3(0,0,0), new THREE.Vector3(1,1,0)],
+            [new THREE.Vector3(0,0,0), new THREE.Vector3(0,1,1)],
+            [new THREE.Vector3(0,0,0), new THREE.Vector3(1,0,1)],
+            [new THREE.Vector3(1,1,1), new THREE.Vector3(1,0,0)],
+            [new THREE.Vector3(1,1,1), new THREE.Vector3(0,1,0)],
+            [new THREE.Vector3(1,1,1), new THREE.Vector3(0,0,1)]
+        ];
+        faceDiags.forEach(pts => {
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const line = new THREE.Line(geo, faceDiagMaterial);
+            line.computeLineDistances();
+            cubeGroup.add(line);
+        });
+
+        const contactPoints = [];
+        const contactLines = [];
+        const axisPoints = [];
+        const ptGeo = new THREE.SphereGeometry(0.02, 16, 16);
+        for(let i=0; i<6; i++) {
+            const p = new THREE.Mesh(ptGeo, new THREE.MeshBasicMaterial({color: 0xff0000}));
+            contactPoints.push(p); cubeGroup.add(p);
+        }
+        for(let i=0; i<2; i++) {
+            const p = new THREE.Mesh(new THREE.SphereGeometry(0.025, 16, 16), new THREE.MeshBasicMaterial({color: 0x0000ff}));
+            axisPoints.push(p); cubeGroup.add(p);
+            const l = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color: 0xff0000, transparent: true, opacity: 0.8}));
+            contactLines.push(l); cubeGroup.add(l);
+        }
+
+        let cylinder;
+
+        // ==========================================
+        // 2번 모드: 정사영 메시 및 축 시각화
+        // ==========================================
+        let projRect, projTop, projBot;
+        let projLines = []; 
+        let axisLine3D, axisLineProj, dropLineTop, dropLineBot;
+        let thetaArcLine, thetaLabelSprite;
+        let crossSectionRect; 
+        let baseTopArc, baseBotArc; // 추가: 정사영의 원인이 되는 밑면 반원 궤적
+
+        function createProjectionMeshes() {
+            const matRect = new THREE.MeshBasicMaterial({color: 0xffd700, transparent: true, opacity: 0.6, side: THREE.DoubleSide});
+            const matEll = new THREE.MeshBasicMaterial({color: 0xff8c00, transparent: true, opacity: 0.6, side: THREE.DoubleSide});
+            const lineMat = new THREE.LineBasicMaterial({color: 0x000000});
+
+            projRect = new THREE.Mesh(new THREE.BufferGeometry(), matRect);
+            projTop = new THREE.Mesh(new THREE.BufferGeometry(), matEll);
+            projBot = new THREE.Mesh(new THREE.BufferGeometry(), matEll);
+
+            projGroup.add(projRect); projGroup.add(projTop); projGroup.add(projBot);
+            
+            for(let i=0; i<3; i++) {
+                const line = new THREE.LineSegments(new THREE.BufferGeometry(), lineMat);
+                projLines.push(line); projGroup.add(line);
+            }
+
+            const grid = new THREE.GridHelper(1.5, 10, 0xdddddd, 0xeeeeee);
+            grid.position.set(0.5, 0, 0.5);
+            mode2Group.add(grid);
+
+            axisLine3D = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color: 0xff0000, linewidth: 2}));
+            axisLineProj = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color: 0x0000ff, linewidth: 2}));
+            
+            const dashMat = new THREE.LineDashedMaterial({color: 0x888888, dashSize: 0.04, gapSize: 0.02});
+            dropLineTop = new THREE.Line(new THREE.BufferGeometry(), dashMat);
+            dropLineBot = new THREE.Line(new THREE.BufferGeometry(), dashMat);
+
+            mode2Group.add(axisLine3D);
+            mode2Group.add(axisLineProj);
+            mode2Group.add(dropLineTop);
+            mode2Group.add(dropLineBot);
+
+            const thetaArcGeo = new THREE.BufferGeometry();
+            const thetaArcMat = new THREE.LineBasicMaterial({color: 0x228b22, linewidth: 3}); 
+            thetaArcLine = new THREE.Line(thetaArcGeo, thetaArcMat);
+            mode2Group.add(thetaArcLine);
+
+            const thetaSpriteMat = createThetaSprite();
+            thetaLabelSprite = new THREE.Sprite(thetaSpriteMat);
+            thetaLabelSprite.scale.set(0.12, 0.12, 1); 
+            mode2Group.add(thetaLabelSprite);
+
+            // 기둥 내부 수직 교단면 직사각형 (보라색 점선)
+            const crossSectionMat = new THREE.LineDashedMaterial({color: 0x8a2be2, dashSize: 0.04, gapSize: 0.03, linewidth: 2});
+            crossSectionRect = new THREE.LineLoop(new THREE.BufferGeometry(), crossSectionMat);
+            mode2Group.add(crossSectionRect);
+
+            // 추가: 정사영되는 밑면 반원 궤적 (다홍색 점선)
+            const baseArcMat = new THREE.LineDashedMaterial({color: 0xff4500, dashSize: 0.03, gapSize: 0.02, linewidth: 2});
+            baseTopArc = new THREE.Line(new THREE.BufferGeometry(), baseArcMat);
+            baseBotArc = new THREE.Line(new THREE.BufferGeometry(), baseArcMat);
+            mode2Group.add(baseTopArc);
+            mode2Group.add(baseBotArc);
+        }
+
+        function createThetaSprite() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.font = '50px Georgia, serif';
+            ctx.fillStyle = '#228b22'; 
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('\u03B8', 32, 32); 
+            const texture = new THREE.CanvasTexture(canvas);
+            return new THREE.SpriteMaterial({map: texture, transparent: true, depthTest: false});
+        }
+
+        createProjectionMeshes();
+
+        // --- 업데이트 함수 ---
+        function update(r) {
+            let h = Math.sqrt(3) - 2 * Math.sqrt(2) * r;
+            if (h < 0) h = 0.001; 
+            
+            document.getElementById('r-val').innerText = r.toFixed(3);
+            const isMax = (Math.abs(r - 0.408) < 0.005);
+            
+            const vol = Math.PI * r * r * h;
+            document.getElementById('h-formula').innerText = `h = √3 - 2√2r = ${h.toFixed(3)}`;
+            document.getElementById('v-formula').innerText = `V = πr²h = ${vol.toFixed(3)}`;
+            document.getElementById('status').style.display = isMax ? 'block' : 'none';
+            if (currentMode === 1) drawGraph(r);
+
+            const cosTheta = Math.sqrt(6) / 3;
+            const L = h * cosTheta;
+            const areaRect = 2 * r * L;
+            const areaHalfEllipse = (Math.sqrt(3) / 6) * Math.PI * r * r;
+            const totalArea = areaRect + 2 * areaHalfEllipse;
+
+            document.getElementById('area-rect').innerText = `몸통 (직사각형) = 2rh × cos θ = ${areaRect.toFixed(3)}`;
+            document.getElementById('area-ellipse').innerText = `밑면 (타원 반쪽 1개) = (√3/6)πr² = ${areaHalfEllipse.toFixed(3)}`;
+            document.getElementById('area-total').innerText = `전체 넓이 = 직사각형 + 2×(밑면) = ${totalArea.toFixed(3)}`;
+
+            if(cylinder) { scene.remove(cylinder); cylinder.geometry.dispose(); }
+            cylinder = new THREE.Mesh(
+                new THREE.CylinderGeometry(r, r, h, 64), 
+                new THREE.MeshPhongMaterial({color: 0xffa500, transparent: true, opacity: 0.75, side: THREE.DoubleSide})
+            );
+            const axis = new THREE.Vector3(1, 1, 1).normalize();
+            cylinder.position.set(0.5, 0.5, 0.5);
+            cylinder.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), axis);
+            scene.add(cylinder);
+
+            const k_top = 3 - Math.sqrt(6)*r;
+            const k_bot = Math.sqrt(6)*r;
+            const pts = [
+                new THREE.Vector3(1, (k_top-1)/2, (k_top-1)/2), new THREE.Vector3((k_top-1)/2, 1, (k_top-1)/2), new THREE.Vector3((k_top-1)/2, (k_top-1)/2, 1),
+                new THREE.Vector3(0, k_bot/2, k_bot/2), new THREE.Vector3(k_bot/2, 0, k_bot/2), new THREE.Vector3(k_bot/2, k_bot/2, 0)
+            ];
+            pts.forEach((p, i) => contactPoints[i].position.copy(p));
+            contactLines[0].geometry.setFromPoints([pts[0], pts[1], pts[2]]);
+            contactLines[1].geometry.setFromPoints([pts[3], pts[4], pts[5]]);
+            axisPoints[0].position.set(k_top/3, k_top/3, k_top/3);
+            axisPoints[1].position.set(k_bot/3, k_bot/3, k_bot/3);
+
+            updateProjection(r, h, L);
+        }
+
+        function updateProjection(r, h, L) {
+            projGroup.position.set(0.5, 0.001, 0.5); 
+            projGroup.lookAt(new THREE.Vector3(1.5, 0.001, 1.5)); 
+
+            projRect.geometry.dispose(); projTop.geometry.dispose(); projBot.geometry.dispose();
+            projLines.forEach(l => l.geometry.dispose());
+
+            const geoRect = new THREE.PlaneGeometry(2 * r, L);
+            geoRect.rotateX(-Math.PI / 2);
+            projRect.geometry = geoRect;
+            projLines[0].geometry = new THREE.EdgesGeometry(geoRect);
+
+            const geoTop = new THREE.CircleGeometry(r, 32, Math.PI, Math.PI);
+            geoTop.scale(1, 1 / Math.sqrt(3), 1);
+            geoTop.rotateX(-Math.PI / 2);
+            geoTop.translate(0, 0, L / 2); 
+            projTop.geometry = geoTop;
+            projLines[1].geometry = new THREE.EdgesGeometry(geoTop);
+
+            const geoBot = new THREE.CircleGeometry(r, 32, 0, Math.PI);
+            geoBot.scale(1, 1 / Math.sqrt(3), 1);
+            geoBot.rotateX(-Math.PI / 2);
+            geoBot.translate(0, 0, -L / 2);
+            projBot.geometry = geoBot;
+            projLines[2].geometry = new THREE.EdgesGeometry(geoBot);
+
+            const O = new THREE.Vector3(0, 0.002, 0); 
+            const u = new THREE.Vector3(1, 1, 1).normalize();
+            const projDir = new THREE.Vector3(1, 0, 1).normalize();
+            
+            const center = new THREE.Vector3(0.5, 0.5, 0.5);
+            const pTop = center.clone().addScaledVector(u, h / 2);
+            const pBot = center.clone().addScaledVector(u, -h / 2);
+            
+            const pTopProj = new THREE.Vector3(pTop.x, 0.002, pTop.z);
+            const pBotProj = new THREE.Vector3(pBot.x, 0.002, pBot.z);
+
+            axisLine3D.geometry.setFromPoints([O, new THREE.Vector3(1, 1, 1)]);
+            axisLineProj.geometry.setFromPoints([O, new THREE.Vector3(1, 0.002, 1)]);
+            
+            dropLineTop.geometry.setFromPoints([pTop, pTopProj]);
+            dropLineBot.geometry.setFromPoints([pBot, pBotProj]);
+            dropLineTop.computeLineDistances();
+            dropLineBot.computeLineDistances();
+
+            const arcRadius = 0.25;
+            const theta = Math.acos(Math.sqrt(6)/3); 
+            const v1 = new THREE.Vector3(1, 0, 1).normalize();
+            const v2 = new THREE.Vector3(0, 1, 0);
+            
+            const arcPoints = [];
+            for(let i=0; i<=16; i++) {
+                let phi = (i/16) * theta;
+                let p = new THREE.Vector3()
+                    .addScaledVector(v1, arcRadius * Math.cos(phi))
+                    .addScaledVector(v2, arcRadius * Math.sin(phi))
+                    .add(O); 
+                arcPoints.push(p);
+            }
+            thetaArcLine.geometry.setFromPoints(arcPoints);
+
+            let midPhi = theta / 2;
+            let labelPos = new THREE.Vector3()
+                .addScaledVector(v1, arcRadius * 1.35 * Math.cos(midPhi))
+                .addScaledVector(v2, arcRadius * 1.35 * Math.sin(midPhi))
+                .add(O);
+            thetaLabelSprite.position.copy(labelPos);
+
+            // 기둥 내부 직사각형 교단면 계산
+            const wDir = new THREE.Vector3(-1, 0, 1).normalize();
+            const rVec = wDir.clone().multiplyScalar(r); 
+            const hVec = u.clone().multiplyScalar(h/2);  
+            
+            const p1 = center.clone().add(hVec).add(rVec);
+            const p2 = center.clone().add(hVec).sub(rVec);
+            const p3 = center.clone().sub(hVec).sub(rVec);
+            const p4 = center.clone().sub(hVec).add(rVec);
+            
+            crossSectionRect.geometry.setFromPoints([p1, p2, p3, p4]);
+            crossSectionRect.computeLineDistances(); 
+
+            // 7. 추가: 정사영되는 밑면 반원 궤적 그리기 (바깥쪽을 향하는 반원)
+            // v_y는 wDir과 u에 직교하는 방향벡터 (바닥 투영방향을 향함)
+            const v_y = u.clone().cross(wDir).normalize();
+            
+            const arcPointsTop = [];
+            const arcPointsBot = [];
+            const baseVisualR = r + 0.002; // 실린더 면과 겹쳐 깜박이는 것을 방지하기 위해 반경 살짝 확대
+            
+            for(let i=0; i<=32; i++){
+                let th = (i/32) * Math.PI; // 0 ~ PI
+                
+                // Top: 투영 방향(+v_y)을 향하는 바깥 반원
+                arcPointsTop.push(pTop.clone()
+                    .addScaledVector(wDir, baseVisualR * Math.cos(th))
+                    .addScaledVector(v_y, baseVisualR * Math.sin(th))
+                    .addScaledVector(u, 0.002) // 위쪽으로 살짝 띄움
+                );
+                
+                // Bot: 투영 반대 방향(-v_y)을 향하는 바깥 반원
+                arcPointsBot.push(pBot.clone()
+                    .addScaledVector(wDir, baseVisualR * Math.cos(th))
+                    .addScaledVector(v_y, -baseVisualR * Math.sin(th))
+                    .addScaledVector(u, -0.002) // 아래쪽으로 살짝 띄움
+                );
+            }
+            
+            baseTopArc.geometry.setFromPoints(arcPointsTop);
+            baseBotArc.geometry.setFromPoints(arcPointsBot);
+            baseTopArc.computeLineDistances();
+            baseBotArc.computeLineDistances();
+        }
+
+        // --- 모드 전환 버튼 ---
+        document.getElementById('mode-toggle').addEventListener('click', () => {
+            currentMode = currentMode === 1 ? 2 : 1;
+            document.getElementById('mode-toggle').innerText = currentMode === 1 ? "2번 문제 (정사영 분석) 보기" : "1번 문제 (기본 시각화) 돌아가기";
+            document.getElementById('prob1-ui').style.display = currentMode === 1 ? "block" : "none";
+            document.getElementById('prob2-ui').style.display = currentMode === 2 ? "block" : "none";
+            cubeGroup.visible = (currentMode === 1);
+            mode2Group.visible = (currentMode === 2);
+            update(parseFloat(document.getElementById('r-slider').value));
+        });
+
+        // --- 그래프 (1번 모드용) ---
+        function drawGraph(currR) {
+            const canvas = document.getElementById('graph-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const maxR = 0.612;
+            const maxV = (Math.PI * Math.pow(0.408, 2) * (Math.sqrt(3) - 2*Math.sqrt(2)*0.408)) * 1.2;
+
+            ctx.strokeStyle = '#eee'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, canvas.height/2); ctx.lineTo(canvas.width, canvas.height/2); ctx.stroke();
+
+            ctx.beginPath(); ctx.strokeStyle = '#007BFF'; ctx.lineWidth = 2.5;
+            for(let x=0; x <= canvas.width; x++) {
+                let rTest = (x / canvas.width) * maxR;
+                let hTest = Math.sqrt(3) - 2 * Math.sqrt(2) * rTest;
+                let vTest = hTest < 0 ? 0 : Math.PI * rTest * rTest * hTest;
+                let y = canvas.height - (vTest / maxV) * canvas.height;
+                if(x===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            let currX = (currR / maxR) * canvas.width;
+            let currH = Math.sqrt(3) - 2 * Math.sqrt(2) * currR;
+            let currV = currH < 0 ? 0 : Math.PI * currR * currR * currH;
+            let currY = canvas.height - (currV / maxV) * canvas.height;
+
+            ctx.beginPath(); ctx.fillStyle = '#dc3545'; ctx.arc(currX, currY, 6, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        }
+
+        document.getElementById('r-slider').addEventListener('input', (e) => update(parseFloat(e.target.value)));
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+        update(0.408);
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>최종 시뮬레이터: 종속된 교점 Q의 자취</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { display: flex; max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .left-panel { flex: 2; padding-right: 20px; border-right: 2px solid #eee; }
+        .right-panel { flex: 1; padding-left: 20px; }
+        canvas { background-color: white; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 15px; }
+        h2 { color: #333; margin-top: 0; }
+        .description { background-color: #eef2f5; padding: 10px; border-radius: 5px; font-size: 14px; color: #555; margin-bottom: 15px; line-height: 1.5; }
+        .controls label { display: block; margin-top: 10px; font-weight: bold; font-size: 14px; }
+        .controls input[type="range"] { width: 100%; margin-top: 5px; }
+        .btn-group { margin-top: 15px; text-align: center; }
+        button { padding: 10px 20px; font-size: 14px; font-weight: bold; color: white; background-color: #007bff; border: none; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #0056b3; }
+        .data-box { background-color: #fff8e1; border-left: 4px solid #ffc107; padding: 10px; margin-bottom: 15px; font-family: monospace; font-size: 15px; }
+        .data-title { font-weight: bold; color: #333; margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="left-panel">
+        <h2>동적 기하 시뮬레이터: 교점 Q의 자취</h2>
+        <div class="description">
+            <strong>[상황 설명]</strong> 원 위의 동점 P에 대하여, 선분 PA를 m1:n1으로 내분하는 점을 N, 선분 PB를 m2:n2로 내분하는 점을 M이라 합니다.<br>
+            두 직선 AM과 BN의 교점 Q가 그리는 자취를 탐구합니다. (단, 점 P는 A와 B가 될 수 없으므로 궤적의 양 끝은 빈 동그라미로 제외됩니다.)
+        </div>
+        
+        <canvas id="simCanvas" width="600" height="500"></canvas>
+        
+        <div class="controls">
+            <label>점 P의 위치 (각도 θ): <span id="thetaVal">0.01</span> rad</label>
+            <input type="range" id="thetaSlider" min="0.01" max="6.27" step="0.01" value="0.01">
+            
+            <label>원 반지름 (r): <span id="rVal">1</span></label>
+            <input type="range" id="rSlider" class="param-slider" min="1" max="3" step="0.1" value="1">
+
+            <label>PA 내분 비율 (m1 : n1) = <span id="paRatioVal">3 : 4</span></label>
+            <input type="range" id="paSlider" class="param-slider" min="1" max="10" step="1" value="3">
+            <input type="range" id="paSlider2" class="param-slider" min="1" max="10" step="1" value="4">
+
+            <label>PB 내분 비율 (m2 : n2) = <span id="pbRatioVal">1 : 4</span></label>
+            <input type="range" id="pbSlider" class="param-slider" min="1" max="10" step="1" value="1">
+            <input type="range" id="pbSlider2" class="param-slider" min="1" max="10" step="1" value="4">
+        </div>
+        
+        <div class="btn-group">
+            <button id="playBtn">▶ 자동 재생 / 일시 정지</button>
+            <button id="resetBtn" style="background-color: #6c757d;">초기화</button>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <h2>실시간 좌표 데이터</h2>
+        <div class="description">
+            좌표 데이터는 소수점 셋째 자리까지 표기됩니다. 수기로 계산한 자취의 방정식과 실시간으로 비교(Cross-check)해 보세요.
+        </div>
+        
+        <div class="data-box">
+            <div class="data-title">고정점</div>
+            <div id="coordA">A = (-1.000, 0.000)</div>
+            <div id="coordB">B = (1.000, 0.000)</div>
+        </div>
+
+        <div class="data-box">
+            <div class="data-title">동점 P (원 위의 점)</div>
+            <div id="coordP">P = (x, y)</div>
+        </div>
+
+        <div class="data-box">
+            <div class="data-title">내분점 M, N</div>
+            <div id="coordN">N (PA 내분) = (x, y)</div>
+            <div id="coordM">M (PB 내분) = (x, y)</div>
+        </div>
+
+        <div class="data-box" style="border-left-color: #dc3545; background-color: #f8d7da;">
+            <div class="data-title" style="color: #dc3545;">자취의 교점 Q</div>
+            <div id="coordQ" style="font-weight: bold; color: #dc3545;">Q = (x, y)</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Sliders
+    const thetaSlider = document.getElementById('thetaSlider');
+    const rSlider = document.getElementById('rSlider');
+    const paSlider = document.getElementById('paSlider');
+    const paSlider2 = document.getElementById('paSlider2');
+    const pbSlider = document.getElementById('pbSlider');
+    const pbSlider2 = document.getElementById('pbSlider2');
+    const paramSliders = document.querySelectorAll('.param-slider');
+    
+    // Buttons
+    const playBtn = document.getElementById('playBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    // Display Spans
+    const thetaVal = document.getElementById('thetaVal');
+    const rVal = document.getElementById('rVal');
+    const paRatioVal = document.getElementById('paRatioVal');
+    const pbRatioVal = document.getElementById('pbRatioVal');
+
+    const centerX = 300;
+    const centerY = 250;
+    const scale = 120; 
+
+    let theta = parseFloat(thetaSlider.value);
+    let r, pa_m, pa_n, pb_m, pb_n;
+    let isPlaying = false;
+    let animationId;
+
+    function toScreen(x, y) {
+        return { cx: centerX + x * scale, cy: centerY - y * scale };
+    }
+
+    function getIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+        const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (den === 0) return null; 
+        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+        return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
+    }
+
+    // 특정 각도(t)일 때의 점 위치를 계산하는 함수
+    function calculatePointsAt(t) {
+        const A = { x: -r, y: 0 };
+        const B = { x: r, y: 0 };
+        const P = { x: r * Math.cos(t), y: r * Math.sin(t) };
+        const N = { x: (pa_n * P.x + pa_m * A.x)/(pa_m + pa_n), y: (pa_n * P.y + pa_m * A.y)/(pa_m + pa_n) };
+        const M = { x: (pb_n * P.x + pb_m * B.x)/(pb_m + pb_n), y: (pb_n * P.y + pb_m * B.y)/(pb_m + pb_n) };
+        const Q = getIntersection(A.x, A.y, M.x, M.y, B.x, B.y, N.x, N.y);
+        return { A, B, P, N, M, Q };
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 축
+        ctx.beginPath();
+        ctx.strokeStyle = "#ddd"; ctx.lineWidth = 1;
+        ctx.moveTo(0, centerY); ctx.lineTo(canvas.width, centerY);
+        ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height);
+        ctx.stroke();
+
+        const A = { x: -r, y: 0 };
+        const B = { x: r, y: 0 };
+        const scrA = toScreen(A.x, A.y);
+        const scrB = toScreen(B.x, B.y);
+
+        // 원
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, r * scale, 0, Math.PI * 2);
+        ctx.strokeStyle = "#999"; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+
+        // 자취 렌더링 (0부터 현재 theta까지 선을 이어서 그림)
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(220, 53, 69, 0.8)"; ctx.lineWidth = 3;
+        let isFirstPoint = true;
+        for(let t = 0.01; t <= theta; t += 0.015) {
+            // A점(π)이나 B점(0, 2π) 부근은 제외 (구멍)
+            if (Math.abs(t - Math.PI) < 0.05 || t < 0.02 || t > 2 * Math.PI - 0.02) {
+                isFirstPoint = true; 
+                continue;
+            }
+            let pts = calculatePointsAt(t);
+            if(pts.Q) {
+                let sq = toScreen(pts.Q.x, pts.Q.y);
+                if(isFirstPoint) {
+                    ctx.moveTo(sq.cx, sq.cy);
+                    isFirstPoint = false;
+                } else {
+                    ctx.lineTo(sq.cx, sq.cy);
+                }
+            }
+        }
+        ctx.stroke();
+
+        // 정의역 제외점(빈 동그라미) 표시
+        const limitAngles = [0.001, Math.PI - 0.001, Math.PI + 0.001, Math.PI * 2 - 0.001];
+        limitAngles.forEach(t => {
+            let pts = calculatePointsAt(t);
+            if(pts.Q) {
+                let sq = toScreen(pts.Q.x, pts.Q.y);
+                ctx.beginPath(); ctx.arc(sq.cx, sq.cy, 4, 0, Math.PI*2);
+                ctx.fillStyle = "white"; ctx.fill();
+                ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(220, 53, 69, 0.5)"; ctx.stroke();
+            }
+        });
+
+        // 현재 각도에서의 점들
+        const currPts = calculatePointsAt(theta);
+        const scrP = toScreen(currPts.P.x, currPts.P.y);
+        const scrM = toScreen(currPts.M.x, currPts.M.y);
+        const scrN = toScreen(currPts.N.x, currPts.N.y);
+
+        // 보조선
+        ctx.beginPath(); ctx.strokeStyle = "rgba(0, 123, 255, 0.5)"; ctx.lineWidth = 1.5;
+        ctx.moveTo(scrA.cx, scrA.cy); ctx.lineTo(scrM.cx, scrM.cy); 
+        ctx.moveTo(scrB.cx, scrB.cy); ctx.lineTo(scrN.cx, scrN.cy); 
+        ctx.stroke();
+
+        ctx.beginPath(); ctx.strokeStyle = "rgba(40, 167, 69, 0.4)"; ctx.setLineDash([3,3]);
+        ctx.moveTo(scrA.cx, scrA.cy); ctx.lineTo(scrP.cx, scrP.cy);
+        ctx.moveTo(scrB.cx, scrB.cy); ctx.lineTo(scrP.cx, scrP.cy);
+        ctx.stroke(); ctx.setLineDash([]);
+
+        // 점 찍기
+        function drawPoint(pt, color, label, isHollow=false) {
+            ctx.beginPath();
+            ctx.arc(pt.cx, pt.cy, 5, 0, Math.PI * 2);
+            if(isHollow) {
+                ctx.fillStyle = "white"; ctx.fill();
+                ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
+            } else {
+                ctx.fillStyle = color; ctx.fill();
+            }
+            ctx.fillStyle = "#333"; ctx.font = "14px Arial";
+            ctx.fillText(label, pt.cx + 8, pt.cy - 8);
+        }
+
+        drawPoint(scrA, "black", "A", true);
+        drawPoint(scrB, "black", "B", true);
+        drawPoint(scrP, "#28a745", "P");
+        drawPoint(scrM, "#fd7e14", "M");
+        drawPoint(scrN, "#fd7e14", "N");
+        if(currPts.Q) drawPoint(toScreen(currPts.Q.x, currPts.Q.y), "#dc3545", "Q");
+
+        // 우측 데이터 패널 업데이트
+        document.getElementById('coordA').innerText = `A = (${A.x.toFixed(3)}, ${A.y.toFixed(3)})`;
+        document.getElementById('coordB').innerText = `B = (${B.x.toFixed(3)}, ${B.y.toFixed(3)})`;
+        document.getElementById('coordP').innerText = `P = (${currPts.P.x.toFixed(3)}, ${currPts.P.y.toFixed(3)})`;
+        document.getElementById('coordN').innerText = `N = (${currPts.N.x.toFixed(3)}, ${currPts.N.y.toFixed(3)})`;
+        document.getElementById('coordM').innerText = `M = (${currPts.M.x.toFixed(3)}, ${currPts.M.y.toFixed(3)})`;
+        if(currPts.Q) document.getElementById('coordQ').innerText = `Q = (${currPts.Q.x.toFixed(3)}, ${currPts.Q.y.toFixed(3)})`;
+    }
+
+    function updateValues() {
+        r = parseFloat(rSlider.value);
+        pa_m = parseFloat(paSlider.value);
+        pa_n = parseFloat(paSlider2.value);
+        pb_m = parseFloat(pbSlider.value);
+        pb_n = parseFloat(pbSlider2.value);
+
+        thetaVal.innerText = theta.toFixed(2);
+        rVal.innerText = r.toFixed(1);
+        paRatioVal.innerText = `${pa_m} : ${pa_n}`;
+        pbRatioVal.innerText = `${pb_m} : ${pb_n}`;
+    }
+
+    // 반지름이나 비율 등 조건을 바꾸면 궤적 초기화
+    paramSliders.forEach(sl => {
+        sl.addEventListener('input', () => {
+            theta = 0.01; // 위치 초기화
+            thetaSlider.value = theta;
+            updateValues();
+            draw();
+        });
+    });
+
+    thetaSlider.addEventListener('input', (e) => {
+        theta = parseFloat(e.target.value);
+        
+        // 정의역 조건: P가 A나 B에 닿지 않게 보정
+        if(Math.abs(theta - Math.PI) < 0.05) theta = Math.PI + 0.05;
+        if(theta < 0.01) theta = 0.01;
+        if(theta > Math.PI * 2 - 0.01) theta = Math.PI * 2 - 0.01;
+        
+        thetaSlider.value = theta;
+        updateValues();
+        draw();
+    });
+
+    playBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        if (isPlaying) {
+            // 끝까지 갔으면 다시 처음부터
+            if(theta >= Math.PI * 2 - 0.05) theta = 0.01;
+            animate();
+        } else {
+            cancelAnimationFrame(animationId);
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        thetaSlider.value = 0.01; rSlider.value = 1; 
+        paSlider.value = 3; paSlider2.value = 4;
+        pbSlider.value = 1; pbSlider2.value = 4;
+        isPlaying = false; cancelAnimationFrame(animationId);
+        theta = 0.01;
+        updateValues();
+        draw();
+    });
+
+    function animate() {
+        if (!isPlaying) return;
+        theta += 0.02;
+        
+        // 정의역 조건 점프
+        if (Math.abs(theta - Math.PI) < 0.05) theta = Math.PI + 0.05;
+        
+        if (theta >= Math.PI * 2 - 0.01) {
+            theta = Math.PI * 2 - 0.01;
+            isPlaying = false; // 한 바퀴 돌면 멈춤
+        }
+
+        thetaSlider.value = theta;
+        updateValues();
+        draw();
+        if(isPlaying) animationId = requestAnimationFrame(animate);
+    }
+
+    updateValues(); // 초기 실행
+    draw();
+</script>
+
+</body>
+</html>

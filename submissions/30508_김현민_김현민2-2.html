@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>움직이는 적분 구간 시뮬레이터 - 최종 버전</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f6f8;
+      color: #222;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 28px auto;
+      padding: 0 18px;
+    }
+
+    h1 {
+      text-align: center;
+      margin: 0 0 8px;
+      font-size: 27px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #555;
+      line-height: 1.5;
+      margin-bottom: 22px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(650px, 780px) 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e9ef;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 8px 24px rgba(20, 30, 45, 0.08);
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      border: 1px solid #d9e0e8;
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .controls {
+      margin-top: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      background: #2f7df6;
+      color: white;
+      padding: 10px 18px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(47, 125, 246, 0.25);
+      white-space: nowrap;
+    }
+
+    button:hover {
+      filter: brightness(0.96);
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: #2f7df6;
+    }
+
+    .value {
+      min-width: 110px;
+      text-align: right;
+      color: #444;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .info h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    .infoBox, .section {
+      background: #f8fafc;
+      border: 1px solid #e5e9ef;
+      border-radius: 12px;
+      padding: 12px 14px;
+      line-height: 1.6;
+      margin-bottom: 12px;
+      font-size: 15px;
+    }
+
+    .section {
+      background: #f6f8fb;
+      border-color: #e3e7ee;
+    }
+
+    .label {
+      display: block;
+      font-size: 13px;
+      color: #667085;
+      margin-bottom: 3px;
+    }
+
+    .dataGrid {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    code {
+      font-family: "Consolas", "Menlo", monospace;
+      background: #eef2f7;
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+
+    .formula {
+      font-family: "Consolas", "Menlo", monospace;
+      line-height: 1.8;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-top: 8px;
+    }
+
+    .evenBox {
+      background: #eef7ff;
+      border-color: #bfdbfe;
+    }
+
+    .areaBox {
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 12px;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .f::before { background: #111827; }
+    .integral::before { background: #93c5fd; }
+    .interval::before { background: #ef4444; }
+    .Fgraph::before { background: #f59e0b; }
+    .Farea::before { background: #fde68a; }
+    .sym::before { background: #7c3aed; }
+
+    ul {
+      margin: 8px 0 0 20px;
+      padding: 0;
+    }
+
+    li {
+      margin: 4px 0;
+    }
+
+    @media (max-width: 1030px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .row {
+        flex-wrap: wrap;
+      }
+
+      input[type="range"] {
+        min-width: 220px;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>움직이는 적분 구간 시뮬레이터</h1>
+    <div class="subtitle">
+      함수 f(t) 위에서 적분 구간 [x-1/2, x+1/2]이 움직일 때의 넓이 F(x)를 만들고,<br>
+      아래 그래프에서 현재 F(x)의 위치와 전체 넓이를 확인합니다.
+    </div>
+
+    <div class="layout">
+      <div class="card">
+        <canvas id="canvas" width="880" height="780"></canvas>
+
+        <div class="controls">
+          <div class="row">
+            <button id="playBtn">▶ 자동 재생</button>
+            <button id="areaToggleBtn">F(x) 넓이 표시 끄기</button>
+            <button id="symToggleBtn">대칭 확인 켜기</button>
+            <input id="slider" type="range" min="-2" max="2" step="0.01" value="0">
+            <div class="value" id="xValue">x = 0.00</div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span class="f">함수 f(t)</span>
+          <span class="integral">현재 적분 영역</span>
+          <span class="interval">적분 구간 양끝</span>
+          <span class="Fgraph">F(x) 그래프</span>
+          <span class="Farea">F(x)와 x축 사이 영역</span>
+          <span class="sym">현재 F(x) 위치</span>
+        </div>
+      </div>
+
+      <div class="card info">
+        <h2>현재 상태 및 풀이 정보</h2>
+
+        <div class="dataGrid">
+          <div class="infoBox">
+            <span class="label">현재 x값</span>
+            <strong id="currentX">x = 0.00</strong>
+          </div>
+          <div class="infoBox">
+            <span class="label">적분 구간</span>
+            <strong id="intervalText">[-0.50, 0.50]</strong>
+          </div>
+          <div class="infoBox">
+            <span class="label">현재 F(x)값</span>
+            <strong id="fValue">F(x) = 0.750</strong>
+          </div>
+          <div class="infoBox">
+            <span class="label">그래프 표시 상태</span>
+            <strong id="symText">현재 F(x)만 표시 중</strong>
+          </div>
+        </div>
+
+        <div class="section">
+          <strong>F(x)의 구간별 식</strong>
+          <div class="formula">
+            |x| ≤ 1/2 : F(x) = 3/4 - x²<br>
+            1/2 ≤ |x| ≤ 3/2 : F(x) = 1/2(3/2 - |x|)²<br>
+            |x| ≥ 3/2 : F(x) = 0
+          </div>
+        </div>
+
+        <div class="section evenBox">
+          <strong>우함수 확인</strong><br>
+          위의 f(t)는 y축에 대해 대칭인 우함수입니다. 적분 구간을 x에서 -x로 바꾸면 구간이 좌우 대칭으로 이동하므로, 두 넓이는 같습니다.<br>
+          따라서 <strong>F(-x)=F(x)</strong>이고, F(x)는 우함수입니다.
+        </div>
+
+        <div class="section areaBox">
+          <strong>문제 (2) 넓이 검토</strong><br>
+          아래 그래프의 노란색 영역은 곡선 y=F(x)와 x축으로 둘러싸인 부분입니다.<br>
+          전체 넓이는 <strong>1</strong>입니다.
+        </div>
+
+        <div class="section">
+          <strong>풀이 인사이트</strong>
+          <ul>
+            <li>위 그래프에서는 적분 구간이 움직이며 F(x)가 만들어지는 과정을 볼 수 있습니다.</li>
+            <li>아래 그래프에서는 현재 F(x)의 위치를 먼저 확인하고, 필요할 때만 대칭 확인 버튼으로 F(-x)를 함께 볼 수 있습니다.</li>
+            <li>F(x)가 0이 되는 구간과 x축으로 둘러싸인 전체 넓이를 시각적으로 확인할 수 있습니다.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const slider = document.getElementById("slider");
+    const playBtn = document.getElementById("playBtn");
+    const areaToggleBtn = document.getElementById("areaToggleBtn");
+    const symToggleBtn = document.getElementById("symToggleBtn");
+
+    const xValue = document.getElementById("xValue");
+    const currentX = document.getElementById("currentX");
+    const intervalText = document.getElementById("intervalText");
+    const fValue = document.getElementById("fValue");
+    const symText = document.getElementById("symText");
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const topPlot = {
+      left: 70,
+      top: 50,
+      width: 740,
+      height: 300,
+      xMin: -2.2,
+      xMax: 2.2,
+      yMin: -0.15,
+      yMax: 1.25
+    };
+
+    const bottomPlot = {
+      left: 70,
+      top: 430,
+      width: 740,
+      height: 270,
+      xMin: -2.1,
+      xMax: 2.1,
+      yMin: -0.12,
+      yMax: 0.9
+    };
+
+    let x = 0;
+    let playing = false;
+    let direction = 1;
+    let lastTime = null;
+    let showFArea = true;
+    let showSymmetry = false;
+
+    function f(t) {
+      if (t >= -1 && t <= 0) return t + 1;
+      if (t >= 0 && t <= 1) return -t + 1;
+      return 0;
+    }
+
+    function F(x) {
+      const ax = Math.abs(x);
+
+      if (ax <= 0.5) {
+        return 0.75 - x * x;
+      }
+
+      if (ax <= 1.5) {
+        return 0.5 * Math.pow(1.5 - ax, 2);
+      }
+
+      return 0;
+    }
+
+    function toX(plot, value) {
+      return plot.left + (value - plot.xMin) / (plot.xMax - plot.xMin) * plot.width;
+    }
+
+    function toY(plot, value) {
+      return plot.top + plot.height - (value - plot.yMin) / (plot.yMax - plot.yMin) * plot.height;
+    }
+
+    function format(n) {
+      if (Math.abs(n) < 0.005) return "0.00";
+      return n.toFixed(2);
+    }
+
+    function drawPlotFrame(plot, xLabel, yLabel, title) {
+      ctx.save();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(plot.left, plot.top, plot.width, plot.height);
+
+      ctx.strokeStyle = "#edf0f4";
+      ctx.lineWidth = 1;
+
+      for (let xv = Math.ceil(plot.xMin * 2) / 2; xv <= plot.xMax; xv += 0.5) {
+        ctx.beginPath();
+        ctx.moveTo(toX(plot, xv), plot.top);
+        ctx.lineTo(toX(plot, xv), plot.top + plot.height);
+        ctx.stroke();
+      }
+
+      const yStep = plot === topPlot ? 0.2 : 0.15;
+      for (let yv = 0; yv <= plot.yMax; yv += yStep) {
+        ctx.beginPath();
+        ctx.moveTo(plot.left, toY(plot, yv));
+        ctx.lineTo(plot.left + plot.width, toY(plot, yv));
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.moveTo(toX(plot, plot.xMin), toY(plot, 0));
+      ctx.lineTo(toX(plot, plot.xMax), toY(plot, 0));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(toX(plot, 0), toY(plot, plot.yMin));
+      ctx.lineTo(toX(plot, 0), toY(plot, plot.yMax));
+      ctx.stroke();
+
+      ctx.strokeStyle = "#d1d5db";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(plot.left, plot.top, plot.width, plot.height);
+
+      ctx.fillStyle = "#111827";
+      ctx.font = "bold 17px system-ui";
+      ctx.fillText(title, plot.left, plot.top - 16);
+
+      ctx.font = "15px system-ui";
+      ctx.fillText(xLabel, plot.left + plot.width - 16, toY(plot, 0) - 8);
+      ctx.fillText(yLabel, toX(plot, 0) + 8, plot.top + 18);
+
+      ctx.fillStyle = "#666";
+      ctx.font = "12px system-ui";
+
+      for (let xv = -2; xv <= 2; xv += 1) {
+        ctx.fillText(String(xv), toX(plot, xv) - 5, toY(plot, 0) + 18);
+      }
+
+      ctx.restore();
+    }
+
+    function drawFunctionFSmall() {
+      ctx.save();
+
+      ctx.beginPath();
+      const steps = 700;
+
+      for (let i = 0; i <= steps; i++) {
+        const t = topPlot.xMin + (topPlot.xMax - topPlot.xMin) * i / steps;
+        const y = f(t);
+
+        if (i === 0) {
+          ctx.moveTo(toX(topPlot, t), toY(topPlot, y));
+        } else {
+          ctx.lineTo(toX(topPlot, t), toY(topPlot, y));
+        }
+      }
+
+      ctx.strokeStyle = "#111827";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.fillStyle = "#111827";
+      ctx.font = "bold 15px system-ui";
+      ctx.fillText("f(t)", toX(topPlot, 0.08), toY(topPlot, 0.95));
+
+      ctx.restore();
+    }
+
+    function drawCurrentIntegralArea() {
+      const a = x - 0.5;
+      const b = x + 0.5;
+      const start = Math.max(a, topPlot.xMin);
+      const end = Math.min(b, topPlot.xMax);
+
+      ctx.save();
+
+      ctx.beginPath();
+      ctx.moveTo(toX(topPlot, start), toY(topPlot, 0));
+
+      const steps = 300;
+      for (let i = 0; i <= steps; i++) {
+        const t = start + (end - start) * i / steps;
+        ctx.lineTo(toX(topPlot, t), toY(topPlot, f(t)));
+      }
+
+      ctx.lineTo(toX(topPlot, end), toY(topPlot, 0));
+      ctx.closePath();
+      ctx.fillStyle = "rgba(59, 130, 246, 0.30)";
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawIntervalLines() {
+      const a = x - 0.5;
+      const b = x + 0.5;
+
+      ctx.save();
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([8, 6]);
+
+      ctx.beginPath();
+      ctx.moveTo(toX(topPlot, a), toY(topPlot, 0));
+      ctx.lineTo(toX(topPlot, a), toY(topPlot, 1.12));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(toX(topPlot, b), toY(topPlot, 0));
+      ctx.lineTo(toX(topPlot, b), toY(topPlot, 1.12));
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ef4444";
+      ctx.font = "bold 13px system-ui";
+      ctx.fillText("x - 1/2", toX(topPlot, a) - 30, toY(topPlot, 1.18));
+      ctx.fillText("x + 1/2", toX(topPlot, b) - 30, toY(topPlot, 1.18));
+
+      ctx.strokeStyle = "#2563eb";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(toX(topPlot, x), toY(topPlot, 0));
+      ctx.lineTo(toX(topPlot, x), toY(topPlot, -0.08));
+      ctx.stroke();
+
+      ctx.fillStyle = "#2563eb";
+      ctx.font = "bold 14px system-ui";
+      ctx.fillText("x", toX(topPlot, x) - 4, toY(topPlot, -0.1) + 22);
+
+      ctx.restore();
+    }
+
+    function drawFArea() {
+      ctx.save();
+
+      ctx.beginPath();
+      ctx.moveTo(toX(bottomPlot, -1.5), toY(bottomPlot, 0));
+
+      const steps = 800;
+      for (let i = 0; i <= steps; i++) {
+        const xv = -1.5 + 3 * i / steps;
+        ctx.lineTo(toX(bottomPlot, xv), toY(bottomPlot, F(xv)));
+      }
+
+      ctx.lineTo(toX(bottomPlot, 1.5), toY(bottomPlot, 0));
+      ctx.closePath();
+      ctx.fillStyle = "rgba(245, 158, 11, 0.22)";
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawFGraph() {
+      ctx.save();
+
+      ctx.beginPath();
+      const steps = 900;
+
+      for (let i = 0; i <= steps; i++) {
+        const xv = bottomPlot.xMin + (bottomPlot.xMax - bottomPlot.xMin) * i / steps;
+        const y = F(xv);
+
+        if (i === 0) {
+          ctx.moveTo(toX(bottomPlot, xv), toY(bottomPlot, y));
+        } else {
+          ctx.lineTo(toX(bottomPlot, xv), toY(bottomPlot, y));
+        }
+      }
+
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawCurrentFPoint() {
+      const y = F(x);
+
+      ctx.save();
+
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = "#7c3aed";
+      ctx.lineWidth = 1.8;
+
+      ctx.beginPath();
+      ctx.moveTo(toX(bottomPlot, x), toY(bottomPlot, 0));
+      ctx.lineTo(toX(bottomPlot, x), toY(bottomPlot, y));
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "#7c3aed";
+      ctx.beginPath();
+      ctx.arc(toX(bottomPlot, x), toY(bottomPlot, y), 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#5b21b6";
+      ctx.font = "bold 13px system-ui";
+      ctx.fillText("현재 F(x)", toX(bottomPlot, x) + 8, toY(bottomPlot, y) - 8);
+
+      ctx.restore();
+    }
+
+    function drawSymmetryOnF() {
+      const y = F(x);
+      const mx = -x;
+
+      ctx.save();
+
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = "#7c3aed";
+      ctx.lineWidth = 1.8;
+
+      ctx.beginPath();
+      ctx.moveTo(toX(bottomPlot, x), toY(bottomPlot, 0));
+      ctx.lineTo(toX(bottomPlot, x), toY(bottomPlot, y));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(toX(bottomPlot, mx), toY(bottomPlot, 0));
+      ctx.lineTo(toX(bottomPlot, mx), toY(bottomPlot, y));
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(toX(bottomPlot, Math.min(x, mx)), toY(bottomPlot, y));
+      ctx.lineTo(toX(bottomPlot, Math.max(x, mx)), toY(bottomPlot, y));
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "#7c3aed";
+      ctx.beginPath();
+      ctx.arc(toX(bottomPlot, x), toY(bottomPlot, y), 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(toX(bottomPlot, mx), toY(bottomPlot, y), 7, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#5b21b6";
+      ctx.font = "bold 13px system-ui";
+      ctx.fillText("F(x)", toX(bottomPlot, x) + 8, toY(bottomPlot, y) - 8);
+      ctx.fillText("F(-x)", toX(bottomPlot, mx) + 8, toY(bottomPlot, y) + 18);
+
+      ctx.restore();
+    }
+
+    function drawBoundaryMarks() {
+      const marks = [-1.5, -0.5, 0.5, 1.5];
+
+      ctx.save();
+      ctx.fillStyle = "#334155";
+      ctx.font = "12px system-ui";
+
+      for (const m of marks) {
+        ctx.beginPath();
+        ctx.arc(toX(bottomPlot, m), toY(bottomPlot, 0), 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        const label = m === -1.5 ? "-3/2" :
+          m === -0.5 ? "-1/2" :
+          m === 0.5 ? "1/2" : "3/2";
+
+        ctx.fillText(label, toX(bottomPlot, m) - 13, toY(bottomPlot, 0) + 32);
+      }
+
+      ctx.restore();
+    }
+
+    function drawScene() {
+      ctx.clearRect(0, 0, W, H);
+
+      drawPlotFrame(topPlot, "t", "f(t)", "1. 원래 함수 f(t)와 움직이는 적분 구간");
+      drawCurrentIntegralArea();
+      drawFunctionFSmall();
+      drawIntervalLines();
+
+      drawPlotFrame(bottomPlot, "x", "F(x)", "2. 적분값으로 만들어지는 함수 F(x)");
+
+      if (showFArea) {
+        drawFArea();
+      }
+
+      drawFGraph();
+      drawBoundaryMarks();
+
+      if (showSymmetry) {
+        drawSymmetryOnF();
+      } else {
+        drawCurrentFPoint();
+      }
+
+      const a = x - 0.5;
+      const b = x + 0.5;
+      const value = F(x);
+      const mirrorValue = F(-x);
+
+      xValue.textContent = `x = ${format(x)}`;
+      currentX.textContent = `x = ${format(x)}`;
+      intervalText.textContent = `[${format(a)}, ${format(b)}]`;
+      fValue.textContent = `F(x) = ${value.toFixed(3)}`;
+
+      if (showSymmetry) {
+        symText.textContent = `대칭 확인 중: F(${format(x)}) = ${value.toFixed(3)}, F(${format(-x)}) = ${mirrorValue.toFixed(3)}`;
+      } else {
+        symText.textContent = `현재 F(${format(x)}) = ${value.toFixed(3)}만 표시 중`;
+      }
+    }
+
+    function animate(timestamp) {
+      if (!playing) {
+        lastTime = null;
+        return;
+      }
+
+      if (lastTime === null) lastTime = timestamp;
+      const elapsed = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      x += direction * elapsed * 0.7;
+
+      if (x >= 2) {
+        x = 2;
+        direction = -1;
+      }
+
+      if (x <= -2) {
+        x = -2;
+        direction = 1;
+      }
+
+      slider.value = x;
+      drawScene();
+      requestAnimationFrame(animate);
+    }
+
+    slider.addEventListener("input", () => {
+      x = parseFloat(slider.value);
+      drawScene();
+    });
+
+    playBtn.addEventListener("click", () => {
+      playing = !playing;
+      playBtn.textContent = playing ? "⏸ 일시정지" : "▶ 자동 재생";
+
+      if (playing) {
+        requestAnimationFrame(animate);
+      }
+    });
+
+    areaToggleBtn.addEventListener("click", () => {
+      showFArea = !showFArea;
+      areaToggleBtn.textContent = showFArea ? "F(x) 넓이 표시 끄기" : "F(x) 넓이 표시 켜기";
+      drawScene();
+    });
+
+    symToggleBtn.addEventListener("click", () => {
+      showSymmetry = !showSymmetry;
+      symToggleBtn.textContent = showSymmetry ? "대칭 확인 끄기" : "대칭 확인 켜기";
+      drawScene();
+    });
+
+    drawScene();
+  </script>
+</body>
+</html>

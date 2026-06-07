@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선분 AP의 수직이등분선 포락선 최종 시뮬레이터 (라이트 테마)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- MathJax for rendering LaTeX formulas beautifully -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" id="MathJax-script" async></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+        }
+        canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="border-b border-slate-200 bg-white/95 backdrop-blur px-6 py-4 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <span class="text-xs font-semibold tracking-wider text-emerald-600 uppercase">인천과학예술영재학교 수행평가 (최종 시각화 개선본)</span>
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2 mt-1">
+                    <i data-lucide="award" class="text-emerald-500 animate-pulse"></i>
+                    기하 시뮬레이터: 선분 AP의 수직이등분선 자취 및 쌍곡선 포락선
+                </h1>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-200">
+                    REVISION 2.2 (화이트 테마)
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Simulator Canvas & Advanced Render Panel (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- Canvas Container -->
+            <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xl flex flex-col">
+                <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" id="status-indicator"></span>
+                        <span class="text-xs font-bold text-emerald-700 uppercase tracking-wider" id="status-text">실시간 시각화 진행 중</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-slate-500 font-medium">
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-blue-500 rounded-full inline-block"></span>초점 B(-4,0)</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-red-500 rounded-full inline-block"></span>초점 A(4,0)</span>
+                    </div>
+                </div>
+                
+                <!-- Canvas Box -->
+                <div class="relative w-full aspect-square bg-white flex items-center justify-center p-4">
+                    <canvas id="mathCanvas" class="w-full h-full max-w-[500px] max-h-[500px] bg-white rounded-lg border border-slate-100"></canvas>
+                </div>
+            </div>
+
+            <!-- Controller Settings Panel -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col gap-6">
+                
+                <!-- Main Control Action Group -->
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-2">
+                        <button id="btnPlay" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-medium rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/10">
+                            <i data-lucide="play" class="w-4 h-4 fill-current" id="playIcon"></i>
+                            <span id="playText">자동 재생</span>
+                        </button>
+                        <button id="btnClearLocus" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl flex items-center gap-2 transition-all border border-slate-200">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            <span>자취 지우기</span>
+                        </button>
+                        <button id="btnReset" class="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-all border border-slate-200">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <!-- Toggle Control Layers -->
+                    <div class="flex flex-wrap gap-2">
+                        <button id="btnToggleHyperbola" class="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5">
+                            <i data-lucide="line-chart" class="w-3.5 h-3.5"></i>
+                            <span>쌍곡선 이론 경계</span>
+                        </button>
+                        <button id="btnToggleAsymptotes" class="px-3.5 py-2 bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-600 border border-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5">
+                            <i data-lucide="git-commit" class="w-3.5 h-3.5"></i>
+                            <span>쌍곡선 점근선</span>
+                        </button>
+                        <button id="btnToggleArea" class="px-3.5 py-2 bg-slate-100 hover:bg-cyan-50 text-slate-600 hover:text-cyan-600 border border-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5">
+                            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+                            <span>지나는 범위 채우기</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Parameters Control Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+                    
+                    <!-- Theta Control -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500 font-semibold">동점 P 각도 조작 (&theta;)</span>
+                            <span class="text-emerald-600 font-mono font-bold" id="valTheta">0.0° / 360.0°</span>
+                        </div>
+                        <input type="range" id="sliderTheta" min="0" max="360" step="0.5" value="0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-600">
+                    </div>
+
+                    <!-- Simulation Speed Control -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-500 font-semibold">자동 재생 속도 배율</span>
+                            <span class="text-indigo-600 font-mono font-bold" id="valSpeed">1.0x</span>
+                        </div>
+                        <input type="range" id="sliderSpeed" min="0.2" max="3.0" step="0.1" value="1.0" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                    </div>
+                </div>
+
+                <!-- Real-time Geo Coordinates Telemetry -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
+                    <div>
+                        <div class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">동점 P 좌표</div>
+                        <div class="text-xs font-mono font-bold text-slate-700 mt-1" id="coordP">(0.00, 0.00)</div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">중점 M (&perp;)</div>
+                        <div class="text-xs font-mono font-bold text-purple-600 mt-1" id="coordM">(0.00, 0.00)</div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">|QA - QP| 거리차</div>
+                        <div class="text-xs font-mono font-bold text-amber-600 mt-1" id="distDiff">4.000</div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">누적 수직이등분선</div>
+                        <div class="text-xs font-mono font-bold text-emerald-600 mt-1" id="lineCount">0개</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Rigorous Mathematical Proving Panel (5 Cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- Core Geometry & Symbols Explainer -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                    <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="shield-check" class="text-emerald-600 w-5 h-5"></i>
+                        수직이등분 기하 구조 피드백
+                    </h3>
+                </div>
+                
+                <div class="space-y-3 text-xs leading-relaxed text-slate-600">
+                    <p>
+                        수정된 최종 시뮬레이터에서는 고등학교 기하 및 수리논술의 연역적 엄밀성을 확보하기 위해 다음 두 가지 요소가 캔버스 상에 직접 표현됩니다.
+                    </p>
+                    
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex gap-3 items-start">
+                        <span class="mt-0.5 px-1.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded font-mono font-bold">1</span>
+                        <div>
+                            <span class="font-bold text-purple-900 block">수직 기호(Right Angle Symbol)</span>
+                            <p class="text-slate-500 mt-0.5">선분 $AP$와 수직이등분선 $l$이 교차하는 중점 $M$ 자리에 회전 방향에 맞추어 연동되는 직각 표시($\perp$) 박스를 실시간 렌더링하여 기하학적 성질을 명확히 규명합니다.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex gap-3 items-start">
+                        <span class="mt-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-mono font-bold">2</span>
+                        <div>
+                            <span class="font-bold text-emerald-900 block">이등분 합동 표시(Equality Marks)</span>
+                            <p class="text-slate-500 mt-0.5">선분 $AM$과 선분 $MP$의 길이가 정확히 반으로 쪼개졌음을 보이기 위해 두 선분의 중앙에 슬래시 기호(<code class="text-slate-900 bg-slate-100 px-1 py-0.5 rounded">//</code>)를 덧그려 이등분 관계를 강조합니다.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mathematical Proof Details (Hyperbolic Envelope) -->
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
+                    <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="calculator" class="text-indigo-600 w-5 h-5"></i>
+                        자취의 범위 및 면적 도출
+                    </h3>
+                </div>
+
+                <div class="space-y-3 text-xs leading-relaxed text-slate-600">
+                    <p>
+                        수직이등분선 $l$이 쓸고 지나가는 영역은 아래 부등식 범위를 이룹니다.
+                    </p>
+                    
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center space-y-1">
+                        <span class="text-[10px] text-slate-500 block uppercase font-semibold">최종 구하는 영역의 부등식</span>
+                        <span class="text-sm font-mono font-bold text-emerald-600">$$\frac{x^2}{4} - \frac{y^2}{12} \le 1$$</span>
+                    </div>
+
+                    <p>
+                        쌍곡선 $\frac{x^2}{4} - \frac{y^2}{12} = 1$의 주축의 끝점은 $(\pm 2, 0)$이며, 점근선의 방정식은 다음과 같습니다:
+                    </p>
+
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center space-y-1">
+                        <span class="text-[10px] text-slate-500 block uppercase font-semibold">쌍곡선 점근선 공식</span>
+                        <span class="text-sm font-mono font-bold text-amber-600">$$y = \pm\sqrt{3}x$$</span>
+                    </div>
+
+                    <p class="text-slate-500">
+                        수직이등분선 $l$은 점 $P$가 원을 도는 동안 점근선 내부 영역을 깎아나가며 쌍곡선의 볼록한 외곽 영역 전체를 메꾸어 나갑니다. '범위 채우기' 토글을 켜면 이 면적이 시각화되어 수학적 답안과 시뮬레이션의 일치율을 100% 입증할 수 있습니다.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 bg-white py-4 px-6 text-center text-xs text-slate-400 mt-auto">
+        <p>© 2026 인천과학예술영재학교 기하 연구 프로젝트 - AI 협업 수학 분석 도구</p>
+    </footer>
+
+    <!-- Script Block -->
+    <script>
+        // --- 1. CONFIGURATION & CONSTANTS ---
+        const CANVAS_SIZE = 500;
+        const SCALE = 23; 
+        const OFFSET_X = 250; // Center (0,0)
+        const OFFSET_Y = 250; // Center (0,0)
+
+        const POINT_B = { x: -4, y: 0 }; // Circle center
+        const POINT_A = { x: 4, y: 0 };  // Fixed focus
+        const RADIUS = 4;                // Circle radius
+
+        // --- 2. STATE ---
+        let state = {
+            theta: 0.0,
+            isPlaying: false,
+            showHyperbola: false,
+            showAsymptotes: false,
+            showArea: false,
+            pCoords: { x: 0, y: 0 },
+            mCoords: { x: 0, y: 0 },
+            currentLine: null,
+            accumulatedLines: [], // [{a, b, c}]
+            speedMultiplier: 1.0,
+            animationId: null
+        };
+
+        // --- 3. DOM ELEMENTS ---
+        const canvas = document.getElementById('mathCanvas');
+        const ctx = canvas.getContext('2d');
+        const sliderTheta = document.getElementById('sliderTheta');
+        const sliderSpeed = document.getElementById('sliderSpeed');
+        const valTheta = document.getElementById('valTheta');
+        const valSpeed = document.getElementById('valSpeed');
+        const btnPlay = document.getElementById('btnPlay');
+        const btnClearLocus = document.getElementById('btnClearLocus');
+        const btnReset = document.getElementById('btnReset');
+        const btnToggleHyperbola = document.getElementById('btnToggleHyperbola');
+        const btnToggleAsymptotes = document.getElementById('btnToggleAsymptotes');
+        const btnToggleArea = document.getElementById('btnToggleArea');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const coordP = document.getElementById('coordP');
+        const coordM = document.getElementById('coordM');
+        const distDiff = document.getElementById('distDiff');
+        const lineCount = document.getElementById('lineCount');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+
+        // --- 4. INITIALIZE CANVAS ---
+        function initCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = CANVAS_SIZE * dpr;
+            canvas.height = CANVAS_SIZE * dpr;
+            ctx.scale(dpr, dpr);
+            draw();
+        }
+
+        // --- 5. GEOMETRY FUNCTIONS ---
+        function calculateGeometry(deg) {
+            const rad = (deg * Math.PI) / 180;
+            
+            // P on Circle center B(-4,0)
+            const px = POINT_B.x + RADIUS * Math.cos(rad);
+            const py = POINT_B.y + RADIUS * Math.sin(rad);
+
+            // M: Midpoint of AP
+            const mx = (POINT_A.x + px) / 2;
+            const my = (POINT_A.y + py) / 2;
+
+            // Line AP normal equation: (px - ax)*x + (py - ay)*y + c = 0
+            // Vertical bisector l equation: a*x + b*y + c = 0
+            const a = px - POINT_A.x;
+            const b = py - POINT_A.y;
+            const c = -(a * mx + b * my);
+
+            return {
+                p: { x: px, y: py },
+                m: { x: mx, y: my },
+                line: { a, b, c }
+            };
+        }
+
+        function toCanvasX(x) { return OFFSET_X + x * SCALE; }
+        function toCanvasY(y) { return OFFSET_Y - y * SCALE; }
+
+        // Draw Line Equ: ax + by + c = 0
+        function drawLineEq(line, color, width = 1) {
+            const { a, b, c } = line;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.beginPath();
+
+            const xMin = -15, xMax = 15;
+            let pts = [];
+
+            if (Math.abs(b) > 0.0001) {
+                const y1 = -(a * xMin + c) / b;
+                const y2 = -(a * xMax + c) / b;
+                pts.push({ x: xMin, y: y1 });
+                pts.push({ x: xMax, y: y2 });
+            } else if (Math.abs(a) > 0.0001) {
+                const xVal = -c / a;
+                pts.push({ x: xVal, y: -15 });
+                pts.push({ x: xVal, y: 15 });
+            }
+
+            if (pts.length >= 2) {
+                ctx.moveTo(toCanvasX(pts[0].x), toCanvasY(pts[0].y));
+                ctx.lineTo(toCanvasX(pts[1].x), toCanvasY(pts[1].y));
+                ctx.stroke();
+            }
+        }
+
+        // Draw Envelope Background Area
+        function drawEnvelopeShading() {
+            ctx.fillStyle = 'rgba(13, 148, 136, 0.1)'; // Half-transparent teal
+            
+            // Build the shaded polygon bounded by accumulated lines
+            // For a nice visual, we can shade the region x^2 / 4 - y^2 / 12 <= 1
+            // which represents the region swept by the lines.
+            ctx.beginPath();
+            // Outer limits
+            ctx.moveTo(toCanvasX(-15), toCanvasY(-15));
+            ctx.lineTo(toCanvasX(15), toCanvasY(-15));
+            ctx.lineTo(toCanvasX(15), toCanvasY(15));
+            ctx.lineTo(toCanvasX(-15), toCanvasY(15));
+            ctx.closePath();
+            ctx.fill();
+
+            // Clear the inside area of hyperbola curves (where the lines cannot go)
+            ctx.fillStyle = '#ffffff'; // Match canvas background color (White)
+            
+            // Right branch empty space
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(15), toCanvasY(15));
+            for (let x = 15; x >= 2.0; x -= 0.1) {
+                const y = Math.sqrt(12 * ( (x*x)/4 - 1 ));
+                ctx.lineTo(toCanvasX(x), toCanvasY(y));
+            }
+            for (let x = 2.0; x <= 15; x += 0.1) {
+                const y = -Math.sqrt(12 * ( (x*x)/4 - 1 ));
+                ctx.lineTo(toCanvasX(x), toCanvasY(y));
+            }
+            ctx.lineTo(toCanvasX(15), toCanvasY(-15));
+            ctx.closePath();
+            ctx.fill();
+
+            // Left branch empty space
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(-15), toCanvasY(15));
+            for (let x = -15; x <= -2.0; x += 0.1) {
+                const y = Math.sqrt(12 * ( (x*x)/4 - 1 ));
+                ctx.lineTo(toCanvasX(x), toCanvasY(y));
+            }
+            for (let x = -2.0; x >= -15; x -= 0.1) {
+                const y = -Math.sqrt(12 * ( (x*x)/4 - 1 ));
+                ctx.lineTo(toCanvasX(x), toCanvasY(y));
+            }
+            ctx.lineTo(toCanvasX(-15), toCanvasY(-15));
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Draw Asymptotes
+        function drawAsymptotes() {
+            ctx.strokeStyle = 'rgba(217, 119, 6, 0.7)'; // Rich amber
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([8, 6]);
+
+            // y = sqrt(3)x
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(-8), toCanvasY(-8 * Math.sqrt(3)));
+            ctx.lineTo(toCanvasX(8), toCanvasY(8 * Math.sqrt(3)));
+            ctx.stroke();
+
+            // y = -sqrt(3)x
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(-8), toCanvasY(8 * Math.sqrt(3)));
+            ctx.lineTo(toCanvasX(8), toCanvasY(-8 * Math.sqrt(3)));
+            ctx.stroke();
+
+            ctx.setLineDash([]); // Reset
+        }
+
+        // Draw theoretical hyperbola envelope
+        function drawHyperbola() {
+            ctx.strokeStyle = 'rgba(225, 29, 72, 0.95)'; // Sharp Rose red
+            ctx.lineWidth = 3;
+            ctx.setLineDash([6, 4]);
+
+            // Right branch
+            ctx.beginPath();
+            let first = true;
+            for (let x = 2.0; x <= 15; x += 0.1) {
+                const y = Math.sqrt(12 * ( (x*x)/4 - 1 ));
+                if (first) {
+                    ctx.moveTo(toCanvasX(x), toCanvasY(y));
+                    first = false;
+                } else {
+                    ctx.lineTo(toCanvasX(x), toCanvasY(y));
+                }
+            }
+            ctx.stroke();
+
+            ctx.beginPath();
+            first = true;
+            for (let x = 2.0; x <= 15; x += 0.1) {
+                const y = -Math.sqrt(12 * ( (x*x)/4 - 1 ));
+                if (first) {
+                    ctx.moveTo(toCanvasX(x), toCanvasY(y));
+                    first = false;
+                } else {
+                    ctx.lineTo(toCanvasX(x), toCanvasY(y));
+                }
+            }
+            ctx.stroke();
+
+            // Left branch
+            ctx.beginPath();
+            first = true;
+            for (let x = -2.0; x >= -15; x -= 0.1) {
+                const y = Math.sqrt(12 * ( (x*x)/4 - 1 ));
+                if (first) {
+                    ctx.moveTo(toCanvasX(x), toCanvasY(y));
+                    first = false;
+                } else {
+                    ctx.lineTo(toCanvasX(x), toCanvasY(y));
+                }
+            }
+            ctx.stroke();
+
+            ctx.beginPath();
+            first = true;
+            for (let x = -2.0; x >= -15; x -= 0.1) {
+                const y = -Math.sqrt(12 * ( (x*x)/4 - 1 ));
+                if (first) {
+                    ctx.moveTo(toCanvasX(x), toCanvasY(y));
+                    first = false;
+                } else {
+                    ctx.lineTo(toCanvasX(x), toCanvasY(y));
+                }
+            }
+            ctx.stroke();
+
+            ctx.setLineDash([]); // Reset
+        }
+
+        // Draw Right Angle Mark at M
+        function drawRightAngle(m, a, p) {
+            // Direction vectors
+            const dx_AP = p.x - a.x;
+            const dy_AP = p.y - a.y;
+            const len_AP = Math.hypot(dx_AP, dy_AP);
+
+            if (len_AP < 0.0001) return;
+
+            // Unit vector of segment AP
+            const ux = dx_AP / len_AP;
+            const uy = dy_AP / len_AP;
+
+            // Unit normal vector (representing direction of bisector l)
+            const nx = -uy;
+            const ny = ux;
+
+            // Size of Right Angle Box in Canvas Unit
+            const boxSize = 0.4;
+
+            // Three corner points of the right angle square
+            const p1 = {
+                x: m.x + ux * boxSize,
+                y: m.y + uy * boxSize
+            };
+            const p2 = {
+                x: m.x + ux * boxSize + nx * boxSize,
+                y: m.y + uy * boxSize + ny * boxSize
+            };
+            const p3 = {
+                x: m.x + nx * boxSize,
+                y: m.y + ny * boxSize
+            };
+
+            ctx.strokeStyle = '#7c3aed'; // Deep Purple line for visibility on white
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(p1.x), toCanvasY(p1.y));
+            ctx.lineTo(toCanvasX(p2.x), toCanvasY(p2.y));
+            ctx.lineTo(toCanvasX(p3.x), toCanvasY(p3.y));
+            ctx.stroke();
+        }
+
+        // Draw Equality mark "//" on segment
+        function drawEqualityMark(pStart, pEnd) {
+            const mx = (pStart.x + pEnd.x) / 2;
+            const my = (pStart.y + pEnd.y) / 2;
+
+            const dx = pEnd.x - pStart.x;
+            const dy = pEnd.y - pStart.y;
+            const len = Math.hypot(dx, dy);
+
+            if (len < 0.0001) return;
+
+            // Parallel & perpendicular unit vectors
+            const px = dx / len;
+            const py = dy / len;
+            const qx = -py;
+            const qy = px;
+
+            const markSize = 0.25;  // Length of slash
+            const markGap = 0.08;   // Gap between double slashes
+
+            ctx.strokeStyle = '#475569'; // Slate-600 (Darker for light theme contrast)
+            ctx.lineWidth = 1.8;
+
+            // Slash 1
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(mx - px * markGap - qx * markSize), toCanvasY(my - py * markGap - qy * markSize));
+            ctx.lineTo(toCanvasX(mx - px * markGap + qx * markSize), toCanvasY(my - py * markGap + qy * markSize));
+            ctx.stroke();
+
+            // Slash 2
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(mx + px * markGap - qx * markSize), toCanvasY(my + py * markGap - qy * markSize));
+            ctx.lineTo(toCanvasX(mx + px * markGap + qx * markSize), toCanvasY(my + py * markGap + qy * markSize));
+            ctx.stroke();
+        }
+
+        // --- 6. DRAW LOOP ---
+        function draw() {
+            // Clear Canvas
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            // 1. Draw Math Axis Grid (Light gray for high contrast on white)
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1.5;
+            for (let i = -10; i <= 10; i++) {
+                // Vertical lines
+                ctx.beginPath();
+                ctx.moveTo(toCanvasX(i), toCanvasY(-10));
+                ctx.lineTo(toCanvasX(i), toCanvasY(10));
+                ctx.stroke();
+                // Horizontal lines
+                ctx.beginPath();
+                ctx.moveTo(toCanvasX(-10), toCanvasY(i));
+                ctx.lineTo(toCanvasX(10), toCanvasY(i));
+                ctx.stroke();
+            }
+
+            // Draw X & Y Axes (Slate-400 for balanced line weight)
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(-10), toCanvasY(0));
+            ctx.lineTo(toCanvasX(10), toCanvasY(0));
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(0), toCanvasY(-10));
+            ctx.lineTo(toCanvasX(0), toCanvasY(10));
+            ctx.stroke();
+
+            // 2. Draw Shading Area
+            if (state.showArea) {
+                drawEnvelopeShading();
+            }
+
+            // 3. Draw Base Geometry (Circle centered B)
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(toCanvasX(POINT_B.x), toCanvasY(POINT_B.y), RADIUS * SCALE, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            // 4. Draw Accumulated Locus Lines
+            state.accumulatedLines.forEach(line => {
+                drawLineEq(line, 'rgba(13, 148, 136, 0.08)', 1); // Transparent teal on white
+            });
+
+            // 5. Calculate Geometry coordinates
+            const geo = calculateGeometry(state.theta);
+            state.pCoords = geo.p;
+            state.mCoords = geo.m;
+            state.currentLine = geo.line;
+
+            // 6. Draw Layers toggles
+            if (state.showAsymptotes) {
+                drawAsymptotes();
+            }
+            if (state.showHyperbola) {
+                drawHyperbola();
+            }
+
+            // 7. Draw Current Bisector line
+            drawLineEq(state.currentLine, '#059669', 3); // Strong Emerald Green
+
+            // 8. Draw Core Guidelines
+            ctx.strokeStyle = 'rgba(217, 119, 6, 0.4)'; // Amber guidelines
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+
+            // Find intersection point Q of line BP and line l.
+            const dx = state.pCoords.x - POINT_B.x;
+            const dy = state.pCoords.y - POINT_B.y;
+            const denominator = state.currentLine.a * dx + state.currentLine.b * dy;
+            let qx = state.pCoords.x;
+            let qy = state.pCoords.y;
+
+            if (Math.abs(denominator) > 0.0001) {
+                const t = -(state.currentLine.a * POINT_B.x + state.currentLine.b * POINT_B.y + state.currentLine.c) / denominator;
+                qx = POINT_B.x + dx * t;
+                qy = POINT_B.y + dy * t;
+            }
+
+            // Segment BQ
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(POINT_B.x), toCanvasY(POINT_B.y));
+            ctx.lineTo(toCanvasX(qx), toCanvasY(qy));
+            ctx.stroke();
+
+            // Segment QA
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(qx), toCanvasY(qy));
+            ctx.lineTo(toCanvasX(POINT_A.x), toCanvasY(POINT_A.y));
+            ctx.stroke();
+
+            // Segment AP (Base segment being bisected)
+            ctx.strokeStyle = '#475569'; // Slate-600 AP vector
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]); // Draw solid line to represent AP
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(POINT_A.x), toCanvasY(POINT_A.y));
+            ctx.lineTo(toCanvasX(state.pCoords.x), toCanvasY(state.pCoords.y));
+            ctx.stroke();
+
+            // 9. DRAW GEOMETRIC SYMBOLS (REVISION SPECIFICS)
+            // (A) Right Angle Symbol at M
+            drawRightAngle(state.mCoords, POINT_A, state.pCoords);
+
+            // (B) Equality Marks on Segment AM and MP
+            drawEqualityMark(POINT_A, state.mCoords);
+            drawEqualityMark(state.mCoords, state.pCoords);
+
+            // 10. Draw Key Points (Strong filled circles with white inner rims)
+            drawPoint(POINT_B.x, POINT_B.y, '#2563eb', 'B (-4,0)'); // Blue Focus
+            drawPoint(POINT_A.x, POINT_A.y, '#dc2626', 'A (4,0)');  // Red Focus
+            drawPoint(state.pCoords.x, state.pCoords.y, '#16a34a', 'P'); // Green P
+            drawPoint(state.mCoords.x, state.mCoords.y, '#7c3aed', 'M'); // Purple Midpoint
+
+            // Draw Q intersection
+            if (Math.abs(denominator) > 0.0001) {
+                drawPoint(qx, qy, '#d97706', 'Q', 5);
+                const distBQ = Math.hypot(qx - POINT_B.x, qy - POINT_B.y);
+                const distQA = Math.hypot(qx - POINT_A.x, qy - POINT_A.y);
+                distDiff.textContent = `${Math.abs(distBQ - distQA).toFixed(3)} (BP=4)`;
+            }
+
+            updateDashboard();
+        }
+
+        function drawPoint(x, y, color, label, size = 6) {
+            ctx.beginPath();
+            ctx.arc(toCanvasX(x), toCanvasY(y), size, 0, 2 * Math.PI);
+            ctx.fillStyle = color;
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Label text (Dark text on white canvas background)
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 11px Inter';
+            ctx.fillText(label, toCanvasX(x) + 7, toCanvasY(y) - 7);
+        }
+
+        // --- 7. UI SYNC & EVENTS ---
+        function updateDashboard() {
+            valTheta.textContent = `${state.theta.toFixed(1)}° / 360.0°`;
+            coordP.textContent = `(${state.pCoords.x.toFixed(2)}, ${state.pCoords.y.toFixed(2)})`;
+            coordM.textContent = `(${state.mCoords.x.toFixed(2)}, ${state.mCoords.y.toFixed(2)})`;
+            lineCount.textContent = `${state.accumulatedLines.length}개`;
+        }
+
+        function updateSimulationStep() {
+            if (!state.isPlaying) return;
+
+            // Push current line to accumulation (density check)
+            if (state.accumulatedLines.length < 1200) {
+                const alreadyExists = state.accumulatedLines.some(l => {
+                    return Math.abs(l.a - state.currentLine.a) < 0.00005 && Math.abs(l.b - state.currentLine.b) < 0.00005;
+                });
+                if (!alreadyExists) {
+                    state.accumulatedLines.push(state.currentLine);
+                }
+            }
+
+            // Speed scaled by multiplier
+            state.theta += 0.6 * state.speedMultiplier;
+            if (state.theta >= 360.0) {
+                state.theta = 0.0;
+            }
+
+            sliderTheta.value = state.theta;
+            draw();
+
+            state.animationId = requestAnimationFrame(updateSimulationStep);
+        }
+
+        // --- 8. EVENT LISTENERS ---
+        sliderTheta.addEventListener('input', (e) => {
+            state.theta = parseFloat(e.target.value);
+            if (state.accumulatedLines.length < 1200) {
+                state.accumulatedLines.push(calculateGeometry(state.theta).line);
+            }
+            draw();
+        });
+
+        sliderSpeed.addEventListener('input', (e) => {
+            state.speedMultiplier = parseFloat(e.target.value);
+            valSpeed.textContent = `${state.speedMultiplier.toFixed(1)}x`;
+        });
+
+        btnPlay.addEventListener('click', () => {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                playIcon.setAttribute('data-lucide', 'pause');
+                playText.textContent = "일시 정지";
+                statusIndicator.className = "w-3 h-3 rounded-full bg-emerald-500 animate-ping";
+                statusText.textContent = "자동 탐색 진행 중";
+                updateSimulationStep();
+            } else {
+                playIcon.setAttribute('data-lucide', 'play');
+                playText.textContent = "자동 재생";
+                statusIndicator.className = "w-3 h-3 rounded-full bg-amber-500 animate-pulse";
+                statusText.textContent = "일시 정지됨";
+                cancelAnimationFrame(state.animationId);
+            }
+            lucide.createIcons();
+        });
+
+        btnClearLocus.addEventListener('click', () => {
+            state.accumulatedLines = [];
+            draw();
+        });
+
+        btnReset.addEventListener('click', () => {
+            state.isPlaying = false;
+            cancelAnimationFrame(state.animationId);
+            state.theta = 0;
+            sliderTheta.value = 0;
+            state.accumulatedLines = [];
+            playIcon.setAttribute('data-lucide', 'play');
+            playText.textContent = "자동 재생";
+            statusIndicator.className = "w-3 h-3 rounded-full bg-slate-400 animate-pulse";
+            statusText.textContent = "준비 완료";
+            lucide.createIcons();
+            draw();
+        });
+
+        btnToggleHyperbola.addEventListener('click', () => {
+            state.showHyperbola = !state.showHyperbola;
+            toggleButtonState(btnToggleHyperbola, state.showHyperbola, 'border-rose-500/20', 'bg-rose-600', 'text-rose-400');
+            draw();
+        });
+
+        btnToggleAsymptotes.addEventListener('click', () => {
+            state.showAsymptotes = !state.showAsymptotes;
+            toggleButtonState(btnToggleAsymptotes, state.showAsymptotes, 'border-amber-500/20', 'bg-amber-600', 'text-amber-400');
+            draw();
+        });
+
+        btnToggleArea.addEventListener('click', () => {
+            state.showArea = !state.showArea;
+            toggleButtonState(btnToggleArea, state.showArea, 'border-cyan-500/20', 'bg-cyan-600', 'text-cyan-400');
+            draw();
+        });
+
+        function toggleButtonState(btn, isActive, borderStyle, bgClass, textClass) {
+            if (isActive) {
+                btn.classList.remove('bg-slate-100', 'text-slate-600', 'border-slate-200');
+                btn.classList.add(bgClass, 'text-white');
+            } else {
+                btn.classList.remove(bgClass, 'text-white');
+                btn.classList.add('bg-slate-100', 'text-slate-600', 'border-slate-200');
+            }
+        }
+
+        // Initialize on Load
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+            initCanvas();
+        });
+
+        window.addEventListener('resize', () => {
+            initCanvas();
+        });
+    </script>
+</body>
+</html>

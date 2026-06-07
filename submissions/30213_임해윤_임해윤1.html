@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>에피사이클로이드 극한 추정 시뮬레이터</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            text-align: center; 
+            background-color: #f8f9fa; 
+            color: #333; 
+            margin: 0;
+            padding: 20px;
+        }
+        h2 { margin-top: 0; color: #2c3e50; font-size: 1.5rem; }
+        .canvas-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            box-sizing: border-box;
+        }
+        canvas { 
+            width: 100%; 
+            height: auto; 
+            background-color: #ffffff; 
+            border: 1px solid #e9ecef;
+            border-radius: 8px; 
+            display: block;
+        }
+        .controls { 
+            margin: 20px auto; 
+            max-width: 800px; 
+            padding: 20px; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-sizing: border-box;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .info-panel { 
+            font-size: 1.05em; 
+            margin: 15px auto; 
+            max-width: 800px; 
+            text-align: left; 
+            background: #e8f4f8; 
+            padding: 20px; 
+            border-radius: 12px; 
+            line-height: 1.7;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+        }
+        .legend {
+            font-size: 0.9em;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .box { width: 16px; height: 16px; border-radius: 4px; }
+        label { font-weight: bold; color: #495057; white-space: nowrap; }
+        input[type="range"] {
+            flex-grow: 1;
+            min-width: 200px;
+            cursor: pointer;
+            accent-color: #007bff;
+        }
+        button { 
+            padding: 10px 24px; 
+            font-size: 1em; 
+            font-weight: bold;
+            cursor: pointer; 
+            border: none; 
+            border-radius: 6px; 
+            background-color: #007bff; 
+            color: white; 
+            transition: all 0.2s; 
+            white-space: nowrap;
+        }
+        button:hover { background-color: #0056b3; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        button:active { transform: scale(0.96); }
+        .highlight { color: #d9534f; font-weight: bold; font-size: 1.2em; display: inline-block; min-width: 40px; text-align: left; }
+        .val-highlight { color: #0275d8; font-weight: bold; }
+        hr { border: 0; border-top: 1px dashed #b8c2cc; margin: 15px 0; }
+        
+        @media (max-width: 600px) {
+            .control-group { flex-direction: column; align-items: stretch; }
+            input[type="range"] { min-width: 100%; }
+            button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <h2>무한대로 가는 궤적의 추정 시뮬레이터</h2>
+    
+    <div class="canvas-container">
+        <div class="legend">
+            <div class="legend-item"><div class="box" style="background:#d9edf7; border: 1px solid #31708f;"></div> 원본 트랙</div>
+            <div class="legend-item"><div class="box" style="background:transparent; border: 2px dashed #007bff;"></div> 외곽 한계선</div>
+            <div class="legend-item"><div class="box" style="background:#d9534f;"></div> 궤적</div>
+            <div class="legend-item"><div class="box" style="background:#5cb85c; opacity: 0.5; border: 1.5px solid #5cb85c;"></div> 작은 원</div>
+        </div>
+        <canvas id="simCanvas" width="800" height="400"></canvas>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>진행 거리 (s):</label>
+            <input type="range" id="sRange" min="0" max="12.56637" step="0.01" value="0">
+            <button id="playBtn">▶ 자동 재생</button>
+        </div>
+        <div class="control-group">
+            <label>n 값 (짝수, 최대 200):</label>
+            <input type="range" id="nRange" min="2" max="200" step="2" value="2">
+            <span id="nValue" class="highlight">2</span>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <strong>📐 넓이 추정 (신발끈 공식 다각형 수치계산)</strong><br>
+        <span style="font-size: 0.9em; color: #555;">실제 궤적은 항상 (원본 트랙)과 (외곽 한계선) 사이에 존재합니다. n이 커질수록 궤적 넓이는 원본 트랙 넓이로 수렴합니다.</span><br>
+        • 원본 트랙 넓이 (Amin): <span class="val-highlight">9.4248</span> (3π)<br>
+        • 외곽 트랙 넓이 (Amax): <span id="outerAreaVal" class="val-highlight"></span><br>
+        ▶ <strong>계산된 궤적 넓이: <span id="estAreaVal" style="color: #d9534f; font-weight: bold; font-size: 1.1em;"></span></strong>
+        
+        <hr>
+
+        <strong>📏 길이 추정 (점간 거리 누적합)</strong><br>
+        <span style="font-size: 0.9em; color: #555;">n이 커질수록 궤적은 직선에 가까워 보이지만, 프랙탈 구조처럼 지그재그 길이는 보존되어 이론적 극한값(16)에 수렴합니다. (추정 오차가 있을 수 있습니다)</span><br>
+        ▶ <strong>계산된 전체 궤적 길이: <span id="estLenVal" style="color: #d9534f; font-weight: bold; font-size: 1.1em;"></span></strong> 
+    </div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const sRange = document.getElementById('sRange');
+    const nRange = document.getElementById('nRange');
+    const playBtn = document.getElementById('playBtn');
+    
+    // UI Elements
+    const nValue = document.getElementById('nValue');
+    const outerAreaVal = document.getElementById('outerAreaVal');
+    const estAreaVal = document.getElementById('estAreaVal');
+    const estLenVal = document.getElementById('estLenVal');
+
+    const scale = 70; // Canvas fit scaling
+    const offsetX = canvas.width / 2;
+    const offsetY = canvas.height / 2;
+    const TOTAL_S = 4 * Math.PI;
+    const INNER_AREA = 3 * Math.PI;
+
+    let isPlaying = false;
+    let animationId = null;
+    
+    // Caching trajectory for performance when n is up to 200
+    let trajectoryCache = [];
+    let estimatedTotalArea = 0;
+    let estimatedTotalLength = 0;
+
+    // Track Normal & Tangent point logic
+    function getTrackPoint(s) {
+        if (s < Math.PI) {
+            return { x: Math.PI/2 - s, y: 1, beta: Math.PI/2 }; // 상단 직선
+        } else if (s < 2*Math.PI) {
+            let u = s - Math.PI;
+            let beta = Math.PI/2 + u;
+            return { x: -Math.PI/2 + Math.cos(beta), y: Math.sin(beta), beta: beta }; // 좌측 반원
+        } else if (s < 3*Math.PI) {
+            let u = s - 2*Math.PI;
+            return { x: -Math.PI/2 + u, y: -1, beta: 3*Math.PI/2 }; // 하단 직선
+        } else {
+            let u = s - 3*Math.PI;
+            let beta = 3*Math.PI/2 + u;
+            return { x: Math.PI/2 + Math.cos(beta), y: Math.sin(beta), beta: beta }; // 우측 반원
+        }
+    }
+
+    // Rolling circle position logic
+    function getPosition(s, r) {
+        let p = getTrackPoint(s);
+        let cx = p.x + r * Math.cos(p.beta);
+        let cy = p.y + r * Math.sin(p.beta);
+        let angle = p.beta - Math.PI + s / r; 
+        let qx = cx + r * Math.cos(angle);
+        let qy = cy + r * Math.sin(angle);
+        return { cx, cy, qx, qy, beta: p.beta };
+    }
+
+    // Precalculate the entire curve for numeric estimation & performance
+    function precalculateCurve(n) {
+        trajectoryCache = [];
+        let r = 1 / n;
+        
+        // n이 커질수록 촘촘하게 샘플링해야 곡선 길이가 정확히 추정됨
+        let pointsPerRotation = n < 50 ? 60 : (n < 100 ? 40 : 25); 
+        let ds = (2 * Math.PI / n) / pointsPerRotation;
+        
+        for (let s = 0; s <= TOTAL_S + ds; s += ds) {
+            let clampedS = s > TOTAL_S ? TOTAL_S : s;
+            let pos = getPosition(clampedS, r);
+            trajectoryCache.push({ s: clampedS, x: pos.qx, y: pos.qy });
+            if (s > TOTAL_S) break;
+        }
+
+        // 수치적분: 다각형 넓이 추정 (신발끈 공식) 및 길이 추정
+        let areaSum = 0;
+        let lenSum = 0;
+        for (let i = 0; i < trajectoryCache.length - 1; i++) {
+            let p1 = trajectoryCache[i];
+            let p2 = trajectoryCache[i+1];
+            
+            // Shoelace term (면적)
+            areaSum += (p1.x * p2.y - p2.x * p1.y);
+            
+            // Length term (길이)
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+            lenSum += Math.sqrt(dx*dx + dy*dy);
+        }
+        
+        // 마지막 점과 첫 점을 이어 폐곡선 넓이 완성
+        let firstP = trajectoryCache[0];
+        let lastP = trajectoryCache[trajectoryCache.length - 1];
+        areaSum += (lastP.x * firstP.y - firstP.x * lastP.y);
+
+        estimatedTotalArea = Math.abs(areaSum) / 2;
+        estimatedTotalLength = lenSum;
+
+        // UI 텍스트 갱신
+        let outerArea = INNER_AREA + 8*Math.PI*r + 4*Math.PI*r*r; // 외곽 트랙의 이론적 넓이
+        outerAreaVal.innerText = outerArea.toFixed(4);
+        estAreaVal.innerText = estimatedTotalArea.toFixed(4);
+        estLenVal.innerText = estimatedTotalLength.toFixed(4);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        let n = parseInt(nRange.value);
+        let r = 1 / n;
+        let currentS = parseFloat(sRange.value);
+
+        // 1. 내부 원본 트랙 그리기
+        ctx.lineWidth = 2;
+        ctx.fillStyle = '#d9edf7';
+        ctx.strokeStyle = '#31708f';
+        ctx.beginPath();
+        ctx.moveTo(Math.PI/2 * scale + offsetX, -1 * scale + offsetY); 
+        ctx.lineTo(-Math.PI/2 * scale + offsetX, -1 * scale + offsetY);
+        ctx.arc(-Math.PI/2 * scale + offsetX, offsetY, 1 * scale, -Math.PI/2, Math.PI/2, true); 
+        ctx.lineTo(Math.PI/2 * scale + offsetX, 1 * scale + offsetY); 
+        ctx.arc(Math.PI/2 * scale + offsetX, offsetY, 1 * scale, Math.PI/2, -Math.PI/2, true); 
+        ctx.fill();
+        ctx.stroke();
+
+        // 2. 외곽 바운딩 트랙 그리기 (점선)
+        let outerDist = 1 + 2*r; // 원의 지름만큼 떨어진 거리
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#007bff';
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(Math.PI/2 * scale + offsetX, -outerDist * scale + offsetY); 
+        ctx.lineTo(-Math.PI/2 * scale + offsetX, -outerDist * scale + offsetY);
+        ctx.arc(-Math.PI/2 * scale + offsetX, offsetY, outerDist * scale, -Math.PI/2, Math.PI/2, true); 
+        ctx.lineTo(Math.PI/2 * scale + offsetX, outerDist * scale + offsetY); 
+        ctx.arc(Math.PI/2 * scale + offsetX, offsetY, outerDist * scale, Math.PI/2, -Math.PI/2, true); 
+        ctx.stroke();
+        ctx.setLineDash([]); // 점선 해제
+
+        // 3. 캐시된 데이터 기반 궤적 렌더링
+        ctx.strokeStyle = '#d9534f';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        
+        let drawnPoints = 0;
+        for (let i = 0; i < trajectoryCache.length; i++) {
+            let pt = trajectoryCache[i];
+            if (pt.s > currentS) break;
+            
+            let px = pt.x * scale + offsetX;
+            let py = -pt.y * scale + offsetY; 
+            
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+            
+            drawnPoints++;
+        }
+        
+        // 현재 위치를 부드럽게 잇기 위한 정확한 좌표 추가 계산
+        if (drawnPoints > 0) {
+            let exactPos = getPosition(currentS, r);
+            ctx.lineTo(exactPos.qx * scale + offsetX, -exactPos.qy * scale + offsetY);
+        }
+        ctx.stroke();
+
+        // 4. 굴러가는 작은 원 그리기
+        let exactPos = getPosition(currentS, r);
+        let cx = exactPos.cx * scale + offsetX;
+        let cy = -exactPos.cy * scale + offsetY;
+        let qx = exactPos.qx * scale + offsetX;
+        let qy = -exactPos.qy * scale + offsetY;
+
+        // 원이 너무 작으면 렌더링 생략 방지
+        let visualR = Math.max(r * scale, 1);
+        ctx.strokeStyle = '#5cb85c';
+        ctx.fillStyle = 'rgba(92, 184, 92, 0.2)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, visualR, 0, 2*Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        
+        // 원 반경 표시 선 (n이 너무 크면 생략)
+        if (n < 50) {
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(qx, qy);
+            ctx.stroke();
+        }
+        
+        // 추적점(Point) 표시
+        ctx.fillStyle = '#d9534f';
+        ctx.beginPath();
+        let dotSize = r * scale > 3 ? 4 : 2.5; 
+        ctx.arc(qx, qy, dotSize, 0, 2*Math.PI);
+        ctx.fill();
+    }
+
+    // Event Listeners
+    sRange.addEventListener('input', () => {
+        if (isPlaying) {
+            isPlaying = false;
+            playBtn.innerText = "▶ 자동 재생";
+            cancelAnimationFrame(animationId);
+        }
+        draw();
+    });
+
+    nRange.addEventListener('input', () => {
+        nValue.innerText = nRange.value;
+        precalculateCurve(parseInt(nRange.value)); // n 변경 시 곡선 수치 계산 다시 수행
+        draw();
+    });
+
+    playBtn.addEventListener('click', () => {
+        if (isPlaying) {
+            isPlaying = false;
+            playBtn.innerText = "▶ 자동 재생";
+            cancelAnimationFrame(animationId);
+        } else {
+            isPlaying = true;
+            playBtn.innerText = "⏸ 일시 정지";
+            if (parseFloat(sRange.value) >= TOTAL_S - 0.05) {
+                sRange.value = 0;
+            }
+            animate();
+        }
+    });
+
+    function animate() {
+        if (!isPlaying) return;
+        let s = parseFloat(sRange.value);
+        
+        // n이 커질수록 굴러가는 횟수가 많아 속도 보정
+        let currentN = parseInt(nRange.value);
+        let speedMult = currentN > 50 ? 1.5 : (currentN > 20 ? 1.2 : 1);
+        s += 0.03 * speedMult; 
+        
+        if (s > TOTAL_S) {
+            s = TOTAL_S;
+            sRange.value = s;
+            draw();
+            isPlaying = false;
+            playBtn.innerText = "▶ 자동 재생";
+            return;
+        }
+        
+        sRange.value = s;
+        draw();
+        animationId = requestAnimationFrame(animate);
+    }
+
+    // 초기 실행
+    window.onload = () => {
+        precalculateCurve(parseInt(nRange.value));
+        draw();
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>개선된 사면체 단면 시뮬레이터</title>
+
+<style>
+    body{
+        margin:0;
+        display:flex;
+        overflow:hidden;
+        font-family:'Malgun Gothic',sans-serif;
+        background:#f5f6fa;
+    }
+
+    #sidebar{
+        width:360px;
+        height:100vh;
+        overflow-y:auto;
+        background:white;
+        padding:20px;
+        box-sizing:border-box;
+        box-shadow:2px 0 10px rgba(0,0,0,0.1);
+    }
+
+    #canvas-container{
+        flex:1;
+        height:100vh;
+    }
+
+    h2{
+        margin-top:0;
+        color:#2c3e50;
+    }
+
+    .control-group{
+        background:#f8f9fa;
+        padding:12px;
+        border-radius:8px;
+        margin-bottom:15px;
+        border:1px solid #ddd;
+    }
+
+    .slider-label{
+        display:flex;
+        justify-content:space-between;
+        margin-top:10px;
+        font-weight:bold;
+    }
+
+    input[type=range]{
+        width:100%;
+    }
+
+    button{
+        width:100%;
+        padding:12px;
+        border:none;
+        border-radius:6px;
+        background:#3498db;
+        color:white;
+        font-weight:bold;
+        cursor:pointer;
+        margin-bottom:15px;
+    }
+
+    button:hover{
+        background:#2980b9;
+    }
+
+    #results{
+        background:#eef7ff;
+        border-left:4px solid #3498db;
+        padding:15px;
+        line-height:1.8;
+        border-radius:6px;
+    }
+
+    .math{
+        font-family:'Times New Roman';
+        font-style:italic;
+    }
+
+    #info-overlay{
+        position:absolute;
+        bottom:20px;
+        right:20px;
+        background:rgba(0,0,0,0.7);
+        color:white;
+        padding:10px;
+        border-radius:6px;
+        font-size:12px;
+    }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+</head>
+<body>
+
+<div id="sidebar">
+
+    <h2>사면체 단면 시뮬레이터</h2>
+
+    <p style="font-size:13px;color:#666;">
+        점 <span class="math">G</span>를 지나고
+        벡터 <span class="math">OG</span>에 수직인 평면으로
+        사면체 <span class="math">OABC</span>를 절단합니다.
+    </p>
+
+    <button id="btnPreset">
+        문제 조건 적용 (7,8,9)
+    </button>
+
+    <div class="control-group">
+
+        <div class="slider-label">
+            <span>a</span>
+            <span id="valA">7</span>
+        </div>
+
+        <input type="range" id="slideA" min="3" max="15" step="0.5" value="7">
+
+        <div class="slider-label">
+            <span>b</span>
+            <span id="valB">8</span>
+        </div>
+
+        <input type="range" id="slideB" min="3" max="15" step="0.5" value="8">
+
+        <div class="slider-label">
+            <span>c</span>
+            <span id="valC">9</span>
+        </div>
+
+        <input type="range" id="slideC" min="3" max="15" step="0.5" value="9">
+
+    </div>
+
+    <div id="results">
+
+        <h3>실시간 계산 결과</h3>
+
+        <div>
+            • G =
+            (<span id="resG"></span>)
+        </div>
+
+        <div>
+            • 단면 형태 :
+            <strong id="resShape"></strong>
+        </div>
+
+        <div>
+            • 평면 방정식
+        </div>
+
+        <div style="font-family:monospace;">
+            x/<span id="eqX"></span>
+            +
+            y/<span id="eqY"></span>
+            +
+            z/<span id="eqZ"></span>
+            = 1
+        </div>
+
+        <div style="margin-top:10px;">
+            • 단면 넓이 :
+            <strong id="resArea"></strong>
+        </div>
+
+    </div>
+
+</div>
+
+<div id="canvas-container">
+    <div id="info-overlay">
+        마우스 드래그 : 회전<br>
+        휠 : 확대/축소
+    </div>
+</div>
+
+<script>
+
+const container = document.getElementById('canvas-container');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf5f6fa);
+
+const camera = new THREE.PerspectiveCamera(
+    45,
+    container.clientWidth/container.clientHeight,
+    0.1,
+    1000
+);
+
+camera.position.set(18,14,18);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(
+    container.clientWidth,
+    container.clientHeight
+);
+
+container.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+controls.target.set(3,3,3);
+
+scene.add(new THREE.AmbientLight(0xffffff,0.7));
+
+const light = new THREE.DirectionalLight(0xffffff,0.6);
+light.position.set(20,20,20);
+scene.add(light);
+
+scene.add(new THREE.AxesHelper(15));
+
+let shapeGroup = new THREE.Group();
+scene.add(shapeGroup);
+
+const slideA = document.getElementById('slideA');
+const slideB = document.getElementById('slideB');
+const slideC = document.getElementById('slideC');
+
+const valA = document.getElementById('valA');
+const valB = document.getElementById('valB');
+const valC = document.getElementById('valC');
+
+function clearGroup(group){
+
+    while(group.children.length>0){
+
+        group.remove(group.children[0]);
+
+    }
+
+}
+
+function createPoint(pos,color=0xff0000,size=0.14){
+
+    const geo = new THREE.SphereGeometry(size,16,16);
+
+    const mat = new THREE.MeshBasicMaterial({
+        color:color
+    });
+
+    const mesh = new THREE.Mesh(geo,mat);
+
+    mesh.position.copy(pos);
+
+    return mesh;
+
+}
+
+function makeTextSprite(message){
+
+    const canvas = document.createElement('canvas');
+
+    canvas.width = 256;
+    canvas.height = 128;
+
+    const context = canvas.getContext('2d');
+
+    context.font = '60px Arial';
+    context.fillStyle = 'black';
+
+    context.fillText(message,80,70);
+
+    const texture = new THREE.CanvasTexture(canvas);
+
+    const material = new THREE.SpriteMaterial({
+        map:texture
+    });
+
+    const sprite = new THREE.Sprite(material);
+
+    sprite.scale.set(1.5,0.75,1);
+
+    return sprite;
+
+}
+
+function intersectEdge(p1,p2,normal,d){
+
+    const dir = new THREE.Vector3().subVectors(p2,p1);
+
+    const denominator = normal.dot(dir);
+
+    if(Math.abs(denominator)<1e-6){
+
+        return null;
+
+    }
+
+    const t = (d-normal.dot(p1))/denominator;
+
+    if(t<0 || t>1){
+
+        return null;
+
+    }
+
+    return new THREE.Vector3()
+        .copy(p1)
+        .add(dir.multiplyScalar(t));
+
+}
+
+function sortPoints(points,normal){
+
+    const center = new THREE.Vector3();
+
+    points.forEach(p=>center.add(p));
+
+    center.divideScalar(points.length);
+
+    let ref = new THREE.Vector3(1,0,0);
+
+    if(Math.abs(normal.dot(ref))>0.9){
+
+        ref = new THREE.Vector3(0,1,0);
+
+    }
+
+    const axisX = new THREE.Vector3()
+        .crossVectors(ref,normal)
+        .normalize();
+
+    const axisY = new THREE.Vector3()
+        .crossVectors(normal,axisX)
+        .normalize();
+
+    points.sort((a,b)=>{
+
+        const da = new THREE.Vector3().subVectors(a,center);
+        const db = new THREE.Vector3().subVectors(b,center);
+
+        const angleA = Math.atan2(
+            da.dot(axisY),
+            da.dot(axisX)
+        );
+
+        const angleB = Math.atan2(
+            db.dot(axisY),
+            db.dot(axisX)
+        );
+
+        return angleA-angleB;
+
+    });
+
+}
+
+function polygonArea(points){
+
+    if(points.length<3) return 0;
+
+    let area = 0;
+
+    const origin = points[0];
+
+    for(let i=1;i<points.length-1;i++){
+
+        const v1 = new THREE.Vector3()
+            .subVectors(points[i],origin);
+
+        const v2 = new THREE.Vector3()
+            .subVectors(points[i+1],origin);
+
+        area += v1.clone()
+            .cross(v2)
+            .length()/2;
+
+    }
+
+    return area;
+
+}
+
+function updateVisualization(){
+
+    clearGroup(shapeGroup);
+
+    const a = parseFloat(slideA.value);
+    const b = parseFloat(slideB.value);
+    const c = parseFloat(slideC.value);
+
+    valA.innerText = a;
+    valB.innerText = b;
+    valC.innerText = c;
+
+    const O = new THREE.Vector3(0,0,0);
+    const A = new THREE.Vector3(a,0,0);
+    const B = new THREE.Vector3(0,b,0);
+    const C = new THREE.Vector3(0,0,c);
+
+    const gx = a/4;
+    const gy = b/4;
+    const gz = c/4;
+
+    document.getElementById('resG').innerText =
+        `${gx.toFixed(2)}, ${gy.toFixed(2)}, ${gz.toFixed(2)}`;
+
+    const G = new THREE.Vector3(gx,gy,gz);
+
+    const vertices = new Float32Array([
+        0,0,0,
+        a,0,0,
+        0,b,0,
+        0,0,c
+    ]);
+
+    const indices = [
+        0,2,1,
+        0,1,3,
+        0,3,2,
+        1,2,3
+    ];
+
+    const tetraGeo = new THREE.BufferGeometry();
+
+    tetraGeo.setAttribute(
+        'position',
+        new THREE.BufferAttribute(vertices,3)
+    );
+
+    tetraGeo.setIndex(indices);
+
+    tetraGeo.computeVertexNormals();
+
+    const tetraMesh = new THREE.Mesh(
+        tetraGeo,
+        new THREE.MeshPhongMaterial({
+            color:0x95a5a6,
+            transparent:true,
+            opacity:0.15,
+            side:THREE.DoubleSide
+        })
+    );
+
+    shapeGroup.add(tetraMesh);
+
+    shapeGroup.add(
+        new THREE.LineSegments(
+            new THREE.WireframeGeometry(tetraGeo),
+            new THREE.LineBasicMaterial({
+                color:0x555555
+            })
+        )
+    );
+
+    shapeGroup.add(createPoint(O,0x000000,0.15));
+    shapeGroup.add(createPoint(A,0xe74c3c));
+    shapeGroup.add(createPoint(B,0x2ecc71));
+    shapeGroup.add(createPoint(C,0x3498db));
+    shapeGroup.add(createPoint(G,0x9b59b6,0.16));
+
+    const labelO = makeTextSprite("O");
+    labelO.position.set(-0.6,-0.6,-0.6);
+
+    const labelA = makeTextSprite("A");
+    labelA.position.set(a+0.5,0,0);
+
+    const labelB = makeTextSprite("B");
+    labelB.position.set(0,b+0.5,0);
+
+    const labelC = makeTextSprite("C");
+    labelC.position.set(0,0,c+0.5);
+
+    const labelG = makeTextSprite("G");
+    labelG.position.set(gx+0.5,gy+0.5,gz);
+
+    shapeGroup.add(labelO);
+    shapeGroup.add(labelA);
+    shapeGroup.add(labelB);
+    shapeGroup.add(labelC);
+    shapeGroup.add(labelG);
+
+    const normal = G.clone().normalize();
+
+    const arrowOG = new THREE.ArrowHelper(
+        normal,
+        O,
+        G.length(),
+        0xe74c3c,
+        0.4,
+        0.2
+    );
+
+    shapeGroup.add(arrowOG);
+
+    const planeArrow = new THREE.ArrowHelper(
+        normal,
+        G,
+        3,
+        0x9b59b6,
+        0.3,
+        0.15
+    );
+
+    shapeGroup.add(planeArrow);
+
+    const sumSq = a*a+b*b+c*c;
+
+    const interceptX = sumSq/(4*a);
+    const interceptY = sumSq/(4*b);
+    const interceptZ = sumSq/(4*c);
+
+    document.getElementById('eqX').innerText =
+        interceptX.toFixed(2);
+
+    document.getElementById('eqY').innerText =
+        interceptY.toFixed(2);
+
+    document.getElementById('eqZ').innerText =
+        interceptZ.toFixed(2);
+
+    const edges = [
+        [O,A],
+        [O,B],
+        [O,C],
+        [A,B],
+        [B,C],
+        [C,A]
+    ];
+
+    const d = normal.dot(G);
+
+    let sectionPoints = [];
+
+    edges.forEach(edge=>{
+
+        const p = intersectEdge(
+            edge[0],
+            edge[1],
+            normal,
+            d
+        );
+
+        if(p){
+
+            let duplicate = false;
+
+            sectionPoints.forEach(q=>{
+
+                if(p.distanceTo(q)<1e-5){
+
+                    duplicate = true;
+
+                }
+
+            });
+
+            if(!duplicate){
+
+                sectionPoints.push(p);
+
+            }
+
+        }
+
+    });
+
+    sortPoints(sectionPoints,normal);
+
+    const shapeName =
+        ["점","선분","삼각형","사각형","오각형","육각형"][sectionPoints.length-1]
+        || "다각형";
+
+    document.getElementById('resShape').innerText =
+        shapeName;
+
+    const area = polygonArea(sectionPoints);
+
+    document.getElementById('resArea').innerText =
+        area.toFixed(4);
+
+    sectionPoints.forEach(p=>{
+
+        shapeGroup.add(createPoint(p,0xf39c12,0.12));
+
+    });
+
+    if(sectionPoints.length>=3){
+
+        const positions = [];
+
+        sectionPoints.forEach(p=>{
+
+            positions.push(p.x,p.y,p.z);
+
+        });
+
+        const geometry = new THREE.BufferGeometry();
+
+        geometry.setAttribute(
+            'position',
+            new THREE.Float32BufferAttribute(
+                positions,
+                3
+            )
+        );
+
+        const triangles = [];
+
+        for(let i=1;i<sectionPoints.length-1;i++){
+
+            triangles.push(0,i,i+1);
+
+        }
+
+        geometry.setIndex(triangles);
+
+        geometry.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(
+            geometry,
+            new THREE.MeshPhongMaterial({
+                color:0x3498db,
+                transparent:true,
+                opacity:0.7,
+                side:THREE.DoubleSide
+            })
+        );
+
+        shapeGroup.add(mesh);
+
+        const linePositions = [];
+
+        sectionPoints.forEach(p=>{
+
+            linePositions.push(p.x,p.y,p.z);
+
+        });
+
+        linePositions.push(
+            sectionPoints[0].x,
+            sectionPoints[0].y,
+            sectionPoints[0].z
+        );
+
+        const lineGeo = new THREE.BufferGeometry();
+
+        lineGeo.setAttribute(
+            'position',
+            new THREE.Float32BufferAttribute(
+                linePositions,
+                3
+            )
+        );
+
+        const line = new THREE.Line(
+            lineGeo,
+            new THREE.LineBasicMaterial({
+                color:0xf1c40f
+            })
+        );
+
+        shapeGroup.add(line);
+
+    }
+
+}
+
+[slideA,slideB,slideC].forEach(slider=>{
+
+    slider.addEventListener(
+        'input',
+        updateVisualization
+    );
+
+});
+
+document.getElementById('btnPreset')
+.addEventListener('click',()=>{
+
+    slideA.value = 7;
+    slideB.value = 8;
+    slideC.value = 9;
+
+    updateVisualization();
+
+});
+
+window.addEventListener('resize',()=>{
+
+    camera.aspect =
+        container.clientWidth/container.clientHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        container.clientWidth,
+        container.clientHeight
+    );
+
+});
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    controls.update();
+
+    renderer.render(scene,camera);
+
+}
+
+updateVisualization();
+
+animate();
+
+</script>
+
+</body>
+</html>

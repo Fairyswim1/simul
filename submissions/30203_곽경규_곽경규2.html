@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[문제 4] 영역 C와 D의 기하학적 매핑 시뮬레이터 v2.0</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --panel-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-c: #f59e0b;
+      --accent-d: #06b6d4;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Pretendard', -apple-system, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: row;
+      background-color: var(--panel-bg);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      overflow: hidden;
+      max-width: 1100px;
+      width: 100%;
+    }
+
+    .panel {
+      padding: 30px;
+      width: 400px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #334155;
+    }
+
+    h1 { font-size: 1.4rem; margin-bottom: 10px; font-weight: 700; }
+    .subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 25px; line-height: 1.4; }
+
+    .control-group { margin-bottom: 20px; }
+    label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 8px; font-weight: 600; }
+    .val-c { color: var(--accent-c); }
+    .val-d { color: var(--accent-d); }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-d);
+      cursor: pointer;
+    }
+
+    .btn-container { display: flex; gap: 10px; margin-top: 10px; margin-bottom: 20px; }
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #playBtn { background-color: var(--accent-d); color: #0f172a; }
+    #playBtn:hover { background-color: #22d3ee; }
+    #resetBtn { background-color: #475569; color: var(--text-main); }
+    #resetBtn:hover { background-color: #64748b; }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      margin-bottom: 25px;
+      cursor: pointer;
+    }
+    .checkbox-group input { width: 16px; height: 16px; accent-color: var(--accent-d); }
+
+    .info-box {
+      background-color: #0f172a;
+      border-radius: 8px;
+      padding: 15px;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      border-left: 4px solid var(--accent-d);
+    }
+    .info-box ul { margin-left: 18px; margin-top: 5px; }
+
+    .canvas-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #0b0f19;
+      position: relative;
+      padding: 20px;
+    }
+    canvas {
+      background-color: #0f172a;
+      border-radius: 8px;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+      cursor: crosshair;
+    }
+
+    @media (max-width: 900px) {
+      .container { flex-direction: column; }
+      .panel { width: 100%; border-right: none; border-bottom: 1px solid #334155; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="panel">
+      <h1>공간 기하 쌍대 원뿔 스캐너 v2.0</h1>
+      <p class="subtitle">모든 점 C에 대해 ax + by &ge; 0 조건을 만족하는 '실시간 유효 영역'이 깎여나가며 최종 영역 D로 수렴하는 과정을 증명합니다.</p>
+      
+      <div class="control-group">
+        <label>시작 각도 &theta; (Theta): <span id="thetaVal" class="val-c">30°</span></label>
+        <input type="range" id="thetaSlider" min="0" max="90" value="30">
+      </div>
+
+      <div class="control-group">
+        <label>종료 각도 &omega; (Omega): <span id="omegaVal" class="val-c">45°</span></label>
+        <input type="range" id="omegaSlider" min="0" max="90" value="45">
+      </div>
+
+      <div class="btn-container">
+        <button id="playBtn">▶ 자동 재생</button>
+        <button id="resetBtn">초기화</button>
+      </div>
+
+      <div class="checkbox-group">
+        <input type="checkbox" id="showDCheck" checked>
+        <label for="showDCheck" style="margin:0; font-weight:normal;">이론적 정답 영역 D 가이드라인 표시</label>
+      </div>
+
+      <div class="info-box">
+        <strong>💡 수식 및 영역 정보</strong>
+        <ul>
+          <li>영역 C 범위: [<span id="cStartInfo" class="val-c">-45°</span>, <span id="cEndInfo" class="val-c">120°</span>]</li>
+          <li>정답 영역 D 범위: [<span id="dStartInfo" class="val-d">30°</span>, <span id="dEndInfo" class="val-d">45°</span>]</li>
+          <li style="margin-top: 8px; color: var(--text-muted);">* 자동 재생 시 <strong>실시간 유효 생존 영역</strong>이 칼로 잘리듯 줄어들며 D 구역에 정확히 안착합니다.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="canvas-container">
+      <canvas id="simCanvas" width="600" height="600"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const thetaSlider = document.getElementById('thetaSlider');
+    const omegaSlider = document.getElementById('omegaSlider');
+    const thetaVal = document.getElementById('thetaVal');
+    const omegaVal = document.getElementById('omegaVal');
+    const playBtn = document.getElementById('playBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const showDCheck = document.getElementById('showDCheck');
+
+    const cStartInfo = document.getElementById('cStartInfo');
+    const cEndInfo = document.getElementById('cEndInfo');
+    const dStartInfo = document.getElementById('dStartInfo');
+    const dEndInfo = document.getElementById('dEndInfo');
+
+    let theta = parseInt(thetaSlider.value);
+    let omega = parseInt(omegaSlider.value);
+    let isPlaying = false;
+    let isDragging = false;
+
+    let minPhi = omega - 90;
+    let maxPhi = theta + 90;
+    let currentPhi = minPhi; 
+    let animPhi = minPhi;    
+
+    const center = { x: canvas.width / 2, y: canvas.height / 2 };
+    const radius = 180; 
+
+    function updateAngles() {
+      theta = parseInt(thetaSlider.value);
+      omega = parseInt(omegaSlider.value);
+
+      if (theta >= omega) {
+        omega = theta + 1;
+        if (omega > 90) { omega = 90; theta = 89; thetaSlider.value = theta; }
+        omegaSlider.value = omega;
+      }
+
+      thetaVal.innerText = theta + '°';
+      omegaVal.innerText = omega + '°';
+
+      minPhi = omega - 90;
+      maxPhi = theta + 90;
+
+      cStartInfo.innerText = minPhi + '°';
+      cEndInfo.innerText = maxPhi + '°';
+      dStartInfo.innerText = theta + '°';
+      dEndInfo.innerText = omega + '°';
+
+      if (!isPlaying && (currentPhi < minPhi || currentPhi > maxPhi)) {
+        currentPhi = minPhi;
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(center.x, center.y);
+      ctx.scale(1, -1); 
+
+      // 1. 축 그리드 기본 레이어
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-canvas.width/2, 0); ctx.lineTo(canvas.width/2, 0); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -canvas.height/2); ctx.lineTo(0, canvas.height/2); ctx.stroke();
+      
+      ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = '#1e293b'; ctx.stroke();
+
+      const minPhiRad = minPhi * Math.PI / 180;
+      const maxPhiRad = maxPhi * Math.PI / 180;
+
+      // 2. 핵심 고도화: 실시간 교집합(조건 생존 영역) 마스킹 시각화
+      if (isPlaying) {
+        // 현재 스캔 위치(animPhi)까지 진행되었을 때, 
+        // 모든 점들이 공통으로 만족하는 실시간 생존 구역 계산: [animPhi - 90, minPhi + 90]
+        let validStart = animPhi - 90;
+        let validEnd = minPhi + 90;
+
+        // [시각적 연출] 조건을 만족하지 못해 탈락한 구역을 어두운 붉은색 그늘로 덮음
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, 800, (validEnd) * Math.PI / 180, (validStart) * Math.PI / 180);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.05)'; // 탈락 구역 (흐릿한 레드)
+        ctx.fill();
+
+        // [시각적 연출] 현재까지 '모든 조건'을 통과해 살아남은 순수 유효 구역 (강력한 푸른색 발광 효과)
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, 800, validStart * Math.PI / 180, validEnd * Math.PI / 180);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.25)'; // 생존 구역 (선명한 사이언 블루)
+        ctx.fill();
+
+        // 현재 스캔 중인 단일 점의 순간 조건 반평면 테두리 가이드라인 (노란 펄스)
+        ctx.beginPath();
+        ctx.arc(0, 0, 800, (animPhi - 90) * Math.PI / 180, (animPhi + 90) * Math.PI / 180);
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.15)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        currentPhi = animPhi;
+
+        // 스캔 진행 속도
+        animPhi += 0.5; 
+        if (animPhi > maxPhi) {
+          isPlaying = false; // 영역 D에 도달하면 멈추어 도출 완료를 시각화
+          playBtn.innerText = '▶ 재생 완료';
+          currentPhi = maxPhi;
+        }
+      } else {
+        // [수동 드래그 모드] 단일 선택된 상태의 반평면 표시
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, 800, (currentPhi - 90) * Math.PI / 180, (currentPhi + 90) * Math.PI / 180);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+        ctx.fill();
+      }
+
+      // 3. 원래 주어진 영역 C (주황색 부채꼴 가이드)
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, radius, minPhiRad, maxPhiRad);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.05)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 4. 이론적 정답 영역 D 점선 경계선 (Cyan 선명한 가이드라인)
+      if (showDCheck.checked) {
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, radius * 1.1, theta * Math.PI / 180, omega * Math.PI / 180);
+        ctx.closePath();
+        ctx.strokeStyle = '#22d3ee';
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([5, 4]); 
+        ctx.stroke();
+        ctx.setLineDash([]); 
+      }
+
+      // 5. 영역 C 위의 움직이는 탐색 원인 점 (a, b)와 직각 자 시각화
+      const currentRad = currentPhi * Math.PI / 180;
+      const ptX = radius * Math.cos(currentRad);
+      const ptY = radius * Math.sin(currentRad);
+
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(ptX, ptY);
+      ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2; ctx.stroke();
+
+      ctx.beginPath(); ctx.arc(ptX, ptY, 6, 0, Math.PI*2);
+      ctx.fillStyle = '#fbbf24'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // 현재 점에 대응하는 수직 경계선 (ax + by = 0)
+      const perpX1 = 800 * Math.cos(currentRad + Math.PI/2);
+      const perpY1 = 800 * Math.sin(currentRad + Math.PI/2);
+      const perpX2 = 800 * Math.cos(currentRad - Math.PI/2);
+      const perpY2 = 800 * Math.sin(currentRad - Math.PI/2);
+      
+      ctx.beginPath(); ctx.moveTo(perpX1, perpY1); ctx.lineTo(perpX2, perpY2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.lineWidth = 1; ctx.stroke();
+
+      // 직각 표시 기호
+      const sqSize = 15;
+      const sqX1 = sqSize * Math.cos(currentRad);
+      const sqY1 = sqSize * Math.sin(currentRad);
+      const sqX2 = sqSize * (Math.cos(currentRad) + Math.cos(currentRad + Math.PI/2));
+      const sqY2 = sqSize * (Math.sin(currentRad) + Math.sin(currentRad + Math.PI/2));
+      const sqX3 = sqSize * Math.cos(currentRad + Math.PI/2);
+      const sqY3 = sqSize * Math.sin(currentRad + Math.PI/2);
+
+      ctx.beginPath();
+      ctx.moveTo(sqX1, sqY1); ctx.lineTo(sqX2, sqY2); ctx.lineTo(sqX3, sqY3);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+
+      ctx.restore();
+
+      // 6. 상태 메시지 및 정보 텍스트 레이아웃
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('영역 C (주어진 벡터 공간)', 25, 40);
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillText('영역 D (모든 조건 만족 생존 공간)', 25, 60);
+      
+      ctx.font = '12px sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('+X축', canvas.width - 45, center.y - 10);
+      ctx.fillText('+Y축', center.x + 10, 25);
+      
+      if (isPlaying) {
+        ctx.fillStyle = '#22d3ee';
+        ctx.fillText(`⚡ 실시간 공통 조건 필터링 중... 각도: ${currentPhi.toFixed(1)}°`, 25, canvas.height - 25);
+      } else if (playBtn.innerText === '▶ 재생 완료') {
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText(`✅ 스캔 완료! 오직 영역 D [${theta}° ~ ${omega}°] 만이 모든 조건을 최종 만족합니다.`, 25, canvas.height - 25);
+      } else {
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`마우스 드래그 탐색 각도: ${currentPhi.toFixed(1)}°`, 25, canvas.height - 25);
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    function handleMouseMove(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mX = e.clientX - rect.left - center.x;
+      const mY = center.y - (e.clientY - rect.top);
+
+      let angle = Math.atan2(mY, mX) * 180 / Math.PI;
+      if (angle > 180) angle -= 360;
+      
+      if (angle >= minPhi && angle <= maxPhi) {
+        if (isPlaying || playBtn.innerText === '▶ 재생 완료') {
+          isPlaying = false;
+          playBtn.innerText = '▶ 자동 재생';
+        }
+        currentPhi = angle;
+      }
+    }
+
+    canvas.addEventListener('mousedown', (e) => { isDragging = true; handleMouseMove(e); });
+    canvas.addEventListener('mousemove', (e) => { if (isDragging) handleMouseMove(e); });
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    thetaSlider.addEventListener('input', () => { updateAngles(); playBtn.innerText = '▶ 자동 재생'; animPhi = minPhi; currentPhi = minPhi; });
+    omegaSlider.addEventListener('input', () => { updateAngles(); playBtn.innerText = '▶ 자동 재생'; animPhi = minPhi; currentPhi = minPhi; });
+    
+    playBtn.addEventListener('click', () => {
+      if (playBtn.innerText === '▶ 재생 완료' || animPhi >= maxPhi) {
+        animPhi = minPhi;
+      }
+      isPlaying = !isPlaying;
+      if (isPlaying) {
+        playBtn.innerText = '▮▮ 일시정지';
+      } else {
+        playBtn.innerText = '▶ 자동 재생';
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      isPlaying = false;
+      playBtn.innerText = '▶ 자동 재생';
+      thetaSlider.value = 30;
+      omegaSlider.value = 45;
+      updateAngles();
+      currentPhi = minPhi;
+      animPhi = minPhi;
+    });
+
+    updateAngles();
+    draw();
+  </script>
+</body>
+</html>

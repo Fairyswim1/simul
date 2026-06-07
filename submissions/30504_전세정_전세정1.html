@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>미적분학 마스터 시뮬레이터: 에피사이클로이드 변형 운동 분석</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #edeef3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #simulation-container {
+            display: flex;
+            gap: 25px;
+            max-width: 1150px;
+            width: 100%;
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 35px rgba(0,0,0,0.1);
+        }
+        canvas {
+            border: 1px solid #cbd5e0;
+            border-radius: 12px;
+            background-color: #ffffff;
+        }
+        #control-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 550px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        .main-title {
+            margin-top: 0;
+            font-size: 19px;
+            color: #1a202c;
+            border-bottom: 3px solid #2b6cb0;
+            padding-bottom: 8px;
+            margin-bottom: 5px;
+        }
+        .control-box {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .slider-label {
+            font-size: 13.5px;
+            font-weight: bold;
+            color: #4a5568;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .btn-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        .control-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        #btn-toggle-play { background-color: #2b6cb0; color: white; }
+        #btn-toggle-play.active { background-color: #c53030; }
+        #btn-insight { background-color: #319795; color: white; }
+        #btn-insight.active { background-color: #234e52; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+        #btn-reset { background-color: #718096; color: white; }
+        
+        #dashboard {
+            background-color: #edf2f7;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            line-height: 1.6;
+        }
+        .data-row { display: flex; justify-content: space-between; }
+        
+        #log-panel {
+            background: #fff;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            max-height: 110px;
+            overflow-y: auto;
+        }
+        .log-title { font-weight: bold; color: #c53030; margin-bottom: 5px; display: flex; justify-content: space-between;}
+        .log-item { padding: 2px 0; border-bottom: 1px dashed #e2e8f0; font-family: monospace; }
+        
+        .math { font-family: 'Times New Roman', serif; font-style: italic; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2 style="margin-bottom: 15px; color: #1a202c;">고등 미적분 심화 탐구 시뮬레이터</h2>
+
+    <div id="simulation-container">
+        <canvas id="mathCanvas" width="550" height="550"></canvas>
+
+        <div id="control-panel">
+            <h3 class="main-title">정밀 매개변수 제어 시스템</h3>
+            
+            <div class="control-box">
+                <div class="slider-label">
+                    <span>매개변수 시간 (<span class="math">t</span>)</span>
+                    <span id="label-t" style="color: #2b6cb0;">0.000 rad</span>
+                </div>
+                <input type="range" id="slider-t" min="0" max="6.28318" step="0.001" value="0">
+            </div>
+
+            <div class="control-box">
+                <div class="slider-label">
+                    <span>애니메이션 재생 속도</span>
+                    <span id="label-speed" style="color: #319795;">1.00x 배속</span>
+                </div>
+                <input type="range" id="slider-speed" min="0.1" max="2.0" step="0.05" value="1.0">
+            </div>
+
+            <div class="btn-container">
+                <button id="btn-toggle-play" class="control-btn">▶ 자동 재생</button>
+                <button id="btn-insight" class="control-btn">넓이 구하기 인사이트 켜기</button>
+                <button id="btn-reset" class="control-btn">초기화</button>
+            </div>
+
+            <div id="dashboard">
+                <div class="data-row"><span>점 <b>A</b> (공전 중심):</span> <span id="data-a" class="math">(3.00, 0.00)</span></div>
+                <div class="data-row"><span>점 <b>B</b> (자취 점):</span> <span id="data-b" class="math">(4.00, 0.00)</span></div>
+                <div class="data-row"><span>점 B 속도 벡터:</span> <span id="data-vel" class="math">v = (0.00, 0.00)</span></div>
+                <div class="data-row" style="font-size:14.5px; margin-top:4px; border-top:1px solid #cbd5e0; padding-top:4px;">
+                    <b>현재 연산 속력 (<span class="math">|v|</span>):</b> 
+                    <span id="data-speed" class="math" style="color: #c53030;">0.000</span>
+                </div>
+            </div>
+
+            <div id="log-panel">
+                <div class="log-title"><span>고정점 관측 로그 (속력 = 0)</span> <span style="font-size:10px; color:#718096;">*자동 기록</span></div>
+                <div id="log-container"></div>
+            </div>
+
+            <div id="insight-text" style="font-size: 12px; color: #4a5568; line-height: 1.4; padding: 10px; background: #ebf8ff; border-left: 4px solid #3182ce; border-radius: 4px; display:none;">
+                <b>[넓이 구하기 기하학적 인사이트]</b><br>
+                1. <b>대칭성 분석:</b> 활성화된 색칠 영역과 강조된 x축, y축 보조선을 보면 알 수 있듯이, 이 곡선은 x축과 y축, 그리고 원점에 대해 완벽한 대칭을 이룹니다.<br>
+                2. <b>정적분 효율화 전략:</b> 전체 영역의 넓이를 한번에 적분하는 대신, 제1사분면에 존재하는 영역(구간 <i>t</i> ∈ [0, π/2])의 면적을 정적분한 뒤 <b>4배</b>를 취해주는 것이 수학적으로 가장 명쾌하고 효율적인 풀이 설계입니다.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mathCanvas');
+        const ctx = canvas.getContext('2d');
+        const sliderT = document.getElementById('slider-t');
+        const labelT = document.getElementById('label-t');
+        const sliderSpeed = document.getElementById('slider-speed');
+        const labelSpeed = document.getElementById('label-speed');
+        const btnPlay = document.getElementById('btn-toggle-play');
+        const btnInsight = document.getElementById('btn-insight');
+        const btnReset = document.getElementById('btn-reset');
+
+        const dataA = document.getElementById('data-a');
+        const dataB = document.getElementById('data-b');
+        const dataVel = document.getElementById('data-vel');
+        const dataSpeed = document.getElementById('data-speed');
+        const logContainer = document.getElementById('log-container');
+        const insightText = document.getElementById('insight-text');
+
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const scale = 55;
+
+        let t = 0;
+        let isLooping = false;
+        let showInsight = false;
+        let playbackSpeed = 1.0;
+        let zeroVelocityPoints = [];
+
+        function mathEngine(time) {
+            let ax = 3 * Math.cos(time);
+            let ay = 3 * Math.sin(time);
+            let bx = ax + Math.cos(-3 * time);
+            let by = ay + Math.sin(-3 * time);
+            let vx = -3 * Math.sin(time) + 3 * Math.sin(-3 * time);
+            let vy = 3 * Math.cos(time) - 3 * Math.cos(-3 * time);
+            let speed = Math.sqrt(vx*vx + vy*vy);
+            return { ax, ay, bx, by, vx, vy, speed };
+        }
+
+        function drawAxesAndGrid() {
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1;
+            for(let x = cx % scale; x < canvas.width; x += scale) {
+                ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for(let y = cy % scale; y < canvas.height; y += scale) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+            ctx.strokeStyle = '#a0aec0';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height); ctx.stroke();
+            ctx.fillStyle = '#4a5568';
+            ctx.font = '11px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let i = -4; i <= 4; i++) {
+                if (i === 0) continue;
+                let tickX = cx + i * scale;
+                ctx.beginPath(); ctx.moveTo(tickX, cy - 4); ctx.lineTo(tickX, cy + 4); ctx.stroke();
+                ctx.fillText(i, tickX, cy + 6);
+                let tickY = cy - i * scale;
+                ctx.beginPath(); ctx.moveTo(cx - 4, tickY); ctx.lineTo(cx + 4, tickY); ctx.stroke();
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(i, cx - 8, tickY);
+                ctx.textAlign = 'center';
+            }
+            ctx.fillText("O", cx - 10, cy + 6);
+        }
+
+        const resolution = 1000;
+        const staticFullTrack = [];
+        for (let i = 0; i <= resolution; i++) {
+            let evalTime = (i / resolution) * 2 * Math.PI;
+            staticFullTrack.push({ time: evalTime, data: mathEngine(evalTime) });
+        }
+
+        function renderScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawAxesAndGrid();
+
+            let current = mathEngine(t);
+
+            if (showInsight) {
+                ctx.fillStyle = 'rgba(79, 209, 197, 0.25)';
+                ctx.beginPath();
+                ctx.moveTo(cx + staticFullTrack[0].data.bx * scale, cy - staticFullTrack[0].data.by * scale);
+                for (let i = 1; i <= resolution; i++) {
+                    ctx.lineTo(cx + staticFullTrack[i].data.bx * scale, cy - staticFullTrack[i].data.by * scale);
+                }
+                ctx.fill();
+                ctx.strokeStyle = '#e53e3e';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 4]);
+                ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(canvas.width, cy); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, canvas.height); ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            ctx.strokeStyle = '#cbd5e0';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 4]);
+            ctx.beginPath();
+            ctx.moveTo(cx + staticFullTrack[0].data.bx * scale, cy - staticFullTrack[0].data.by * scale);
+            for (let i = 1; i <= resolution; i++) {
+                ctx.lineTo(cx + staticFullTrack[i].data.bx * scale, cy - staticFullTrack[i].data.by * scale);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.strokeStyle = '#38a169';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            let isFirst = true;
+            for (let i = 0; i <= resolution; i++) {
+                if (staticFullTrack[i].time <= t) {
+                    let px = cx + staticFullTrack[i].data.bx * scale;
+                    let py = cy - staticFullTrack[i].data.by * scale;
+                    if (isFirst) { ctx.moveTo(px, py); isFirst = false; }
+                    else { ctx.lineTo(px, py); }
+                }
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = '#e53e3e';
+            zeroVelocityPoints.forEach(pt => {
+                ctx.beginPath();
+                ctx.arc(cx + pt.x * scale, cy - pt.y * scale, 5.5, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+
+            ctx.fillStyle = '#718096';
+            ctx.font = '11px sans-serif';
+            ctx.fillText("B₀(4,0)", cx + 4 * scale, cy + 15);
+            ctx.beginPath(); ctx.arc(cx + 4 * scale, cy, 3, 0, 2*Math.PI); ctx.fill();
+
+            ctx.strokeStyle = '#cbd5e0';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(cx, cy, 3 * scale, 0, 2 * Math.PI); ctx.stroke();
+            ctx.strokeStyle = '#4a5568';
+            ctx.setLineDash([2, 3]);
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 3 * scale * Math.cos(Math.PI/6), cy - 3 * scale * Math.sin(Math.PI/6)); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#4a5568';
+            ctx.font = 'italic 11px sans-serif';
+            ctx.fillText("R = 3", cx + 1.6 * scale * Math.cos(Math.PI/6), cy - 1.8 * scale * Math.sin(Math.PI/6));
+
+            let pixAX = cx + current.ax * scale;
+            let pixAY = cy - current.ay * scale;
+            let pixBX = cx + current.bx * scale;
+            let pixBY = cy - current.by * scale;
+
+            ctx.strokeStyle = '#a0aec0';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.arc(pixAX, pixAY, 1 * scale, 0, 2 * Math.PI); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pixAX, pixAY); ctx.lineTo(pixBX, pixBY); ctx.stroke();
+            ctx.fillText("r = 1", pixAX + (pixBX - pixAX)*0.5, pixAY + (pixBY - pixAY)*0.5 - 7);
+
+            ctx.strokeStyle = '#a0aec0';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(pixAX, pixAY); ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = '#2b6cb0';
+            ctx.beginPath(); ctx.arc(pixAX, pixAY, 6, 0, 2 * Math.PI); ctx.fill();
+            ctx.fillStyle = '#1a202c';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText("A", pixAX + 11, pixAY - 4);
+
+            let isZeroSpeed = current.speed < 0.08;
+            if (isZeroSpeed) {
+                let roundedT = Math.round(t / (Math.PI / 2)) * (Math.PI / 2);
+                let isExist = zeroVelocityPoints.some(pt => Math.abs(pt.theoreticalT - roundedT) < 0.1);
+                if (!isExist && zeroVelocityPoints.length < 5) {
+                    let logData = { x: current.bx, y: current.by, theoreticalT: roundedT, realT: t };
+                    zeroVelocityPoints.push(logData);
+                    let piLabel = "0";
+                    if (Math.abs(roundedT - Math.PI/2) < 0.1) piLabel = "π/2";
+                    else if (Math.abs(roundedT - Math.PI) < 0.1) piLabel = "π";
+                    else if (Math.abs(roundedT - (3*Math.PI/2)) < 0.1) piLabel = "3π/2";
+                    else if (Math.abs(roundedT - (2*Math.PI)) < 0.1) piLabel = "2π";
+                    let item = document.createElement('div');
+                    item.className = 'log-item';
+                    item.innerHTML = `📍 <span style="color:#e53e3e; font-weight:bold;">[속력0]</span> t = ${piLabel} (${logData.realT.toFixed(3)} rad) ➔ B: (${logData.x.toFixed(3)}, ${logData.y.toFixed(3)})`;
+                    logContainer.appendChild(item);
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+                ctx.fillStyle = '#e53e3e';
+                ctx.beginPath(); ctx.arc(pixBX, pixBY, 12, 0, 2 * Math.PI); ctx.fill();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+            } else {
+                ctx.fillStyle = '#dd6b20';
+                ctx.beginPath(); ctx.arc(pixBX, pixBY, 6.5, 0, 2 * Math.PI); ctx.fill();
+            }
+            ctx.fillStyle = '#1a202c';
+            ctx.fillText("B", pixBX + 12, pixBY - 4);
+
+            labelT.innerText = t.toFixed(3) + " rad";
+            dataA.innerText = `(${current.ax.toFixed(2)}, ${current.ay.toFixed(2)})`;
+            dataB.innerText = `(${current.bx.toFixed(2)}, ${current.by.toFixed(2)})`;
+            dataVel.innerText = `v = (${current.vx.toFixed(2)}, ${current.vy.toFixed(2)})`;
+            dataSpeed.innerText = current.speed.toFixed(4);
+        }
+
+        function animationEngineLoop() {
+            if (isLooping) {
+                t += 0.003 * playbackSpeed;
+                if (t >= 2 * Math.PI) {
+                    t = 0;
+                    zeroVelocityPoints = [];
+                    logContainer.innerHTML = "";
+                }
+                sliderT.value = t;
+                renderScene();
+                requestAnimationFrame(animationEngineLoop);
+            }
+        }
+
+        sliderT.addEventListener('input', (e) => {
+            t = parseFloat(e.target.value);
+            renderScene();
+        });
+
+        sliderSpeed.addEventListener('input', (e) => {
+            playbackSpeed = parseFloat(e.target.value);
+            labelSpeed.innerText = playbackSpeed.toFixed(2) + "x 배속";
+        });
+
+        btnPlay.addEventListener('click', () => {
+            isLooping = !isLooping;
+            if (isLooping) {
+                if (t >= 6.283) { t = 0; zeroVelocityPoints = []; logContainer.innerHTML = ""; }
+                btnPlay.innerText = "■ 정지";
+                btnPlay.classList.add('active');
+                animationEngineLoop();
+            } else {
+                btnPlay.innerText = "▶ 자동 재생";
+                btnPlay.classList.remove('active');
+            }
+        });
+
+        btnInsight.addEventListener('click', () => {
+            showInsight = !showInsight;
+            btnInsight.classList.toggle('active');
+            if (showInsight) {
+                btnInsight.innerText = "넓이 구하기 인사이트 끄기";
+                insightText.style.display = 'block';
+            } else {
+                btnInsight.innerText = "넓이 구하기 인사이트 켜기";
+                insightText.style.display = 'none';
+            }
+            renderScene();
+        });
+
+        btnReset.addEventListener('click', () => {
+            t = 0;
+            isLooping = false;
+            showInsight = false;
+            playbackSpeed = 1.0;
+            zeroVelocityPoints = [];
+            sliderT.value = 0;
+            sliderSpeed.value = 1.0;
+            labelSpeed.innerText = "1.00x 배속";
+            btnPlay.innerText = "▶ 자동 재생";
+            btnPlay.classList.remove('active');
+            btnInsight.innerText = "넓이 구하기 인사이트 켜기";
+            btnInsight.classList.remove('active');
+            insightText.style.display = 'none';
+            logContainer.innerHTML = "";
+            renderScene();
+        });
+
+        renderScene();
+    </script>
+</body>
+</html>

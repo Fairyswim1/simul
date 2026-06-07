@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수학 시뮬레이터 - 삼각형 내부의 5개 점</title>
+    <style>
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            padding: 24px;
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 24px;
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: #111827;
+        }
+        .problem-box {
+            background-color: #eff6ff;
+            border-left: 5px solid #3b82f6;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: 0 8px 8px 0;
+            line-height: 1.6;
+            font-size: 14.5px;
+        }
+        .problem-box strong {
+            color: #1d4ed8;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        .btn-start {
+            background-color: #10b981;
+            color: white;
+        }
+        .btn-start:hover {
+            background-color: #059669;
+        }
+        .btn-reset {
+            background-color: #ef4444;
+            color: white;
+        }
+        .btn-reset:hover {
+            background-color: #dc2626;
+        }
+        .btn-toggle {
+            background-color: #6b7280;
+            color: white;
+        }
+        .btn-toggle:hover {
+            background-color: #4b5563;
+        }
+        .btn-disabled {
+            background-color: #d1d5db !important;
+            color: #9ca3af !important;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        #status {
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 16px;
+            min-height: 24px;
+            color: #374151;
+        }
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            overflow: auto;
+        }
+        canvas {
+            background-color: #fafafa;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            display: block;
+            max-width: 100%;
+            height: auto;
+            touch-action: none; /* 모바일 터치 시 불필요한 스크롤 및 더블탭 줌 제어 */
+        }
+        .solution-box {
+            margin-top: 16px;
+            width: 100%;
+            background-color: #f9fafb;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .solution-toggle {
+            width: 100%;
+            background-color: #e5e7eb;
+            color: #374151;
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        .solution-toggle:hover {
+            background-color: #d1d5db;
+        }
+        .solution-content {
+            padding: 16px;
+            font-size: 14.5px;
+            color: #4b5563;
+            line-height: 1.6;
+            display: none; /* 기본 상태: 숨김 */
+            border-top: 1px solid #d1d5db;
+        }
+        .solution-content p {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>수학 시뮬레이터</h1>
+    
+    <div class="problem-box">
+        <strong>[문제]</strong> 면적이 4인 삼각형이 있다. 이 삼각형 안에 점 다섯 개를 임의로 찍었다. 이 점들 다섯 개에서 세 개를 직선으로 이어서 면적이 1 이하인 삼각형을 그릴 수 있음을 보여라. (단, 세 점이 한 직선 위에 있을 때의 삼각형의 넓이는 0으로 한다)
+    </div>
+
+    <div class="controls">
+        <button id="startBtn" class="btn-start" onclick="startSimulation()">시뮬레이션 시작</button>
+        <button id="resetBtn" class="btn-reset" onclick="resetSimulation()">시뮬레이션 리셋</button>
+        <button id="toggleBtn" class="btn-toggle" onclick="toggleHelperLines()">보조선 보기 (OFF)</button>
+    </div>
+
+    <div id="status">"시뮬레이션 시작" 버튼을 누른 후, 회색 삼각형 내부를 클릭하세요.</div>
+
+    <div class="canvas-container">
+        <canvas id="simCanvas" width="800" height="500"></canvas>
+    </div>
+
+    <div class="solution-box">
+        <button class="solution-toggle" onclick="toggleSolution()">
+            <span>📝 첨부된 풀이 과정 보기 / 숨기기</span>
+            <span id="toggleIcon">▼</span>
+        </button>
+        <div class="solution-content" id="solutionContent">
+            <p><strong>[풀이]</strong></p>
+            <p>변 BC, CA, AB의 중점을 각각 D, E, F라고 하자. 선분 DE, EF, FD를 그리면 △ABC는 △AFE, △BDF, △CDE, △DEF의 네 부분으로 나뉘며, 각 영역의 넓이는 모두 1이다.</p>
+            <p><strong>i) 세 점이 한 영역에 존재할 때:</strong><br>
+            그 세 점으로 만든 삼각형의 넓이는 1 이하이다.</p>
+            <p><strong>ii) △DEF에 2점이 존재할 때:</strong><br>
+            □AFDE, □BDEF, □CEFD 중 세 점이 들어가는 평행사변형이 반드시 존재한다. 이때 그 세 점으로 만든 삼각형의 넓이는 1 이하이다.</p>
+            <p><strong>iii) 나머지 경우:</strong><br>
+            △AFE, △BDF, △CDE에 각각 1개, 2개, 2개의 점이 존재한다. 일반성을 잃지 않고(WLOG) △AFE에 1개의 점이 들어간다고 하자. 각 영역의 점들을 P(△AFE 안의 점), Q₁, Q₂(△BDF 안의 점), R₁, R₂(△CDE 안의 점)이라고 하자.</p>
+            <p>△AFE 위의 점 중 선분 Q₁Q₂로부터 가장 멀리 떨어진 점은 A 또는 E이다. 같은 방법(I.S.W.)으로 선분 R₁R₂에 대해서는 A 또는 F이다.</p>
+            <p>- 만약 A가 아닌 점(예: E)이 가장 멀리 존재한다고 가정하면, △PQ₁Q₂ ≤ △EQ₁Q₂ ≤ ½□BDEF = 1이 되어 조건이 성립한다.<br>
+            - 만약 둘 다 A라고 가정하면, △CDE 위의 점 중 선분 Q₁Q₂로부터 가장 멀리 떨어진 점은 E가 된다. 따라서 △Q₁Q₂R₁ ≤ △Q₁Q₂E ≤ ½□BDEF = 1이 되어 조건이 성립한다.</p>
+            <p><strong>∴ 반드시 넓이가 1 이하인 삼각형이 존재한다.</strong></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const toggleBtn = document.getElementById('toggleBtn');
+
+    // [정밀 설계] 75°- 60°- 45° 비율의 예각삼각형 정점 좌표
+    // 밑변 BC를 수평으로 두고 고정 (y=420)
+    // B = (150, 420), C = (650, 420) -> 길이는 정확히 500
+    // A의 이론적 정확한 좌표: x = 150 + 500 * (cos 45° * sin 15° / sin 75°) 등이 아님.
+    // 사인법칙에 의한 높이 AH와 수평투영 BH를 완벽히 계산하면 A = (333.0127, 103.0127) 입니다.
+    const A = { x: 333.0127, y: 103.0127 };
+    const B = { x: 150.0, y: 420.0 };
+    const C = { x: 650.0, y: 420.0 };
+
+    // 세 변의 정확한 중점 계산
+    const M_AB = { x: (A.x + B.x) / 2, y: (A.y + B.y) / 2 };
+    const M_BC = { x: (B.x + C.x) / 2, y: (B.y + C.y) / 2 };
+    const M_CA = { x: (C.x + A.x) / 2, y: (C.y + A.y) / 2 };
+
+    let points = [];
+    let isPlacing = false;
+    let minTriangle = null;
+    let showHelper = false;
+
+    // 전체 삼각형 실제 픽셀 면적 구하고, 조건 면적 4.0으로 스케일링 계산
+    const canvasMainArea = getTriangleArea(A, B, C);
+    const TARGET_AREA = 4.0;
+    const scaleFactor = TARGET_AREA / canvasMainArea;
+
+    // 삼각형 면적을 산출하는 신발끈 공식
+    function getTriangleArea(p1, p2, p3) {
+        return 0.5 * Math.abs(p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y));
+    }
+
+    // [최고 정밀도 알고리즘] 면적 비(Barycentric Coordinates)를 이용한 삼각형 내부 판정
+    // 수치적 한계 및 경계선 누락 문제를 완벽히 방지하여 100% 신뢰할 수 있는 수학적 판정을 보장합니다.
+    function isPointInTriangle(p, a, b, c) {
+        const dX = p.x - c.x;
+        const dY = p.y - c.y;
+        const dX21 = c.x - b.x;
+        const dY12 = b.y - c.y;
+        const D = dY12 * (a.x - c.x) + dX21 * (a.y - c.y);
+        const s = dY12 * dX + dX21 * dY;
+        const t = (c.y - a.y) * dX + (a.x - c.x) * dY;
+        
+        // 부동 소수점 오차 완화를 위한 미세 보정치(epsilon) 적용
+        const eps = 1e-9;
+        if (D < 0) {
+            return s <= eps && t <= eps && (s + t) >= (D - eps);
+        }
+        return s >= -eps && t >= -eps && (s + t) <= (D + eps);
+    }
+
+    // 화면 렌더링 그리기 함수
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. 메인 75°-60°-45° 예각삼각형 그리기
+        ctx.beginPath();
+        ctx.moveTo(A.x, A.y);
+        ctx.lineTo(B.x, B.y);
+        ctx.lineTo(C.x, C.y);
+        ctx.closePath();
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.fillStyle = '#f8fafc';
+        ctx.fill();
+
+        // 메인 정점 라벨 표시 (각도 제거)
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText('A', A.x - 6, A.y - 12);
+        ctx.fillText('B', B.x - 12, B.y + 25);
+        ctx.fillText('C', C.x + 2, C.y + 25);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '13px sans-serif';
+        ctx.fillText('(전체 면적: 4.00)', A.x - 48, A.y - 35);
+
+        // 2. 증명 보조선(비둘기집 중점 분할선) 시각화 처리
+        if (showHelper) {
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 4]); // 세련된 점선 처리
+
+            ctx.beginPath();
+            ctx.moveTo(M_AB.x, M_AB.y);
+            ctx.lineTo(M_BC.x, M_BC.y);
+            ctx.lineTo(M_CA.x, M_CA.y);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.setLineDash([]); // 점선 설정 초기화
+
+            // 중점 마킹
+            const midpoints = [M_AB, M_BC, M_CA];
+            midpoints.forEach(m => {
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = '#2563eb';
+                ctx.fill();
+            });
+
+            // 각 분할 삼각형의 면적 가이드 텍스트 출력
+            ctx.fillStyle = '#2563eb';
+            ctx.font = 'italic bold 12px sans-serif';
+            ctx.fillText('S=1.0', (A.x + M_AB.x + M_CA.x)/3 - 15, (A.y + M_AB.y + M_CA.y)/3);
+            ctx.fillText('S=1.0', (B.x + M_AB.x + M_BC.x)/3 - 15, (B.y + M_AB.y + M_BC.y)/3);
+            ctx.fillText('S=1.0', (C.x + M_BC.x + M_CA.x)/3 - 15, (C.y + M_BC.y + M_CA.y)/3);
+            ctx.fillText('S=1.0', (M_AB.x + M_BC.x + M_CA.x)/3 - 15, (M_AB.y + M_BC.y + M_CA.y)/3);
+        }
+
+        // 3. 5개 점 완료 시 넓이가 최소인 삼각형 그리기 및 하이라이트
+        if (minTriangle) {
+            ctx.beginPath();
+            ctx.moveTo(minTriangle.p1.x, minTriangle.p1.y);
+            ctx.lineTo(minTriangle.p2.x, minTriangle.p2.y);
+            ctx.lineTo(minTriangle.p3.x, minTriangle.p3.y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.25)'; // 조화로운 연한 빨간색 채우기
+            ctx.fill();
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        // 4. 사용자가 화면에 임의 배치한 5개 점 그리기
+        points.forEach((p, index) => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 7, 0, 2 * Math.PI);
+            ctx.fillStyle = '#3b82f6';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(`P${index+1}`, p.x + 10, p.y - 6);
+        });
+    }
+
+    // 시뮬레이션 시작 함수
+    window.startSimulation = function() {
+        points = [];
+        minTriangle = null;
+        isPlacing = true;
+        canvas.style.cursor = 'crosshair';
+        startBtn.classList.add('btn-disabled');
+        startBtn.disabled = true;
+        statusDiv.innerHTML = '삼각형 내부를 클릭해 점을 찍으세요. <span style="color:#3b82f6;">(0 / 5)</span>';
+        draw();
+    }
+
+    // 시뮬레이션 리셋 함수
+    window.resetSimulation = function() {
+        points = [];
+        minTriangle = null;
+        isPlacing = false;
+        canvas.style.cursor = 'default';
+        startBtn.classList.remove('btn-disabled');
+        startBtn.disabled = false;
+        statusDiv.innerHTML = '"시뮬레이션 시작" 버튼을 누른 후, 회색 삼각형 내부를 클릭하세요.';
+        draw();
+    }
+
+    // 보조선 토글 함수
+    window.toggleHelperLines = function() {
+        showHelper = !showHelper;
+        toggleBtn.innerText = showHelper ? '보조선 보기 (ON)' : '보조선 보기 (OFF)';
+        toggleBtn.style.backgroundColor = showHelper ? '#2563eb' : '#6b7280';
+        draw();
+    }
+
+    // 풀이 과정 토글(아코디언) 함수
+    window.toggleSolution = function() {
+        const content = document.getElementById('solutionContent');
+        const icon = document.getElementById('toggleIcon');
+        if (content.style.display === 'block') {
+            content.style.display = 'none';
+            icon.innerText = '▼';
+        } else {
+            content.style.display = 'block';
+            icon.innerText = '▲';
+        }
+    }
+
+    // [완벽한 좌표 및 기기 대응] PointerEvent 기반 정밀 터치/마우스 이벤트 리스너 통합
+    function handlePointerDown(event) {
+        if (!isPlacing) return;
+        if (points.length >= 5) return;
+
+        event.preventDefault(); // 기본 모바일 행위 및 터치 스크롤 차단
+
+        const rect = canvas.getBoundingClientRect();
+        // clientX와 clientY를 활용하여 브라우저 스크롤 및 확대 수준에 유연하게 대응
+        const clickPt = {
+            x: (event.clientX - rect.left) * (canvas.width / rect.width),
+            y: (event.clientY - rect.top) * (canvas.height / rect.height)
+        };
+
+        // 완전무결한 수학적 영역 판별식 적용
+        if (isPointInTriangle(clickPt, A, B, C)) {
+            points.push(clickPt);
+            statusDiv.innerHTML = `삼각형 내부를 클릭해 점을 찍으세요. <span style="color:#3b82f6;">(${points.length} / 5)</span>`;
+            
+            if (points.length === 5) {
+                isPlacing = false;
+                canvas.style.cursor = 'default';
+                calculateMinTriangle();
+            } else {
+                draw();
+            }
+        } else {
+            // 외부 무단 클릭 시 완벽한 경고 피드백 제공 (오동작 없음)
+            statusDiv.innerHTML = '<span style="color:#ef4444;">⚠️ 경고: 예각삼각형 검은 테두리 내부 영역에 정확히 클릭해 주세요!</span>';
+            setTimeout(() => {
+                if (isPlacing) {
+                    statusDiv.innerHTML = `삼각형 내부를 클릭해 점을 찍으세요. <span style="color:#3b82f6;">(${points.length} / 5)</span>`;
+                }
+            }, 1800);
+        }
+    }
+
+    // 포인터다운 이벤트 바인딩 (마우스, 터치펜, 모바일 터치 전부 오류 없이 일치)
+    canvas.addEventListener('pointerdown', handlePointerDown);
+
+    // 5개 점 조합 중 최소 면적 삼각형 찾기 (5C3 = 10개 시나리오 계산)
+    function calculateMinTriangle() {
+        let minArea = Infinity;
+        let bestCombo = null;
+
+        for (let i = 0; i < points.length; i++) {
+            for (let j = i + 1; j < points.length; j++) {
+                for (let k = j + 1; k < points.length; k++) {
+                    let cArea = getTriangleArea(points[i], points[j], points[k]);
+                    let realArea = cArea * scaleFactor; // 4.0 면적 기준 가중치 스케일링
+                    
+                    if (realArea < minArea) {
+                        minArea = realArea;
+                        bestCombo = { p1: points[i], p2: points[j], p3: points[k], area: realArea };
+                    }
+                }
+            }
+        }
+
+        minTriangle = bestCombo;
+        draw();
+
+        // 최종 검출 넓이 데이터 업데이트
+        if (minTriangle.area <= 1.0) {
+            statusDiv.innerHTML = `🎉 최소 삼각형 넓이: <span style="color: #ef4444; font-size:18px;">${minTriangle.area.toFixed(4)}</span> (1 이하 존재성 증명 완료)`;
+        } else {
+            statusDiv.innerHTML = `최소 삼각형 넓이: ${minTriangle.area.toFixed(4)}`;
+        }
+    }
+
+    // 최초 로드 드로잉
+    draw();
+</script>
+</body>
+</html>

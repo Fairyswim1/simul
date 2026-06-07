@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>정육면체 내 원기둥 탐구 시뮬레이터</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f8fafc; font-family: 'Pretendard', sans-serif; }
+        #canvas-container { position: relative; width: 100%; height: 100%; }
+        #main-canvas { display: block; width: 100%; height: 100%; }
+        #sub-canvas { display: block; width: 100%; height: 100%; background: #ffffff; border-radius: 0.5rem; }
+        
+        .panel-scroll { max-height: calc(100vh - 40px); overflow-y: auto; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        input[type=range] { accent-color: #3b82f6; }
+        
+        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #2563eb; font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="flex h-screen w-screen text-slate-800">
+
+    <!-- Left: 3D Viewport -->
+    <div class="flex-1 relative flex flex-col">
+        <div class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur p-3 rounded-lg shadow-sm border border-slate-200 pointer-events-none">
+            <h1 class="text-lg font-bold text-slate-800 mb-1">수학 탐구 시뮬레이터</h1>
+            <p class="text-sm text-slate-600" id="status-text">마우스를 드래그하여 화면을 회전할 수 있습니다.</p>
+        </div>
+        
+        <!-- Main 3D Canvas -->
+        <div id="canvas-container" class="flex-1"></div>
+
+        <!-- Bottom: 2D Sub Viewport -->
+        <div id="bottom-panel" class="h-64 border-t border-slate-200 bg-slate-50 p-4 flex gap-4 transition-all duration-300">
+            <div class="w-1/3 bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex flex-col justify-center">
+                <h3 class="font-bold text-slate-700 mb-2" id="bottom-title">상세 정보</h3>
+                <div id="bottom-info" class="text-sm text-slate-600 space-y-2">
+                    <!-- Dynamic Info -->
+                </div>
+            </div>
+            <div class="w-2/3 relative rounded-lg border border-slate-200 shadow-sm overflow-hidden bg-white">
+                <div class="absolute top-2 left-2 bg-slate-800/70 text-white text-xs px-2 py-1 rounded z-10" id="sub-canvas-label">2D 단면 투영</div>
+                <div id="sub-canvas-container" class="w-full h-full"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Control Panel -->
+    <div class="w-80 bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 panel-scroll">
+        
+        <!-- Tabs -->
+        <div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
+            <button class="tab-btn active flex-1 py-3 text-sm text-slate-500 hover:bg-slate-100 transition-colors" data-target="tab1">1. 모델링</button>
+            <button class="tab-btn flex-1 py-3 text-sm text-slate-500 hover:bg-slate-100 transition-colors" data-target="tab2">2. 단면</button>
+            <button class="tab-btn flex-1 py-3 text-sm text-slate-500 hover:bg-slate-100 transition-colors" data-target="tab3">3. 정사영</button>
+        </div>
+
+        <div class="p-5 flex-1">
+            
+            <!-- Tab 1: 3D Modeling -->
+            <div id="tab1" class="tab-content active space-y-6">
+                <div>
+                    <h2 class="text-md font-bold mb-3 flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-blue-500"></div> 정육면체 설정
+                    </h2>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <label>한 변의 길이 (a)</label>
+                            <span id="val-a" class="font-mono text-blue-600">1.0</span>
+                        </div>
+                        <input type="range" id="slider-a" min="0.5" max="5.0" step="0.1" value="1.0" class="w-full">
+                    </div>
+                </div>
+
+                <div class="h-px bg-slate-100"></div>
+
+                <div>
+                    <h2 class="text-md font-bold mb-3 flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-green-500"></div> 원기둥 설정
+                    </h2>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <label>반지름 (r)</label>
+                                <span id="val-r" class="font-mono text-green-600">0.2</span>
+                            </div>
+                            <input type="range" id="slider-r" min="0.01" max="0.6" step="0.01" value="0.2" class="w-full">
+                            <p class="text-xs text-slate-400 mt-1" id="max-r-info">최대 반지름: 내부 자동 제한</p>
+                        </div>
+                        
+                        <div class="bg-slate-50 p-3 rounded border border-slate-200">
+                            <div class="text-xs font-semibold text-slate-500 mb-1">자동 계산된 높이 (h)</div>
+                            <div id="val-h" class="text-lg font-mono font-bold text-slate-800">1.166</div>
+                            <div class="text-[10px] text-slate-400 mt-1 break-all">h = √3a - 2√2r (돌출 방지)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="h-px bg-slate-100"></div>
+
+                <div>
+                    <h2 class="text-md font-bold mb-3">표시 설정</h2>
+                    <div class="space-y-2 text-sm">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="chk-cube" checked class="rounded text-blue-500"> 정육면체 표시
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="chk-cyl" checked class="rounded text-green-500"> 원기둥 표시
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="chk-diag" checked class="rounded text-red-500"> 대각선 축 및 중심 표시
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Cross Section -->
+            <div id="tab2" class="tab-content space-y-6">
+                <div class="bg-blue-50 text-blue-800 text-xs p-3 rounded border border-blue-100">
+                    아래 하단 2D 창에서 실제 잘린 단면의 모양을 정확히 확인할 수 있습니다.
+                </div>
+
+                <div>
+                    <h2 class="text-md font-bold mb-3">단면 방향 선택</h2>
+                    <div class="grid grid-cols-1 gap-2">
+                        <button class="slice-btn w-full py-2 px-3 text-sm bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors text-left flex justify-between items-center" data-type="top">
+                            <span>윗면 방향 (평행)</span>
+                            <span class="text-xs text-slate-400">y = k</span>
+                        </button>
+                        <button class="slice-btn w-full py-2 px-3 text-sm bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors text-left flex justify-between items-center" data-type="side">
+                            <span>옆면 방향 (평행)</span>
+                            <span class="text-xs text-slate-400">x = k</span>
+                        </button>
+                        <button class="slice-btn w-full py-2 px-3 text-sm bg-blue-500 text-white border border-blue-600 rounded shadow-sm text-left flex justify-between items-center" data-type="diag">
+                            <span>대각선 방향 (수직)</span>
+                            <span class="text-xs text-blue-200">x+y+z = k</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 class="text-md font-bold mb-3 flex justify-between items-center">
+                        단면 위치 이동
+                        <label class="text-xs font-normal flex items-center gap-1 cursor-pointer">
+                            <input type="checkbox" id="chk-slice-on" checked> 활성화
+                        </label>
+                    </h2>
+                    <input type="range" id="slider-slice" min="-0.5" max="0.5" step="0.01" value="0" class="w-full">
+                    <div class="flex justify-between text-xs text-slate-400 mt-1">
+                        <span>-a/2</span>
+                        <span id="val-slice-pos">중심 (0.00)</span>
+                        <span>+a/2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Projection -->
+            <div id="tab3" class="tab-content space-y-6">
+                <div class="bg-indigo-50 text-indigo-800 text-xs p-3 rounded border border-indigo-100">
+                    도형을 3D 공간에서 회전시키면, z축 방향(위에서 아래로)으로 빛을 비추었을 때의 정사영 넓이가 실시간 계산됩니다.
+                </div>
+
+                <div>
+                    <h2 class="text-md font-bold mb-3">도형 선택</h2>
+                    <select id="proj-shape" class="w-full p-2 border border-slate-300 rounded text-sm bg-white focus:outline-none focus:border-indigo-500">
+                        <option value="cube">정육면체 (Cube)</option>
+                        <option value="cylinder">원기둥 (Cylinder)</option>
+                        <option value="tetra">정사면체 (Tetrahedron)</option>
+                    </select>
+                </div>
+
+                <div id="proj-params" class="space-y-3 bg-slate-50 p-3 rounded border border-slate-200">
+                    <!-- dynamically filled -->
+                </div>
+
+                <div class="h-px bg-slate-100"></div>
+
+                <div>
+                    <h2 class="text-md font-bold mb-3">직접 회전 제어</h2>
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-bold text-red-500 w-4">X</label>
+                            <input type="range" id="rot-x" min="0" max="360" value="0" class="flex-1">
+                            <span id="val-rot-x" class="text-xs font-mono w-8 text-right">0°</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-bold text-green-500 w-4">Y</label>
+                            <input type="range" id="rot-y" min="0" max="360" value="0" class="flex-1">
+                            <span id="val-rot-y" class="text-xs font-mono w-8 text-right">0°</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-bold text-blue-500 w-4">Z</label>
+                            <input type="range" id="rot-z" min="0" max="360" value="0" class="flex-1">
+                            <span id="val-rot-z" class="text-xs font-mono w-8 text-right">0°</span>
+                        </div>
+                        <button id="btn-reset-rot" class="w-full py-1 text-xs bg-slate-200 hover:bg-slate-300 rounded transition-colors mt-2">회전 초기화</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        const State = {
+            mode: 1, // 1: Model, 2: Slice, 3: Projection
+            
+            // Model Params
+            a: 1.0,
+            r: 0.2,
+            h: 0, // calculated
+            
+            // View Toggles
+            showCube: true,
+            showCyl: true,
+            showDiag: true,
+            
+            // Slice Params
+            sliceActive: true,
+            sliceType: 'diag', // top, side, diag
+            sliceOffset: 0, // -0.5 to 0.5 (relative to 'a')
+            
+            // Projection Params
+            projShape: 'cube',
+            projParam1: 1.0, // length/radius
+            projParam2: 1.5, // height (cyl only)
+            rot: { x: 0, y: 0, z: 0 }
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            sliderA: document.getElementById('slider-a'), valA: document.getElementById('val-a'),
+            sliderR: document.getElementById('slider-r'), valR: document.getElementById('val-r'),
+            valH: document.getElementById('val-h'), maxRInfo: document.getElementById('max-r-info'),
+            chkCube: document.getElementById('chk-cube'), chkCyl: document.getElementById('chk-cyl'), chkDiag: document.getElementById('chk-diag'),
+            
+            sliceBtns: document.querySelectorAll('.slice-btn'),
+            chkSliceOn: document.getElementById('chk-slice-on'),
+            sliderSlice: document.getElementById('slider-slice'), valSlicePos: document.getElementById('val-slice-pos'),
+            
+            projShape: document.getElementById('proj-shape'),
+            projParams: document.getElementById('proj-params'),
+            rotX: document.getElementById('rot-x'), valRotX: document.getElementById('val-rot-x'),
+            rotY: document.getElementById('rot-y'), valRotY: document.getElementById('val-rot-y'),
+            rotZ: document.getElementById('rot-z'), valRotZ: document.getElementById('val-rot-z'),
+            btnResetRot: document.getElementById('btn-reset-rot'),
+            
+            statusText: document.getElementById('status-text'),
+            bottomInfo: document.getElementById('bottom-info'),
+            bottomTitle: document.getElementById('bottom-title'),
+            subCanvasLabel: document.getElementById('sub-canvas-label')
+        };
+
+        // --- Three.js Setup ---
+        const mainContainer = document.getElementById('canvas-container');
+        const subContainer = document.getElementById('sub-canvas-container');
+
+        // Main 3D Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(mainContainer.clientWidth, mainContainer.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.localClippingEnabled = true;
+        mainContainer.appendChild(renderer.domElement);
+
+        // Sub 2D Renderer
+        const subRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        subRenderer.setSize(subContainer.clientWidth, subContainer.clientHeight);
+        subRenderer.setPixelRatio(window.devicePixelRatio);
+        subRenderer.localClippingEnabled = true;
+        subRenderer.setClearColor(0xffffff, 1);
+        subContainer.appendChild(subRenderer.domElement);
+
+        // Scenes
+        const sceneModel = new THREE.Scene();
+        const sceneProj = new THREE.Scene();
+
+        // Cameras
+        const mainCamera = new THREE.PerspectiveCamera(45, mainContainer.clientWidth / mainContainer.clientHeight, 0.1, 100);
+        mainCamera.position.set(2, 2, 3);
+
+        const subCameraOrtho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+        
+        // Controls
+        const controls = new THREE.OrbitControls(mainCamera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        function addLights(scene) {
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+            dirLight2.position.set(-10, -20, -10);
+            scene.add(dirLight2);
+        }
+        addLights(sceneModel);
+        addLights(sceneProj);
+
+        // Helpers
+        const axesHelper = new THREE.AxesHelper(2);
+        sceneModel.add(axesHelper);
+        const axesHelper2 = new THREE.AxesHelper(2);
+        sceneProj.add(axesHelper2);
+
+        // --- Materials ---
+        const clipPlane = new THREE.Plane(new THREE.Vector3(1, 1, 1).normalize(), 0);
+        
+        const matCubeFaces = new THREE.MeshPhysicalMaterial({ 
+            color: 0xe2e8f0, transparent: true, opacity: 0.3, 
+            side: THREE.DoubleSide, depthWrite: false, clippingPlanes: [clipPlane]
+        });
+        const matCubeEdges = new THREE.LineBasicMaterial({ color: 0x64748b, clippingPlanes: [clipPlane] });
+        
+        const matCyl = new THREE.MeshPhongMaterial({ 
+            color: 0x3b82f6, transparent: true, opacity: 0.8, 
+            side: THREE.DoubleSide, shininess: 80, clippingPlanes: [clipPlane]
+        });
+        const matProjShape = new THREE.MeshPhongMaterial({
+            color: 0x8b5cf6, transparent: true, opacity: 0.9,
+            side: THREE.DoubleSide, shininess: 50
+        });
+        const matProjEdges = new THREE.LineBasicMaterial({ color: 0x4c1d95 });
+
+        // Slice Visualizer Plane
+        const slicePlaneGeo = new THREE.PlaneGeometry(5, 5);
+        const slicePlaneMat = new THREE.MeshBasicMaterial({
+            color: 0xef4444, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false
+        });
+        const slicePlaneMesh = new THREE.Mesh(slicePlaneGeo, slicePlaneMat);
+        sceneModel.add(slicePlaneMesh);
+
+        // --- Objects: Scene Model ---
+        const modelGroup = new THREE.Group();
+        sceneModel.add(modelGroup);
+
+        let meshCube, linesCube, meshCyl, lineDiag, ptsCylEnds;
+
+        function initModelObjects() {
+            // Cube
+            const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+            meshCube = new THREE.Mesh(cubeGeo, matCubeFaces);
+            
+            const edgesGeo = new THREE.EdgesGeometry(cubeGeo);
+            linesCube = new THREE.LineSegments(edgesGeo, matCubeEdges);
+            meshCube.add(linesCube);
+            modelGroup.add(meshCube);
+
+            // Cylinder
+            const cylGeo = new THREE.CylinderGeometry(0.5, 0.5, 1, 64);
+            meshCyl = new THREE.Mesh(cylGeo, matCyl);
+            
+            // Align cylinder to diagonal (1,1,1)
+            const dir = new THREE.Vector3(1, 1, 1).normalize();
+            const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            meshCyl.applyQuaternion(quaternion);
+            modelGroup.add(meshCyl);
+
+            // Diagonal Line
+            const diagMat = new THREE.LineBasicMaterial({ color: 0xef4444, linewidth: 2, dashed: true, dashSize: 0.1, gapSize: 0.05 });
+            const diagGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-0.5, -0.5, -0.5),
+                new THREE.Vector3(0.5, 0.5, 0.5)
+            ]);
+            lineDiag = new THREE.Line(diagGeo, diagMat);
+            lineDiag.computeLineDistances();
+            modelGroup.add(lineDiag);
+
+            // Cylinder Ends points
+            const ptGeo = new THREE.SphereGeometry(0.02, 16, 16);
+            const ptMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            ptsCylEnds = new THREE.Group();
+            ptsCylEnds.add(new THREE.Mesh(ptGeo, ptMat));
+            ptsCylEnds.add(new THREE.Mesh(ptGeo, ptMat));
+            modelGroup.add(ptsCylEnds);
+        }
+        initModelObjects();
+
+        // --- Objects: Scene Projection ---
+        const projGroup = new THREE.Group();
+        sceneProj.add(projGroup);
+        let meshProjObj, linesProjEdges;
+
+        function updateProjGeometry() {
+            if(meshProjObj) projGroup.remove(meshProjObj);
+            
+            let geo;
+            const p1 = State.projParam1;
+            const p2 = State.projParam2;
+
+            if (State.projShape === 'cube') {
+                geo = new THREE.BoxGeometry(p1, p1, p1);
+            } else if (State.projShape === 'cylinder') {
+                geo = new THREE.CylinderGeometry(p1, p1, p2, 64);
+            } else if (State.projShape === 'tetra') {
+                // radius for tetrahedron to have edge length p1
+                const radius = p1 * Math.sqrt(3/8);
+                geo = new THREE.TetrahedronGeometry(radius);
+            }
+
+            meshProjObj = new THREE.Mesh(geo, matProjShape);
+            
+            const edgesGeo = new THREE.EdgesGeometry(geo);
+            linesProjEdges = new THREE.LineSegments(edgesGeo, matProjEdges);
+            meshProjObj.add(linesProjEdges);
+
+            projGroup.add(meshProjObj);
+            
+            // Apply current rotation
+            meshProjObj.rotation.set(
+                THREE.MathUtils.degToRad(State.rot.x),
+                THREE.MathUtils.degToRad(State.rot.y),
+                THREE.MathUtils.degToRad(State.rot.z)
+            );
+        }
+        updateProjGeometry();
+
+        // --- Core Logic Functions ---
+
+        function calculateCylinder() {
+            const a = State.a;
+            
+            // Max radius so it stays inside
+            // Formula: h = sqrt(3)a - 2*sqrt(2)r >= 0  =>  r <= a * sqrt(3/8)
+            const maxR = a * Math.sqrt(3/8);
+            
+            els.maxRInfo.textContent = `최대 허용 반지름: ${maxR.toFixed(3)}`;
+            els.sliderR.max = maxR.toFixed(3);
+            
+            let r = State.r;
+            if (r > maxR) {
+                r = maxR;
+                State.r = r;
+                els.sliderR.value = r;
+                els.valR.textContent = r.toFixed(3);
+            }
+
+            // Height Calculation (Core requirement)
+            let h = Math.sqrt(3) * a - 2 * Math.sqrt(2) * r;
+            if (h < 0) h = 0;
+            State.h = h;
+
+            // Update UI
+            els.valH.textContent = h.toFixed(3);
+            
+            // Update 3D Model
+            meshCube.scale.set(a, a, a);
+            
+            // Cylinder recreate to change r and h
+            const oldGeo = meshCyl.geometry;
+            meshCyl.geometry = new THREE.CylinderGeometry(r, r, h, 64);
+            oldGeo.dispose();
+
+            // Diagonal length
+            const halfD = Math.sqrt(3) * a / 2;
+            const pts = [
+                new THREE.Vector3(-a/2, -a/2, -a/2),
+                new THREE.Vector3(a/2, a/2, a/2)
+            ];
+            lineDiag.geometry.setFromPoints(pts);
+            lineDiag.computeLineDistances();
+
+            // Ends
+            const dir = new THREE.Vector3(1,1,1).normalize();
+            ptsCylEnds.children[0].position.copy(dir).multiplyScalar(h/2);
+            ptsCylEnds.children[1].position.copy(dir).multiplyScalar(-h/2);
+
+            // Visibility
+            meshCube.visible = State.showCube;
+            meshCyl.visible = State.showCyl;
+            lineDiag.visible = State.showDiag;
+            ptsCylEnds.visible = State.showDiag;
+        }
+
+        function updateClipping() {
+            if (State.mode !== 2 || !State.sliceActive) {
+                renderer.localClippingEnabled = false;
+                slicePlaneMesh.visible = false;
+                return;
+            }
+
+            renderer.localClippingEnabled = true;
+            slicePlaneMesh.visible = true;
+
+            const offset = State.sliceOffset * State.a;
+            let normal = new THREE.Vector3();
+            let up = new THREE.Vector3(0,1,0);
+
+            if (State.sliceType === 'top') {
+                normal.set(0, -1, 0);
+                up.set(0,0,-1);
+            } else if (State.sliceType === 'side') {
+                normal.set(-1, 0, 0);
+            } else if (State.sliceType === 'diag') {
+                normal.set(-1, -1, -1).normalize();
+                up.set(-1, 1, 0).normalize(); // align camera nicely
+            }
+
+            // Clipping plane math (normal points INTO the solid)
+            clipPlane.normal.copy(normal);
+            // distance from origin
+            clipPlane.constant = normal.dot(normal.clone().multiplyScalar(-offset));
+
+            // Visual plane updates
+            const visualNormal = normal.clone().multiplyScalar(-1);
+            const pos = visualNormal.clone().multiplyScalar(offset);
+            
+            slicePlaneMesh.position.copy(pos);
+            const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), visualNormal);
+            slicePlaneMesh.setRotationFromQuaternion(quat);
+
+            // Update Ortho Camera for 2D Slice View
+            const camDist = 5;
+            subCameraOrtho.position.copy(pos).add(visualNormal.clone().multiplyScalar(camDist));
+            subCameraOrtho.lookAt(pos);
+            subCameraOrtho.up.copy(up);
+
+            // Calculate bounding box for ortho scale
+            const aspect = subContainer.clientWidth / subContainer.clientHeight;
+            const viewSize = State.a * 1.5;
+            subCameraOrtho.left = -viewSize * aspect / 2;
+            subCameraOrtho.right = viewSize * aspect / 2;
+            subCameraOrtho.top = viewSize / 2;
+            subCameraOrtho.bottom = -viewSize / 2;
+            
+            // Ultra-thin slice trick for 2D render
+            subCameraOrtho.near = camDist - 0.005;
+            subCameraOrtho.far = camDist + 0.005;
+            subCameraOrtho.updateProjectionMatrix();
+
+            els.valSlicePos.textContent = `현재 위치: ${offset.toFixed(2)}`;
+        }
+
+        function calculateArea() {
+            if (State.mode !== 3 || !meshProjObj) return 0;
+            
+            // View direction is down Z axis in world space for Orthographic
+            const viewDir = new THREE.Vector3(0, 0, 1); 
+            
+            // Get rotation matrix
+            const euler = new THREE.Euler(
+                THREE.MathUtils.degToRad(State.rot.x),
+                THREE.MathUtils.degToRad(State.rot.y),
+                THREE.MathUtils.degToRad(State.rot.z),
+                'XYZ'
+            );
+            const matrix = new THREE.Matrix4().makeRotationFromEuler(euler);
+
+            let area = 0;
+            let formula = "";
+
+            if (State.projShape === 'cube') {
+                const a = State.projParam1;
+                const x = new THREE.Vector3(1,0,0).applyMatrix4(matrix);
+                const y = new THREE.Vector3(0,1,0).applyMatrix4(matrix);
+                const z = new THREE.Vector3(0,0,1).applyMatrix4(matrix);
+                
+                const cosX = Math.abs(x.dot(viewDir));
+                const cosY = Math.abs(y.dot(viewDir));
+                const cosZ = Math.abs(z.dot(viewDir));
+                
+                area = a*a * (cosX + cosY + cosZ);
+                formula = `A = a²(|cos α| + |cos β| + |cos γ|)<br>(${a}² × (${cosX.toFixed(2)} + ${cosY.toFixed(2)} + ${cosZ.toFixed(2)}))`;
+            } 
+            else if (State.projShape === 'cylinder') {
+                const r = State.projParam1;
+                const h = State.projParam2;
+                const axis = new THREE.Vector3(0,1,0).applyMatrix4(matrix); // Cyl default is Y
+                const cosTheta = Math.abs(axis.dot(viewDir));
+                const sinTheta = Math.sqrt(1 - cosTheta*cosTheta);
+                
+                area = Math.PI * r * r * cosTheta + 2 * r * h * sinTheta;
+                formula = `A = πr²|cos θ| + 2rh|sin θ|<br>(π(${r}²)${cosTheta.toFixed(2)} + 2(${r})(${h})${sinTheta.toFixed(2)})`;
+            }
+            else if (State.projShape === 'tetra') {
+                const L = State.projParam1;
+                // Regular tetrahedron normals in default pose
+                const n1 = new THREE.Vector3(1,1,1).normalize();
+                const n2 = new THREE.Vector3(1,-1,-1).normalize();
+                const n3 = new THREE.Vector3(-1,1,-1).normalize();
+                const n4 = new THREE.Vector3(-1,-1,1).normalize();
+                
+                const facesArea = (Math.sqrt(3)/4) * L * L;
+                
+                const normals = [n1, n2, n3, n4].map(n => n.applyMatrix4(matrix));
+                
+                let sumProj = 0;
+                normals.forEach(n => {
+                    const dot = n.dot(viewDir);
+                    if (dot > 0) sumProj += dot; // Only front facing
+                });
+                
+                area = facesArea * sumProj;
+                formula = `A = (√3/4)L² × Σ(앞면 코사인)<br>(${facesArea.toFixed(2)} × ${sumProj.toFixed(2)})`;
+            }
+
+            return { area, formula };
+        }
+
+        function updateProjectionView() {
+            if(State.mode !== 3) return;
+
+            meshProjObj.rotation.set(
+                THREE.MathUtils.degToRad(State.rot.x),
+                THREE.MathUtils.degToRad(State.rot.y),
+                THREE.MathUtils.degToRad(State.rot.z)
+            );
+
+            // Update Info
+            const result = calculateArea();
+            els.bottomTitle.textContent = "정사영 결과";
+            els.bottomInfo.innerHTML = `
+                <div class="text-xl font-bold text-indigo-600 mb-1">넓이: ${result.area.toFixed(4)}</div>
+                <div class="bg-slate-100 p-2 rounded text-xs text-slate-500 font-mono">${result.formula}</div>
+            `;
+
+            // Update Ortho Cam for Top-Down Projection
+            const aspect = subContainer.clientWidth / subContainer.clientHeight;
+            const viewSize = 3.5;
+            subCameraOrtho.left = -viewSize * aspect / 2;
+            subCameraOrtho.right = viewSize * aspect / 2;
+            subCameraOrtho.top = viewSize / 2;
+            subCameraOrtho.bottom = -viewSize / 2;
+            
+            subCameraOrtho.position.set(0, 0, 10);
+            subCameraOrtho.lookAt(0, 0, 0);
+            subCameraOrtho.up.set(0, 1, 0);
+            subCameraOrtho.near = 0.1;
+            subCameraOrtho.far = 20;
+            subCameraOrtho.updateProjectionMatrix();
+        }
+
+
+        // --- UI Interactions ---
+
+        function buildProjParamsUI() {
+            els.projParams.innerHTML = '';
+            const s = State.projShape;
+            
+            function addInput(label, id, min, max, val) {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <div class="flex justify-between text-xs mb-1">
+                        <label>${label}</label>
+                        <span id="val-${id}" class="font-mono text-slate-600">${val}</span>
+                    </div>
+                    <input type="range" id="${id}" min="${min}" max="${max}" step="0.1" value="${val}" class="w-full">
+                `;
+                els.projParams.appendChild(div);
+                
+                const slider = document.getElementById(id);
+                const span = document.getElementById(`val-${id}`);
+                slider.addEventListener('input', (e) => {
+                    const v = parseFloat(e.target.value);
+                    span.textContent = v.toFixed(1);
+                    if(id.includes('param1')) State.projParam1 = v;
+                    if(id.includes('param2')) State.projParam2 = v;
+                    updateProjGeometry();
+                    updateProjectionView();
+                });
+            }
+
+            if (s === 'cube' || s === 'tetra') {
+                addInput('한 변의 길이 (L)', 'proj-param1', 0.5, 3.0, 1.0);
+                State.projParam1 = 1.0;
+            } else if (s === 'cylinder') {
+                addInput('반지름 (r)', 'proj-param1', 0.1, 1.5, 0.5);
+                addInput('높이 (h)', 'proj-param2', 0.5, 3.0, 1.5);
+                State.projParam1 = 0.5;
+                State.projParam2 = 1.5;
+            }
+            updateProjGeometry();
+            updateProjectionView();
+        }
+
+        // Tab Switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active', 'border-blue-500', 'text-blue-600'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                btn.classList.add('active');
+                btn.classList.add('border-blue-500', 'text-blue-600');
+                const target = btn.dataset.target;
+                document.getElementById(target).classList.add('active');
+
+                State.mode = parseInt(target.replace('tab', ''));
+                
+                // Reset states based on mode
+                if (State.mode === 1) {
+                    els.statusText.textContent = "정육면체 내부에 대각선 축을 갖는 원기둥을 모델링합니다.";
+                    els.bottomTitle.textContent = "모델 정보";
+                    updateBottomInfoModel();
+                    els.subCanvasLabel.textContent = "2D 뷰 (비활성화)";
+                    controls.autoRotate = false;
+                } else if (State.mode === 2) {
+                    els.statusText.textContent = "지정된 평면으로 도형을 자르고 단면을 관찰합니다.";
+                    els.bottomTitle.textContent = "단면 정보";
+                    els.subCanvasLabel.textContent = "정면 투영 단면도 (Solid)";
+                    updateClipping();
+                } else if (State.mode === 3) {
+                    els.statusText.textContent = "도형을 회전시켜 정사영(2D 그림자)의 넓이를 계산합니다.";
+                    els.subCanvasLabel.textContent = "XY평면 정사영도 (Top View)";
+                    buildProjParamsUI();
+                    updateProjectionView();
+                }
+            });
+        });
+
+        function updateBottomInfoModel() {
+            if(State.mode !== 1) return;
+            els.bottomInfo.innerHTML = `
+                <ul class="list-disc pl-4 space-y-1">
+                    <li><b>정육면체 변:</b> ${State.a.toFixed(2)}</li>
+                    <li><b>원기둥 반지름:</b> ${State.r.toFixed(3)}</li>
+                    <li><b>정확한 원기둥 높이:</b> ${State.h.toFixed(4)} <br>(정육면체 밖으로 돌출되지 않는 최대 길이)</li>
+                    <li><b>축 방향:</b> (1, 1, 1)</li>
+                </ul>
+            `;
+        }
+
+        // Tab 1 Events
+        els.sliderA.addEventListener('input', (e) => {
+            State.a = parseFloat(e.target.value);
+            els.valA.textContent = State.a.toFixed(1);
+            calculateCylinder();
+            updateBottomInfoModel();
+            if(State.mode === 2) updateClipping();
+        });
+        els.sliderR.addEventListener('input', (e) => {
+            State.r = parseFloat(e.target.value);
+            els.valR.textContent = State.r.toFixed(3);
+            calculateCylinder();
+            updateBottomInfoModel();
+            if(State.mode === 2) updateClipping();
+        });
+        
+        ['Cube', 'Cyl', 'Diag'].forEach(k => {
+            els[`chk${k}`].addEventListener('change', (e) => {
+                State[`show${k}`] = e.target.checked;
+                calculateCylinder();
+            });
+        });
+
+        // Tab 2 Events
+        els.sliceBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                els.sliceBtns.forEach(b => {
+                    b.classList.remove('bg-blue-500', 'text-white', 'border-blue-600');
+                    b.classList.add('bg-white');
+                });
+                btn.classList.add('bg-blue-500', 'text-white', 'border-blue-600');
+                btn.classList.remove('bg-white');
+                State.sliceType = btn.dataset.type;
+                updateClipping();
+                
+                els.bottomInfo.innerHTML = `
+                    <div>현재 단면: <b>${btn.querySelector('span').textContent}</b></div>
+                    <div class="mt-2 text-xs text-slate-500">우측 슬라이더로 자르는 위치를 조절하세요. 우측 하단 화면은 잘린 단면을 평면과 수직하게 바라본 모습입니다.</div>
+                `;
+            });
+        });
+        els.chkSliceOn.addEventListener('change', (e) => {
+            State.sliceActive = e.target.checked;
+            updateClipping();
+        });
+        els.sliderSlice.addEventListener('input', (e) => {
+            State.sliceOffset = parseFloat(e.target.value);
+            updateClipping();
+        });
+
+        // Tab 3 Events
+        els.projShape.addEventListener('change', (e) => {
+            State.projShape = e.target.value;
+            buildProjParamsUI();
+        });
+
+        ['x', 'y', 'z'].forEach(axis => {
+            const input = document.getElementById(`rot-${axis}`);
+            const span = document.getElementById(`val-rot-${axis}`);
+            input.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                State.rot[axis] = val;
+                span.textContent = val + '°';
+                updateProjectionView();
+            });
+        });
+
+        els.btnResetRot.addEventListener('click', () => {
+            State.rot = {x:0, y:0, z:0};
+            ['x', 'y', 'z'].forEach(axis => {
+                document.getElementById(`rot-${axis}`).value = 0;
+                document.getElementById(`val-rot-${axis}`).textContent = '0°';
+            });
+            updateProjectionView();
+        });
+
+        // Interaction sync for projection (mouse drag updates sliders)
+        let isDraggingProj = false;
+        let prevMouse = {x:0, y:0};
+        
+        mainContainer.addEventListener('mousedown', () => { if(State.mode === 3) isDraggingProj = true; });
+        window.addEventListener('mouseup', () => { isDraggingProj = false; });
+        mainContainer.addEventListener('mousemove', (e) => {
+            if (State.mode === 3 && isDraggingProj) {
+                const deltaX = e.movementX;
+                const deltaY = e.movementY;
+                
+                State.rot.y = (State.rot.y + deltaX) % 360;
+                if(State.rot.y < 0) State.rot.y += 360;
+                
+                State.rot.x = (State.rot.x + deltaY) % 360;
+                if(State.rot.x < 0) State.rot.x += 360;
+
+                ['x', 'y'].forEach(axis => {
+                    document.getElementById(`rot-${axis}`).value = Math.floor(State.rot[axis]);
+                    document.getElementById(`val-rot-${axis}`).textContent = Math.floor(State.rot[axis]) + '°';
+                });
+                
+                updateProjectionView();
+            }
+        });
+
+
+        // --- Render Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (State.mode === 1 || State.mode === 2) {
+                controls.update();
+                renderer.render(sceneModel, mainCamera);
+                
+                if (State.mode === 2 && State.sliceActive) {
+                    subRenderer.render(sceneModel, subCameraOrtho);
+                } else if (State.mode === 1) {
+                    // Empty sub view
+                    subRenderer.setClearColor(0xf8fafc, 1);
+                    subRenderer.clear();
+                }
+            } else if (State.mode === 3) {
+                // Disable normal orbit controls to allow custom drag rotation
+                controls.enabled = false; 
+                // Render proj scene in main view using static camera
+                mainCamera.position.set(0, 0, 5);
+                mainCamera.lookAt(0,0,0);
+                renderer.render(sceneProj, mainCamera);
+                
+                // Render ortho top down in sub view
+                subRenderer.setClearColor(0xffffff, 1);
+                subRenderer.render(sceneProj, subCameraOrtho);
+            }
+
+            if(State.mode !== 3) controls.enabled = true;
+        }
+
+        // --- Window Resize ---
+        window.addEventListener('resize', () => {
+            mainCamera.aspect = mainContainer.clientWidth / mainContainer.clientHeight;
+            mainCamera.updateProjectionMatrix();
+            renderer.setSize(mainContainer.clientWidth, mainContainer.clientHeight);
+
+            subRenderer.setSize(subContainer.clientWidth, subContainer.clientHeight);
+            if(State.mode === 2) updateClipping();
+            if(State.mode === 3) updateProjectionView();
+        });
+
+        // Init
+        calculateCylinder();
+        updateBottomInfoModel();
+        animate();
+
+    </script>
+</body>
+</html>

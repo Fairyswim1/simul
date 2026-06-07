@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이차곡선 & 원뿔곡선 기하학 시뮬레이터</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        canvas { display: block; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
+
+    <header class="bg-indigo-900 text-white py-5 px-6 shadow-md">
+        <h1 class="text-2xl font-bold text-center">수학 기하학 논술 시뮬레이터</h1>
+        <p class="text-sm text-center text-indigo-200 mt-1">이차곡선의 일반형 / 원뿔곡선의 절단면 / 회전체 내접 직육면체 최적화</p>
+    </header>
+
+    <div class="flex justify-center bg-white border-b border-gray-200 sticky top-0 z-50">
+        <button onclick="switchTab('tab1')" id="btn-tab1" class="px-6 py-3 font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 focus:outline-none transition-all">
+            1. 이차곡선 일반형 조건
+        </button>
+        <button onclick="switchTab('tab2')" id="btn-tab2" class="px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-gray-500 hover:text-indigo-600 focus:outline-none transition-all">
+            2. 원뿔곡선의 기하학적 절단
+        </button>
+        <button onclick="switchTab('tab3')" id="btn-tab3" class="px-6 py-3 font-semibold text-sm border-b-2 border-transparent text-gray-500 hover:text-indigo-600 focus:outline-none transition-all">
+            3. 타원회전체 내접 직육면체 부피
+        </button>
+    </div>
+
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
+
+        <div id="tab1" class="tab-content grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
+                <h2 class="text-lg font-bold text-gray-900 mb-2 border-b pb-2">계수 조정 (Ax² + By² + Cx + Dy + E = 0)</h2>
+                
+                <div>
+                    <label class="flex justify-between text-sm font-medium mb-1"><span>A (x² 계수)</span><span id="valA" class="font-bold text-indigo-600">1</span></label>
+                    <input type="range" id="sliderA" min="-5" max="5" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm font-medium mb-1"><span>B (y² 계수)</span><span id="valB" class="font-bold text-indigo-600">1</span></label>
+                    <input type="range" id="sliderB" min="-5" max="5" step="0.1" value="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm font-medium mb-1"><span>C (x 계수)</span><span id="valC" class="font-bold text-indigo-600">0</span></label>
+                    <input type="range" id="sliderC" min="-5" max="5" step="0.1" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm font-medium mb-1"><span>D (y 계수)</span><span id="valD" class="font-bold text-indigo-600">0</span></label>
+                    <input type="range" id="sliderD" min="-5" max="5" step="0.1" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm font-medium mb-1"><span>E (상수항)</span><span id="valE" class="font-bold text-indigo-600">-4</span></label>
+                    <input type="range" id="sliderE" min="-10" max="10" step="0.2" value="-4" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div class="mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                    <span class="text-xs font-bold text-indigo-500 uppercase tracking-wide">판정된 곡선의 종류</span>
+                    <div id="conicType" class="text-xl font-black text-indigo-900 mt-0.5">원 (Circle)</div>
+                </div>
+            </div>
+            <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center justify-center">
+                <canvas id="conicCanvas" width="500" height="500" class="border border-gray-100 rounded-lg shadow-inner max-w-full bg-slate-50"></canvas>
+                <p class="text-xs text-gray-400 mt-2">※ 실시간 방정식 해석에 의해 격자 위에 그려진 2D 그래프입니다.</p>
+            </div>
+        </div>
+
+        <div id="tab2" class="tab-content hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
+                <h2 class="text-lg font-bold text-gray-900 mb-2 border-b pb-2">각도 조절 (원뿔 vs 평면)</h2>
+                
+                <div>
+                    <label class="flex justify-between text-sm font-medium mb-1"><span>모선과 밑면의 각도 (α)</span><span id="valAlpha" class="font-bold text-indigo-600">45°</span></label>
+                    <input type="range" id="sliderAlpha" min="20" max="80" step="1" value="45" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <label class="flex justify-between text-sm font-medium mb-1"><span>단면과 밑면의 각도 (θ)</span><span id="valTheta" class="font-bold text-indigo-600">30°</span></label>
+                    <input type="range" id="sliderTheta" min="0" max="90" step="1" value="30" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div class="p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
+                    <span class="text-xs font-bold text-indigo-600 uppercase tracking-wide">평면 α를 xy평면으로 둔 자취의 관계식</span>
+                    <div id="locusEquationText" class="text-base font-mono font-bold text-indigo-950 mt-1.5 p-2 bg-white rounded border border-indigo-200 text-center shadow-inner">
+                        Calculating...
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-1.5 leading-relaxed">※ x²의 계수가 <b>양수면 타원, 0이면 포물선, 음수면 쌍곡선</b>이 되는 대수적 성질을 슬라이더를 움직이며 실시간으로 관찰하세요.</p>
+                </div>
+
+                <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-lg">
+                    <span class="text-xs font-bold text-emerald-600 uppercase tracking-wide">조건 비교 및 결과</span>
+                    <div id="coneConditionText" class="text-sm font-semibold text-gray-700 mt-1">0 &lt; θ &lt; α</div>
+                    <div id="coneResultType" class="text-xl font-black text-emerald-900 mt-0.5">타원 (Ellipse)</div>
+                </div>
+            </div>
+            <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 relative h-[500px]">
+                <div id="cone3dContainer" class="w-full h-full rounded-lg overflow-hidden bg-slate-900"></div>
+                <div class="absolute bottom-6 left-6 bg-slate-800/80 backdrop-blur-sm text-white px-3 py-1.5 rounded text-xs pointer-events-none shadow">
+                    마우스 드래그: 회전 | 휠: 확대/축소
+                </div>
+            </div>
+        </div>
+
+        <div id="tab3" class="tab-content hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
+                <h2 class="text-lg font-bold text-gray-900 mb-2 border-b pb-2">내접 직육면체 크기 결정</h2>
+                <p class="text-xs text-gray-500 leading-relaxed">타원 방정식 <b id="ellipseEqText" class="text-indigo-600">x²/4.0² + y²/2.0² = 1</b>을 x축 둘레로 회전시켜 만든 3차원 타원체 내부에 꼭 맞게 접하는 직육면체입니다.</p>
+                
+                <div class="border-t pt-2 space-y-3">
+                    <div>
+                        <label class="flex justify-between text-sm font-medium mb-1"><span>타원 장반경 (a)</span><span id="valA3" class="font-bold text-indigo-600">4.0</span></label>
+                        <input type="range" id="sliderA3" min="1.5" max="5.0" step="0.1" value="4.0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="flex justify-between text-sm font-medium mb-1"><span>타원 단반경 (b)</span><span id="valB3" class="font-bold text-indigo-600">2.0</span></label>
+                        <input type="range" id="sliderB3" min="0.5" max="3.0" step="0.1" value="2.0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="border-t pt-2">
+                        <label class="flex justify-between text-sm font-medium mb-1"><span>x축 꼭짓점 위치 (x)</span><span id="valXCoord" class="font-bold text-rose-600">2.30</span></label>
+                        <input type="range" id="sliderXCoord" min="0.1" max="3.9" step="0.05" value="2.3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </div>
+
+                <div class="mt-2 space-y-3">
+                    <div class="p-4 bg-rose-50 border border-rose-100 rounded-lg">
+                        <span class="text-xs font-bold text-rose-500 uppercase tracking-wide">현재 직육면체 부피 (V)</span>
+                        <div id="currentVolumeText" class="text-2xl font-black text-rose-900 mt-0.5">0.00</div>
+                        <p class="text-xs text-gray-500 mt-1">가로: <span id="boxW">0</span>, 세로: <span id="boxH">0</span>, 높이: <span id="boxD">0</span></p>
+                    </div>
+
+                    <div class="p-4 bg-gray-100 border border-gray-200 rounded-lg">
+                        <span class="text-xs font-bold text-gray-600 uppercase tracking-wide">이론상 최대 부피 (Max V)</span>
+                        <div id="maxVolumeText" class="text-xl font-bold text-gray-800 mt-0.5">24.63</div>
+                        <p id="optimalXText" class="text-xs text-gray-600 mt-1 font-medium text-slate-700">최적의 위치: x = a / √3 ≈ 2.31</p>
+                    </div>
+                </div>
+            </div>
+            <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 relative h-[500px]">
+                <div id="ellipsoid3dContainer" class="w-full h-full rounded-lg overflow-hidden bg-slate-900"></div>
+                <div class="absolute bottom-6 left-6 bg-slate-800/80 backdrop-blur-sm text-white px-3 py-1.5 rounded text-xs pointer-events-none shadow">
+                    마우스 드래그: 회전 | 휠: 확대/축소
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="bg-gray-100 border-t border-gray-200 py-4 text-center text-xs text-gray-500 mt-auto">
+        © 2026 기하학 교육용 대화형 시뮬레이터 프로젝트
+    </footer>
+
+    <script>
+        // --- 탭 전환 시스템 ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('button[onclick^="switchTab"]').forEach(btn => {
+                btn.classList.remove('border-indigo-600', 'text-indigo-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.remove('border-transparent', 'text-gray-500');
+            activeBtn.classList.add('border-indigo-600', 'text-indigo-600');
+
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        // =========================================================================
+        // [TAB 1] 이차곡선 일반형 로직
+        // =========================================================================
+        const conicCanvas = document.getElementById('conicCanvas');
+        const cCtx = conicCanvas.getContext('2d');
+
+        function updateConic() {
+            const A = parseFloat(document.getElementById('sliderA').value);
+            const B = parseFloat(document.getElementById('sliderB').value);
+            const C = parseFloat(document.getElementById('sliderC').value);
+            const D = parseFloat(document.getElementById('sliderD').value);
+            const E = parseFloat(document.getElementById('sliderE').value);
+
+            document.getElementById('valA').innerText = A.toFixed(1);
+            document.getElementById('valB').innerText = B.toFixed(1);
+            document.getElementById('valC').innerText = C.toFixed(1);
+            document.getElementById('valD').innerText = D.toFixed(1);
+            document.getElementById('valE').innerText = E.toFixed(1);
+
+            let typeStr = "";
+            if (A === 0 && B === 0) {
+                typeStr = "이차식이 아님 (직선 또는 표현 불능)";
+            } else if (A * B > 0) {
+                if (Math.abs(A - B) < 1e-5) typeStr = "원 (Circle)";
+                else typeStr = "타원 (Ellipse)";
+            } else if (A * B < 0) {
+                typeStr = "쌍곡선 (Hyperbola)";
+            } else {
+                typeStr = "포물선 (Parabola)";
+            }
+            document.getElementById('conicType').innerText = typeStr;
+
+            const W = conicCanvas.width;
+            const H = conicCanvas.height;
+            cCtx.clearRect(0, 0, W, H);
+
+            cCtx.strokeStyle = '#e2e8f0';
+            cCtx.lineWidth = 1;
+            const gridCount = 20; 
+            for(let i=0; i<=gridCount; i++) {
+                let pos = (W / gridCount) * i;
+                cCtx.beginPath(); cCtx.moveTo(pos, 0); cCtx.lineTo(pos, H); cCtx.stroke();
+                cCtx.beginPath(); cCtx.moveTo(0, pos); cCtx.lineTo(W, pos); cCtx.stroke();
+            }
+
+            cCtx.strokeStyle = '#64748b';
+            cCtx.lineWidth = 2;
+            cCtx.beginPath(); cCtx.moveTo(W/2, 0); cCtx.lineTo(W/2, H); cCtx.stroke();
+            cCtx.beginPath(); cCtx.moveTo(0, H/2); cCtx.lineTo(W, H/2); cCtx.stroke();
+
+            cCtx.fillStyle = '#4f46e5';
+            const scale = 20; 
+
+            function toPixelX(x) { return W/2 + x * (W / scale); }
+            function toPixelY(y) { return H/2 - y * (H / scale); }
+
+            for (let px = 0; px <= W; px++) {
+                const x = (px - W/2) * (scale / W);
+                const c = A*x*x + C*x + E;
+                if (B !== 0) {
+                    const disc = D*D - 4*B*c;
+                    if (disc >= 0) {
+                        const y1 = (-D + Math.sqrt(disc)) / (2*B);
+                        const y2 = (-D - Math.sqrt(disc)) / (2*B);
+                        cCtx.fillRect(toPixelX(x)-1.5, toPixelY(y1)-1.5, 3, 3);
+                        cCtx.fillRect(toPixelX(x)-1.5, toPixelY(y2)-1.5, 3, 3);
+                    }
+                } else if (D !== 0) {
+                    const y = -c / D;
+                    cCtx.fillRect(toPixelX(x)-1.5, toPixelY(y)-1.5, 3, 3);
+                }
+            }
+            for (let py = 0; py <= H; py++) {
+                const y = (H/2 - py) * (scale / H);
+                const c = B*y*y + D*y + E;
+                if (A !== 0) {
+                    const disc = C*C - 4*A*c;
+                    if (disc >= 0) {
+                        const x1 = (-C + Math.sqrt(disc)) / (2*A);
+                        const x2 = (-C - Math.sqrt(disc)) / (2*A);
+                        cCtx.fillRect(toPixelX(x1)-1.5, toPixelY(y)-1.5, 3, 3);
+                        cCtx.fillRect(toPixelX(x2)-1.5, toPixelY(y)-1.5, 3, 3);
+                    }
+                } else if (C !== 0) {
+                    const x = -c / C;
+                    cCtx.fillRect(toPixelX(x)-1.5, toPixelY(y)-1.5, 3, 3);
+                }
+            }
+        }
+
+        ['sliderA', 'sliderB', 'sliderC', 'sliderD', 'sliderE'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateConic);
+        });
+
+
+        // =========================================================================
+        // [TAB 2] 원뿔곡선 3D 절단면 및 실시간 대수 방정식 도출 시스템 
+        // =========================================================================
+        let scene2, camera2, renderer2, coneMesh, coneWire, planeMesh, clipPlane;
+        const container2 = document.getElementById('cone3dContainer');
+
+        function initTab2() {
+            scene2 = new THREE.Scene();
+            scene2.background = new THREE.Color(0x0f172a);
+
+            camera2 = new THREE.PerspectiveCamera(45, container2.clientWidth / container2.clientHeight, 0.1, 100);
+            camera2.position.set(7, 8, 10);
+
+            renderer2 = new THREE.WebGLRenderer({ antialias: true });
+            renderer2.setSize(container2.clientWidth, container2.clientHeight);
+            renderer2.localClippingEnabled = true; 
+            container2.appendChild(renderer2.domElement);
+
+            const controls = new THREE.OrbitControls(camera2, renderer2.domElement);
+            controls.enableDamping = true;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene2.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 10, 7);
+            scene2.add(dirLight);
+
+            clipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+            coneMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({
+                color: 0x3b82f6, side: THREE.DoubleSide, transparent: true, opacity: 0.75,
+                clippingPlanes: [clipPlane], roughness: 0.3
+            }));
+            scene2.add(coneMesh);
+
+            coneWire = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({
+                color: 0x475569, wireframe: true, transparent: true, opacity: 0.25
+            }));
+            scene2.add(coneWire);
+
+            const planeGeo = new THREE.PlaneGeometry(8, 8);
+            const planeMat = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.45, roughness: 0.2
+            });
+            planeMesh = new THREE.Mesh(planeGeo, planeMat);
+            scene2.add(planeMesh);
+
+            const grid = new THREE.GridHelper(10, 10, 0x475569, 0x334155);
+            grid.position.y = -0.01;
+            scene2.add(grid);
+
+            updateCone3D();
+        }
+
+        function updateCone3D() {
+            if(!scene2) return;
+            const alpha = parseInt(document.getElementById('sliderAlpha').value);
+            const theta = parseInt(document.getElementById('sliderTheta').value);
+
+            document.getElementById('valAlpha').innerText = alpha + "°";
+            document.getElementById('valTheta').innerText = theta + "°";
+
+            const radAlpha = alpha * Math.PI / 180;
+            const radTheta = theta * Math.PI / 180;
+
+            const radius = 2;
+            const height = radius * Math.tan(radAlpha);
+
+            coneMesh.geometry.dispose();
+            coneWire.geometry.dispose();
+            const newConeGeo = new THREE.ConeGeometry(radius, height, 64, 1, false);
+            
+            coneMesh.geometry = newConeGeo;
+            coneWire.geometry = newConeGeo;
+            
+            coneMesh.position.y = height / 2;
+            coneWire.position.y = height / 2;
+
+            // --- ⚡ [실시간 자취의 방정식 대수적 유도 계산 부문] ⚡ ---
+            const z0 = 2.0; // 교점 매개 기준거리 고정값
+            const tanSqAlpha = Math.tan(radAlpha) * Math.tan(radAlpha);
+            const cosSqTheta = Math.cos(radTheta) * Math.cos(radTheta);
+            const sinSqTheta = Math.sin(radTheta) * Math.sin(radTheta);
+            const sinTheta = Math.sin(radTheta);
+
+            // 계수 유도: (cos²θ - sin²θ/tan²α)x² + y² - (2*z0*sinθ/tan²α)x = z0²/tan²α
+            const coeffX2 = cosSqTheta - (sinSqTheta / tanSqAlpha);
+            const coeffX = - (2 * z0 * sinTheta / tanSqAlpha);
+            const constTerm = (z0 * z0) / tanSqAlpha;
+
+            // 부호 정리 및 텍스트 렌더링
+            const signX = coeffX >= 0 ? "+ " : "- ";
+            const absX = Math.abs(coeffX).toFixed(2);
+            
+            let equationHTML = `${coeffX2.toFixed(2)}x² + y² ${signX}${absX}x = ${constTerm.toFixed(2)}`;
+            
+            // 만약 특수 조건(원, 포물선 등)일 때 예쁘게 제어
+            if (theta === 0) {
+                equationHTML = `1.00x² + y² = ${constTerm.toFixed(2)} <br><span class='text-xs text-indigo-500'>(원 공식)</span>`;
+            } else if (Math.abs(coeffX2) < 0.01) {
+                equationHTML = `y² ${signX}${absX}x = ${constTerm.toFixed(2)} <br><span class='text-xs text-emerald-600'>(x² 소거 ➜ 포물선 공식)</span>`;
+            }
+            
+            document.getElementById('locusEquationText').innerHTML = equationHTML;
+
+            // 기하학적 텍스트 조건 연동
+            let condStr = "";
+            let resStr = "";
+            if (theta === 0) {
+                condStr = "θ = 0°"; resStr = "원 (Circle)";
+            } else if (theta < alpha) {
+                condStr = `0° < θ(${theta}°) < α(${alpha}°)`; resStr = "타원 (Ellipse)";
+            } else if (theta === alpha) {
+                condStr = `θ(${theta}°) = α(${alpha}°)`; resStr = "포물선 (Parabola)";
+            } else {
+                condStr = `90° ≥ θ(${theta}°) > α(${alpha}°)`; resStr = "쌍곡선 (Hyperbola)";
+            }
+            document.getElementById('coneConditionText').innerText = condStr;
+            document.getElementById('coneResultType').innerText = resStr;
+
+            // 3D 공간 상에서 컷팅 시각화 동기화
+            const pivotX = 0.8;
+            planeMesh.position.set(pivotX, 0, 0);
+            planeMesh.rotation.set(0, 0, 0); 
+            planeMesh.rotation.x = -Math.PI / 2; 
+            planeMesh.rotation.y = -radTheta;   
+
+            const nx = -Math.sin(radTheta);
+            const ny = Math.cos(radTheta);
+            clipPlane.normal.set(nx, ny, 0).normalize();
+            clipPlane.constant = -(nx * pivotX);
+        }
+
+        ['sliderAlpha', 'sliderTheta'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateCone3D);
+        });
+
+
+        // =========================================================================
+        // [TAB 3] 타원회전체 내접 직육면체 부피 최적화 로직
+        // =========================================================================
+        let scene3, camera3, renderer3, spheroidMesh, spheroidWire, cuboidMesh;
+        const container3 = document.getElementById('ellipsoid3dContainer');
+
+        function initTab3() {
+            scene3 = new THREE.Scene();
+            scene3.background = new THREE.Color(0x0f172a);
+
+            camera3 = new THREE.PerspectiveCamera(45, container3.clientWidth / container3.clientHeight, 0.1, 100);
+            camera3.position.set(6, 6, 8);
+
+            renderer3 = new THREE.WebGLRenderer({ antialias: true });
+            renderer3.setSize(container3.clientWidth, container3.clientHeight);
+            container3.appendChild(renderer3.domElement);
+
+            const controls = new THREE.OrbitControls(camera3, renderer3.domElement);
+            controls.enableDamping = true;
+
+            scene3.add(new THREE.AmbientLight(0xffffff, 0.5));
+            const pLight = new THREE.PointLight(0xffffff, 1);
+            pLight.position.set(6, 8, 5);
+            scene3.add(pLight);
+
+            const sphGeo = new THREE.SphereGeometry(1, 48, 48);
+            const sphMat = new THREE.MeshStandardMaterial({
+                color: 0x10b981, transparent: true, opacity: 0.25, wireframe: false, roughness: 0.5
+            });
+            spheroidMesh = new THREE.Mesh(sphGeo, sphMat);
+            scene3.add(spheroidMesh);
+
+            spheroidWire = new THREE.Mesh(sphGeo, new THREE.MeshBasicMaterial({
+                color: 0x059669, wireframe: true, transparent: true, opacity: 0.15
+            }));
+            scene3.add(spheroidWire);
+
+            const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+            const boxMat = new THREE.MeshStandardMaterial({
+                color: 0xf43f5e, transparent: true, opacity: 0.8, roughness: 0.1, metalness: 0.1
+            });
+            cuboidMesh = new THREE.Mesh(boxGeo, boxMat);
+            
+            const edges = new THREE.EdgesGeometry(boxGeo);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x9f1239, linewidth: 2 }));
+            cuboidMesh.add(line);
+            
+            scene3.add(cuboidMesh);
+
+            updateEllipsoid3D();
+        }
+
+        function updateEllipsoid3D() {
+            if(!scene3) return;
+            
+            const a = parseFloat(document.getElementById('sliderA3').value);
+            const b = parseFloat(document.getElementById('sliderB3').value);
+            
+            document.getElementById('valA3').innerText = a.toFixed(1);
+            document.getElementById('valB3').innerText = b.toFixed(1);
+            document.getElementById('ellipseEqText').innerText = `x²/${a.toFixed(1)}² + y²/${b.toFixed(1)}² = 1`;
+
+            const sliderX = document.getElementById('sliderXCoord');
+            sliderX.max = (a - 0.05).toFixed(2);
+            
+            if (parseFloat(sliderX.value) >= a) {
+                sliderX.value = (a / 2).toFixed(2);
+            }
+            
+            const x = parseFloat(sliderX.value);
+            document.getElementById('valXCoord').innerText = x.toFixed(2);
+
+            spheroidMesh.scale.set(a, b, b);
+            spheroidWire.scale.set(a, b, b);
+
+            const y = (b / Math.sqrt(2)) * Math.sqrt(1 - (x * x) / (a * a));
+            const z = y;
+
+            cuboidMesh.scale.set(2 * x, 2 * y, 2 * z);
+
+            const currentVolume = 8 * x * y * z;
+            document.getElementById('currentVolumeText').innerText = currentVolume.toFixed(2);
+            
+            document.getElementById('boxW').innerText = (2*x).toFixed(1);
+            document.getElementById('boxH').innerText = (2*y).toFixed(1);
+            document.getElementById('boxD').innerText = (2*z).toFixed(1);
+
+            const maxVolume = (8 * a * b * b) / (3 * Math.sqrt(3));
+            const optimalX = a / Math.sqrt(3);
+            
+            document.getElementById('maxVolumeText').innerText = maxVolume.toFixed(2);
+            document.getElementById('optimalXText').innerText = `최적의 위치: x = a / √3 ≈ ${optimalX.toFixed(2)} 일 때`;
+        }
+
+        ['sliderA3', 'sliderB3', 'sliderXCoord'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateEllipsoid3D);
+        });
+
+
+        // =========================================================================
+        // 공통 애니메이션 렌더링 루프 및 초기화 이벤트 허브
+        // =========================================================================
+        function animate() {
+            requestAnimationFrame(animate);
+            if (renderer2 && !document.getElementById('tab2').classList.contains('hidden')) {
+                renderer2.render(scene2, camera2);
+            }
+            if (renderer3 && !document.getElementById('tab3').classList.contains('hidden')) {
+                renderer3.render(scene3, camera3);
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            if(renderer2 && camera2) {
+                camera2.aspect = container2.clientWidth / container2.clientHeight;
+                camera2.updateProjectionMatrix();
+                renderer2.setSize(container2.clientWidth, container2.clientHeight);
+            }
+            if(renderer3 && camera3) {
+                camera3.aspect = container3.clientWidth / container3.clientHeight;
+                camera3.updateProjectionMatrix();
+                renderer3.setSize(container3.clientWidth, container3.clientHeight);
+            }
+        });
+
+        window.onload = () => {
+            updateConic();
+            initTab2();
+            initTab3();
+            animate();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>확률밀도함수 최대 구간 시뮬레이터</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 부드러운 애니메이션 효과를 위한 커스텀 CSS */
+    @keyframes bounce-custom {
+      0%, 100% { transform: translate(-50%, -25%); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+      50% { transform: translate(-50%, 0); animation-timing-function: cubic-bezier(0,0,0.2,1); }
+    }
+    .animate-bounce-custom {
+      animation: bounce-custom 1s infinite;
+    }
+    /* 슬라이더 스타일 */
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    #slider-a::-webkit-slider-thumb { background: #2563eb; }
+    #slider-r::-webkit-slider-thumb { background: #4b5563; }
+    #slider-n::-webkit-slider-thumb { background: #8b5cf6; } /* 보라색 계열 */
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4 md:p-8 font-sans text-gray-800">
+  
+  <!-- 전체 폭을 대폭 키움 (max-w-4xl -> max-w-7xl) -->
+  <div class="bg-white max-w-7xl w-full rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+    
+    <!-- 헤더 부분 -->
+    <div class="bg-blue-600 p-6 md:p-8 text-white">
+      <h1 class="text-3xl font-bold mb-3 flex items-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-200"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        확률밀도함수 최대 확률 구간 시뮬레이터
+      </h1>
+      <p class="text-blue-50 flex items-start gap-3 text-base mt-4 bg-blue-700/50 p-4 rounded-xl">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span class="leading-relaxed">
+          <strong>목표:</strong> 아래 슬라이더를 움직여 시작 위치 $a$를 변경해보세요.<br>
+          구간 $[a, a+r]$ 의 넓이(확률)가 최대가 되려면 양 끝점의 높이 <strong>$f_n(a)$와 $f_n(a+r)$이 같아져야 함</strong>을 직관적으로 확인할 수 있습니다.
+        </span>
+      </p>
+    </div>
+
+    <div class="p-6 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-10">
+      
+      <!-- 메인 그래프 영역 -->
+      <div class="lg:col-span-2 flex flex-col items-center">
+        <!-- 캔버스 높이 대폭 증가 (h-[350px] -> h-[500px] lg:h-[600px]) -->
+        <div class="w-full h-[500px] lg:h-[600px] relative rounded-2xl border-2 border-gray-200 bg-white shadow-inner" id="canvas-container">
+          <!-- Max 표시 뱃지 크기 키움 -->
+          <div id="badge-max" class="hidden absolute top-6 left-1/2 bg-green-500 text-white px-6 py-2.5 rounded-full text-base font-bold shadow-lg animate-bounce-custom z-10 whitespace-nowrap border-2 border-green-400">
+            ✨ 확률 최대 조건 달성! f(a) = f(a+r) ✨
+          </div>
+          <canvas id="myCanvas" class="w-full h-full rounded-2xl block" style="touch-action: none;"></canvas>
+        </div>
+        
+        <!-- 시각적 결과 피드백 요약 -->
+        <div id="prob-container" class="mt-8 w-full text-center p-6 rounded-2xl border-2 transition-colors duration-300 bg-gray-50 border-gray-200">
+          <div class="text-base text-gray-500 mb-2 font-medium">현재 구간의 확률 $P(a \le X_n \le a+r)$</div>
+          <div id="prob-text" class="text-5xl md:text-6xl font-black text-blue-600 tracking-tight">0.00%</div>
+        </div>
+      </div>
+
+      <!-- 컨트롤 및 정보 패널 -->
+      <div class="space-y-8">
+        
+        <!-- 파라미터 조절기 -->
+        <div class="bg-gray-50 p-6 md:p-8 rounded-2xl border border-gray-200 shadow-sm">
+          <h3 class="font-bold text-gray-800 text-lg mb-6 flex items-center gap-2 border-b border-gray-200 pb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><polyline points="18 8 22 12 18 16"></polyline><polyline points="6 8 2 12 6 16"></polyline><line x1="2" y1="12" x2="22" y2="12"></line></svg>
+            변수 조절 패널
+          </h3>
+
+          <!-- n 슬라이더 (기존 버튼 형태에서 변경) -->
+          <div class="mb-8 bg-purple-50 p-4 rounded-xl border border-purple-100">
+            <div class="flex justify-between mb-2">
+              <label class="text-base font-semibold text-gray-800">함수 차수 $n$</label>
+              <span id="val-n" class="text-lg font-black text-purple-600 bg-purple-100 px-3 py-0.5 rounded-lg">2</span>
+            </div>
+            <input type="range" id="slider-n" min="1" max="15" step="1" value="2" class="w-full h-3 bg-purple-200 rounded-lg appearance-none mt-2">
+            <p class="text-xs text-purple-500 mt-2 text-right">그래프의 모양이 크게 바뀝니다</p>
+          </div>
+
+          <!-- a 슬라이더 -->
+          <div class="mb-8">
+            <div class="flex justify-between mb-2">
+              <label class="text-base font-semibold text-gray-800">시작 위치 $a$</label>
+              <span id="val-a" class="text-lg font-bold text-blue-600">0.50</span>
+            </div>
+            <input type="range" id="slider-a" min="0" max="25" step="0.01" value="0.5" class="w-full h-3 bg-gray-300 rounded-lg appearance-none mt-1">
+          </div>
+
+          <!-- r 슬라이더 -->
+          <div class="mb-4">
+            <div class="flex justify-between mb-2">
+              <label class="text-base font-semibold text-gray-800">구간 길이 $r$</label>
+              <span id="val-r" class="text-lg font-bold text-gray-700">3.0</span>
+            </div>
+            <input type="range" id="slider-r" min="0.5" max="10.0" step="0.1" value="3.0" class="w-full h-3 bg-gray-300 rounded-lg appearance-none mt-1">
+          </div>
+        </div>
+
+        <!-- 실시간 수치 정보 -->
+        <div class="bg-white p-6 md:p-8 rounded-2xl border border-gray-200 shadow-md space-y-4">
+          <h3 class="font-bold text-gray-800 text-lg border-b border-gray-100 pb-3">실시간 함숫값 비교</h3>
+          
+          <div class="space-y-4 pt-2">
+            <div class="flex justify-between items-center text-base">
+              <span class="text-gray-600 font-medium">좌측 끝 $f_n(a)$</span>
+              <span id="val-fa" class="font-mono text-lg bg-gray-100 px-3 py-1.5 rounded-lg text-gray-800 shadow-inner">0.0000</span>
+            </div>
+            <div class="flex justify-between items-center text-base">
+              <span class="text-gray-600 font-medium">우측 끝 $f_n(a+r)$</span>
+              <span id="val-far" class="font-mono text-lg bg-gray-100 px-3 py-1.5 rounded-lg text-gray-800 shadow-inner">0.0000</span>
+            </div>
+          </div>
+          
+          <div id="status-msg" class="mt-6 pt-5 border-t border-gray-100 text-base font-bold text-center flex flex-col justify-center items-center gap-2 bg-gray-50 rounded-xl p-3">
+            <!-- 상태 메시지 삽입됨 -->
+          </div>
+        </div>
+
+        <button id="btn-auto" class="w-full py-4 text-lg bg-blue-50 text-blue-700 font-bold rounded-2xl border-2 border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-all active:scale-[0.98] shadow-sm">
+          정확한 최댓값 위치 자동 맞추기
+        </button>
+        
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 수학 및 로직 함수 ---
+    const factorial = (num) => {
+      if (num <= 1) return 1;
+      return num * factorial(num - 1);
+    };
+
+    const fn = (x, n) => {
+      if (x < 0) return 0;
+      const cn = 1 / factorial(n);
+      return cn * Math.pow(x, n) * Math.exp(-x);
+    };
+
+    // a의 최적값을 찾는 범위도 n에 따라 유동적으로 확장
+    const findOptimalA = (n, r) => {
+      let low = 0.001;
+      let high = Math.max(30.0, n + r + 15.0); 
+      for (let i = 0; i < 70; i++) {
+        let mid = (low + high) / 2;
+        let diff = fn(mid + r, n) - fn(mid, n);
+        if (diff > 0) low = mid;
+        else high = mid;
+      }
+      return (low + high) / 2;
+    };
+
+    const calculateProbability = (n, a, r) => {
+      let area = 0;
+      const steps = 300;
+      const dx = r / steps;
+      for (let i = 0; i < steps; i++) {
+        const x1 = a + i * dx;
+        const x2 = a + (i + 1) * dx;
+        area += ((fn(x1, n) + fn(x2, n)) * dx) / 2;
+      }
+      return area;
+    };
+
+    // --- 상태 변수 ---
+    let n = 2;
+    let r = 3.0;
+    let a = 0.5;
+
+    // --- UI 요소 참조 ---
+    const sliderA = document.getElementById('slider-a');
+    const sliderR = document.getElementById('slider-r');
+    const sliderN = document.getElementById('slider-n'); // 새로 추가된 슬라이더
+    const btnAuto = document.getElementById('btn-auto');
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- UI 업데이트 함수 ---
+    function updateUI() {
+      const optimalA = findOptimalA(n, r);
+      // 오차 허용 범위도 n의 크기에 따라 약간 보정 (값이 너무 작아질 수 있으므로)
+      const isMax = Math.abs(a - optimalA) < 0.05; 
+
+      const currentProb = calculateProbability(n, a, r);
+      const fa = fn(a, n);
+      const far = fn(a + r, n);
+
+      // 텍스트 라벨 업데이트
+      document.getElementById('val-a').textContent = a.toFixed(2);
+      document.getElementById('val-r').textContent = r.toFixed(1);
+      document.getElementById('val-n').textContent = n;
+      
+      // 값이 너무 작아지는 경우 지수표기법 방지를 위해 소수점 자릿수 조절
+      document.getElementById('val-fa').textContent = fa.toFixed(5);
+      document.getElementById('val-far').textContent = far.toFixed(5);
+
+      // 확률 패널 업데이트
+      const probContainer = document.getElementById('prob-container');
+      const probText = document.getElementById('prob-text');
+      const badgeMax = document.getElementById('badge-max');
+      const statusMsg = document.getElementById('status-msg');
+
+      probText.textContent = (currentProb * 100).toFixed(2) + '%';
+
+      if (isMax) {
+        badgeMax.style.display = 'block';
+        probContainer.className = 'mt-8 w-full text-center p-6 rounded-2xl border-2 transition-colors duration-300 bg-green-50 border-green-400';
+        probText.className = 'text-5xl md:text-6xl font-black text-green-600 tracking-tight';
+        statusMsg.className = 'mt-6 pt-5 border-t border-green-200 text-base font-bold text-center flex flex-col justify-center items-center gap-2 bg-green-100 rounded-xl p-3 text-green-700';
+        statusMsg.innerHTML = '✨ 두 함숫값이 일치합니다 ✨<span class="text-sm font-normal text-green-600">현재 구간에서 최대 확률을 가집니다</span>';
+      } else {
+        badgeMax.style.display = 'none';
+        probContainer.className = 'mt-8 w-full text-center p-6 rounded-2xl border-2 transition-colors duration-300 bg-gray-50 border-gray-200';
+        probText.className = 'text-5xl md:text-6xl font-black text-blue-600 tracking-tight';
+        statusMsg.className = 'mt-6 pt-5 border-t border-gray-200 text-base font-bold text-center flex flex-col justify-center items-center gap-2 bg-gray-50 rounded-xl p-3 text-red-500';
+        const diff = Math.abs(fa - far).toFixed(5);
+        const msg = fa > far ? '⬅️ 왼쪽 점이 더 높습니다' : '오른쪽 점이 더 높습니다 ➡️';
+        statusMsg.innerHTML = `${msg} <span class="text-sm font-normal text-gray-500">높이 차이: ${diff}</span>`;
+      }
+
+      drawGraph(isMax, fa, far);
+    }
+
+    // --- 캔버스 그리기 함수 ---
+    function drawGraph(isMax, fa, far) {
+      const container = canvas.parentElement;
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      
+      const width = rect.width;
+      const height = rect.height;
+
+      // 여백 확대
+      const padding = { top: 60, right: 40, bottom: 60, left: 70 };
+      
+      // 동적 스케일 조절 (n값이 커짐에 따라 그래프 스케일이 자동으로 늘어남)
+      const maxPlotX = Math.max(15, Math.ceil(a + r + 3), n * 2);
+      const xMax = maxPlotX;
+      
+      // Y축 최대치도 동적 계산: x=n일 때가 최댓값
+      const peakY = fn(n, n);
+      const yMax = Math.max(0.05, peakY * 1.3); // 상단에 30% 여백
+
+      const toX = (val) => padding.left + (val / xMax) * (width - padding.left - padding.right);
+      const toY = (val) => height - padding.bottom - (val / yMax) * (height - padding.top - padding.bottom);
+
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. 동적 그리드
+      ctx.strokeStyle = '#f3f4f6';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      
+      // X축 눈금 간격 계산
+      let xStep = xMax > 20 ? 5 : 2;
+      for (let i = 0; i <= xMax; i += xStep) {
+        ctx.moveTo(toX(i), padding.top);
+        ctx.lineTo(toX(i), height - padding.bottom);
+      }
+      // Y축 눈금 (대략 5등분)
+      let yStep = yMax / 5;
+      for (let j = 0; j <= yMax; j += yStep) {
+        ctx.moveTo(padding.left, toY(j));
+        ctx.lineTo(width - padding.right, toY(j));
+      }
+      ctx.stroke();
+
+      // X, Y 축 (진하게)
+      ctx.strokeStyle = '#9ca3af';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      // X축
+      ctx.moveTo(padding.left, height - padding.bottom);
+      ctx.lineTo(width - padding.right + 20, height - padding.bottom);
+      // Y축
+      ctx.moveTo(padding.left, height - padding.bottom);
+      ctx.lineTo(padding.left, padding.top - 20);
+      ctx.stroke();
+
+      // 2. 확률 영역 칠하기
+      ctx.beginPath();
+      ctx.moveTo(toX(a), toY(0));
+      for (let x = a; x <= a + r; x += (xMax / 400)) { // 해상도 보정
+        ctx.lineTo(toX(x), toY(fn(x, n)));
+      }
+      ctx.lineTo(toX(a + r), toY(0));
+      ctx.closePath();
+      ctx.fillStyle = isMax ? 'rgba(34, 197, 94, 0.4)' : 'rgba(59, 130, 246, 0.25)';
+      ctx.fill();
+
+      // 3. 곡선 그리기
+      ctx.beginPath();
+      for (let x = 0; x <= xMax; x += (xMax / 400)) {
+        const px = toX(x);
+        const py = toY(fn(x, n));
+        if (x === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = '#1f2937'; // 짙은 회색
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // 4. 선 그리기 도우미 함수
+      const drawDashedLine = (x1, y1, x2, y2, color, thickness = 2) => {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = thickness;
+        ctx.setLineDash([6, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      };
+
+      const pA_X = toX(a);
+      const pA_Y = toY(fa);
+      const pAR_X = toX(a + r);
+      const pAR_Y = toY(far);
+
+      // 수직선
+      drawDashedLine(pA_X, toY(0), pA_X, pA_Y, '#6b7280');
+      drawDashedLine(pAR_X, toY(0), pAR_X, pAR_Y, '#6b7280');
+
+      // 높이 비교 가로선
+      const lineColor = isMax ? '#16a34a' : '#ef4444';
+      drawDashedLine(pA_X, pA_Y, pAR_X, pAR_Y, lineColor, 2.5);
+
+      // 5. 양 끝 점 (크기 키움)
+      const drawPoint = (x, y, color) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 7, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      };
+      drawPoint(pA_X, pA_Y, lineColor);
+      drawPoint(pAR_X, pAR_Y, lineColor);
+
+      // 6. 텍스트 라벨
+      ctx.fillStyle = '#374151';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      
+      // X축 좌표들
+      ctx.fillText(`a (${a.toFixed(1)})`, pA_X, height - padding.bottom + 25);
+      ctx.fillText(`a+r (${(a+r).toFixed(1)})`, pAR_X, height - padding.bottom + 25);
+      
+      // 축 이름
+      ctx.font = 'italic bold 18px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('f(x)', padding.left - 15, padding.top - 5);
+      ctx.fillText('x', width - padding.right + 25, height - padding.bottom - 10);
+    }
+
+    // --- 이벤트 리스너 등록 ---
+    sliderA.addEventListener('input', (e) => {
+      a = parseFloat(e.target.value);
+      updateUI();
+    });
+
+    sliderR.addEventListener('input', (e) => {
+      r = parseFloat(e.target.value);
+      updateUI();
+    });
+
+    sliderN.addEventListener('input', (e) => {
+      n = parseInt(e.target.value);
+      updateUI();
+    });
+
+    btnAuto.addEventListener('click', () => {
+      const optimalA = findOptimalA(n, r);
+      a = optimalA;
+      sliderA.value = optimalA;
+      updateUI();
+    });
+
+    window.addEventListener('resize', updateUI);
+
+    // 초기화
+    updateUI();
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>벡터 영역 S(k) 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { background-color: #f8fafc; font-family: sans-serif; }
+        canvas { background-color: white; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .control-panel { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-2xl font-bold text-slate-800 mb-2">벡터 영역 $S(k)$ 시뮬레이터</h1>
+            <p class="text-slate-600">
+                $\overrightarrow{OR} = \frac{1}{k}\overrightarrow{OP} + k\overrightarrow{OQ}$ 영역 분석 및 적분 도출
+            </p>
+        </header>
+
+        <!-- 상단: 그래프와 설정 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <!-- 시뮬레이션 캔버스 -->
+            <div class="md:col-span-2">
+                <canvas id="simCanvas" class="w-full h-auto aspect-square"></canvas>
+            </div>
+
+            <!-- 컨트롤 패널 -->
+            <div class="space-y-4">
+                <div class="control-panel">
+                    <h2 class="font-semibold text-slate-700 mb-4">파라미터 설정</h2>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-slate-600 mb-2">
+                            양의 실수 $k$: <span id="kValueDisplay" class="font-bold text-blue-600">1.00</span>
+                        </label>
+                        <input type="range" id="kSlider" min="0.1" max="20" step="0.1" value="1" 
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                        <div class="flex justify-between text-xs text-slate-400 mt-1">
+                            <span>0.1 (k → 0+)</span>
+                            <span>20.0 (k → ∞)</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button id="btnKZero" class="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm rounded font-semibold transition border border-blue-200">k → 0+ (0.1)</button>
+                        <button id="btnKInf" class="py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm rounded font-semibold transition border border-blue-200">k → ∞ (20.0)</button>
+                    </div>
+
+                    <div class="space-y-2">
+                        <button id="resetBtn" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition">초기화 (k=1)</button>
+                    </div>
+                </div>
+
+                <div id="analysisPanel" class="control-panel bg-blue-50">
+                    <h2 class="font-semibold text-blue-800 mb-2">실시간 넓이 분석</h2>
+                    <div class="text-sm text-blue-700" id="areaInfo">
+                        계산 중...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 하단: 적분식 도출 과정 (전체 너비 사용) -->
+        <div class="control-panel bg-slate-50 border border-slate-200">
+            <h2 class="font-semibold text-xl text-slate-800 mb-6 border-b pb-2">S(k) 적분식 도출 상세 과정</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm text-slate-700">
+                <div class="space-y-4">
+                    <h3 class="font-bold text-blue-800 text-base">1. 영역의 정의 및 변환</h3>
+                    <p class="leading-relaxed">
+                        점 $P(x_P, x_P^2)$와 $Q(x_Q, 0)$에 대하여 $R(x, y)$는 다음과 같습니다:
+                        $$x = \frac{1}{k}x_P + k x_Q, \quad y = \frac{1}{k}x_P^2$$
+                        여기서 $y$를 고정하면 $x_P = \pm\sqrt{ky}$가 되며, 이를 $x$식에 대입하면:
+                        $$x = \pm\sqrt{\frac{y}{k}} + k x_Q \quad (0 \le x_Q \le 1)$$
+                        즉, 높이 $y$에서의 $x$ 구간은 다음 두 선분의 합집합입니다:
+                        <br><span class="bg-blue-100 px-2 py-1 rounded text-blue-800 inline-block mt-2">
+                            $L_1 = [-\sqrt{y/k}, -\sqrt{y/k} + k]$, $L_2 = [\sqrt{y/k}, \sqrt{y/k} + k]$
+                        </span>
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="font-bold text-blue-800 text-base">2. 케이스 분류 (임계값 $k = \sqrt{2}$)</h3>
+                    <p class="leading-relaxed">
+                        두 구간 $L_1, L_2$가 겹치려면 $-\sqrt{y/k} + k \ge \sqrt{y/k}$, 즉 $y \le \frac{k^3}{4}$여야 합니다.
+                        영역의 최대 높이인 $1/k$보다 이 임계 높이가 높으면 전체가 연결됩니다.
+                        $$\frac{k^3}{4} \ge \frac{1}{k} \implies k^4 \ge 4 \implies k \ge \sqrt{2}$$
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-3">Case A: $0 < k \le \sqrt{2}$ (분리 영역 존재)</h4>
+                    <p class="text-xs text-slate-500 mb-4">높이 $y > k^3/4$에서 구간이 두 개로 갈라짐</p>
+                    <div class="text-center bg-slate-50 p-3 rounded border">
+                        $$S(k) = \int_{0}^{\frac{k^3}{4}} (k + 2\sqrt{\frac{y}{k}}) dy + \int_{\frac{k^3}{4}}^{\frac{1}{k}} 2k \, dy$$
+                        <div class="text-blue-600 font-bold mt-2">$$= 2 - \frac{k^4}{12}$$</div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-3">Case B: $k \ge \sqrt{2}$ (완전 연결)</h4>
+                    <p class="text-xs text-slate-500 mb-4">모든 높이에서 두 구간이 겹쳐 하나의 선분 유지</p>
+                    <div class="text-center bg-slate-50 p-3 rounded border">
+                        $$S(k) = \int_{0}^{\frac{1}{k}} (k + 2\sqrt{\frac{y}{k}}) dy$$
+                        <div class="text-blue-600 font-bold mt-2">$$= 1 + \frac{4}{3k^2}$$</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 bg-blue-900 text-white p-6 rounded-lg shadow-md">
+                <h3 class="text-center font-bold text-lg mb-4">최종 정답 도출</h3>
+                <div class="flex flex-col md:flex-row justify-around items-center space-y-4 md:space-y-0">
+                    <div class="text-center">
+                        <p class="text-blue-200 text-sm mb-1">$\alpha = \lim_{k \to 0+} S(k)$</p>
+                        <p class="text-2xl font-bold">$\lim_{k \to 0+} (2 - \frac{k^4}{12}) = 2$</p>
+                    </div>
+                    <div class="text-3xl text-blue-400 font-light">+</div>
+                    <div class="text-center">
+                        <p class="text-blue-200 text-sm mb-1">$\beta = \lim_{k \to \infty} S(k)$</p>
+                        <p class="text-2xl font-bold">$\lim_{k \to \infty} (1 + \frac{4}{3k^2}) = 1$</p>
+                    </div>
+                    <div class="bg-blue-700 px-6 py-3 rounded-xl border border-blue-500">
+                        <p class="text-blue-100 text-xs mb-1 uppercase tracking-wider">Final Answer</p>
+                        <p class="text-3xl font-black">$\alpha + \beta = 3$</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const kSlider = document.getElementById('kSlider');
+        const kValueDisplay = document.getElementById('kValueDisplay');
+        const resetBtn = document.getElementById('resetBtn');
+        const btnKZero = document.getElementById('btnKZero');
+        const btnKInf = document.getElementById('btnKInf');
+
+        function resizeCanvas() {
+            const size = canvas.clientWidth;
+            canvas.width = size * window.devicePixelRatio;
+            canvas.height = size * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let k = 1.0;
+
+        function toPixel(x, y) {
+            const margin = 50;
+            const size = canvas.clientWidth;
+            const usableSize = size - margin * 2;
+            const maxVal = Math.max(k + 1/k, 2.5);
+            const scale = usableSize / (maxVal * 1.1);
+            
+            return {
+                x: size / 2 + x * scale - (k/2 * scale),
+                y: size * 0.75 - y * scale
+            };
+        }
+
+        function draw() {
+            const size = canvas.clientWidth;
+            ctx.clearRect(0, 0, size, size);
+
+            // 축 및 그리드 생략 (코드 중복 방지, 이전 로직 유지)
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.beginPath();
+            for(let i = -30; i <= 30; i++) {
+                let p1 = toPixel(i, -30); ctx.moveTo(p1.x, 0); ctx.lineTo(p1.x, size);
+                let p2 = toPixel(0, i); ctx.moveTo(0, p2.y); ctx.lineTo(size, p2.y);
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 2; const origin = toPixel(0, 0);
+            ctx.beginPath(); ctx.moveTo(0, origin.y); ctx.lineTo(size, origin.y); ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, size); ctx.stroke();
+
+            // 영역 S(k) 렌더링
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.4)';
+            ctx.strokeStyle = 'rgba(37, 99, 235, 0.6)';
+            
+            // Left part
+            ctx.beginPath();
+            ctx.moveTo(toPixel(-1/k, 1/k).x, toPixel(-1/k, 1/k).y);
+            ctx.lineTo(toPixel(-1/k + k, 1/k).x, toPixel(-1/k + k, 1/k).y);
+            for(let p_val = -1; p_val <= 0; p_val += 0.05) ctx.lineTo(toPixel(p_val/k + k, p_val*p_val/k).x, toPixel(p_val/k + k, p_val*p_val/k).y);
+            ctx.lineTo(toPixel(0, 0).x, toPixel(0, 0).y);
+            for(let p_val = 0; p_val >= -1; p_val -= 0.05) ctx.lineTo(toPixel(p_val/k, p_val*p_val/k).x, toPixel(p_val/k, p_val*p_val/k).y);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+
+            // Right part
+            ctx.beginPath();
+            ctx.moveTo(toPixel(1/k, 1/k).x, toPixel(1/k, 1/k).y);
+            ctx.lineTo(toPixel(1/k + k, 1/k).x, toPixel(1/k + k, 1/k).y);
+            for(let p_val = 1; p_val >= 0; p_val -= 0.05) ctx.lineTo(toPixel(p_val/k + k, p_val*p_val/k).x, toPixel(p_val/k + k, p_val*p_val/k).y);
+            ctx.lineTo(toPixel(0, 0).x, toPixel(0, 0).y);
+            for(let p_val = 0; p_val <= 1; p_val += 0.05) ctx.lineTo(toPixel(p_val/k, p_val*p_val/k).x, toPixel(p_val/k, p_val*p_val/k).y);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+
+            // C and OA
+            ctx.setLineDash([5, 5]); ctx.strokeStyle = '#f43f5e'; ctx.beginPath();
+            for (let x = -1; x <= 1; x += 0.1) { const p = toPixel(x, x*x); if (x === -1) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }
+            ctx.stroke(); ctx.setLineDash([]);
+            ctx.strokeStyle = '#10b981'; ctx.lineWidth = 3;
+            const pA = toPixel(1, 0); ctx.beginPath(); ctx.moveTo(origin.x, origin.y); ctx.lineTo(pA.x, pA.y); ctx.stroke();
+        }
+
+        function updateAnalysis() {
+            const areaInfo = document.getElementById('areaInfo');
+            let area = (k <= Math.sqrt(2)) ? (2 - Math.pow(k, 4) / 12) : (1 + 4 / (3 * k * k));
+            areaInfo.innerHTML = `현재 <strong>k = ${k.toFixed(2)}</strong> 일 때,<br>영역의 넓이 $S(k) \\approx$ <strong>${area.toFixed(4)}</strong>`;
+            if (window.MathJax && window.MathJax.typesetPromise) MathJax.typesetPromise([areaInfo]);
+        }
+
+        kSlider.addEventListener('input', (e) => { k = parseFloat(e.target.value); kValueDisplay.innerText = k.toFixed(2); draw(); updateAnalysis(); });
+        resetBtn.addEventListener('click', () => { k = 1.0; kSlider.value = 1.0; kValueDisplay.innerText = "1.00"; draw(); updateAnalysis(); });
+        btnKZero.addEventListener('click', () => { k = 0.1; kSlider.value = 0.1; kValueDisplay.innerText = "0.10"; draw(); updateAnalysis(); });
+        btnKInf.addEventListener('click', () => { k = 20.0; kSlider.value = 20.0; kValueDisplay.innerText = "20.00"; draw(); updateAnalysis(); });
+
+        updateAnalysis();
+        setTimeout(draw, 100);
+    </script>
+</body>
+</html>

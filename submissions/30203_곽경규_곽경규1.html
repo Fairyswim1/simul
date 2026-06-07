@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>구 중심 (4,0,6) 기준 원뿔곡선 시뮬레이터 v5.0</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0b0b14;
+            font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+            color: #f1f5f9;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+            width: 380px;
+            border: 1px solid rgba(56, 189, 248, 0.25);
+        }
+        h2 { margin-top: 0; color: #38bdf8; font-size: 1.35rem; font-weight: 700; letter-spacing: -0.5px; }
+        .subtitle { font-size: 0.85rem; color: #34d399; margin-bottom: 15px; font-weight: bold; }
+        
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; color: #94a3b8; font-weight: 600; }
+        
+        .input-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+        input[type=number] {
+            width: 90px; background: #0f172a; border: 2px solid #38bdf8;
+            color: #ffeb3b; padding: 6px; border-radius: 8px;
+            font-size: 1.1rem; font-weight: bold; text-align: center; outline: none;
+        }
+        input[type=range] { flex-grow: 1; -webkit-appearance: none; background: #334155; height: 6px; border-radius: 3px; outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #38bdf8; border-radius: 50%; cursor: pointer; }
+        
+        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+        .btn-preset {
+            background: #1e293b; border: 1px solid #475569; color: #cbd5e1;
+            padding: 10px; border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+            transition: all 0.2s ease; font-weight: 600;
+        }
+        .btn-preset:hover { background: #334155; border-color: #38bdf8; color: #fff; }
+
+        #status-box {
+            padding: 15px; border-radius: 10px; background: rgba(0,0,0,0.5);
+            border-left: 5px solid #64748b; margin-bottom: 18px; transition: all 0.3s;
+        }
+        #conic-type { font-size: 1.3rem; font-weight: 700; }
+        
+        #equation-box {
+            background: #020617; border: 1px solid rgba(56, 189, 248, 0.2);
+            padding: 14px; border-radius: 10px; font-family: 'Consolas', monospace;
+            font-size: 0.9rem; color: #38bdf8; line-height: 1.5; text-align: center;
+        }
+        .eq-title { font-size: 0.8rem; color: #94a3b8; margin-bottom: 6px; font-weight: bold; text-transform: uppercase;}
+
+        .ellipse { border-left-color: #10b981 !important; color: #10b981; }
+        .parabola { border-left-color: #f59e0b !important; color: #f59e0b; animation: neonPulse 1.5s infinite; }
+        .hyperbola { border-left-color: #f43f5e !important; color: #f43f5e; }
+
+        @keyframes neonPulse { 
+            0% { box-shadow: 0 0 5px rgba(245,158,11,0.2); }
+            50% { box-shadow: 0 0 20px rgba(245,158,11,0.5); }
+            100% { box-shadow: 0 0 5px rgba(245,158,11,0.2); }
+        }
+        
+        #legend {
+            position: absolute; bottom: 20px; right: 20px;
+            background: rgba(15, 23, 42, 0.85); padding: 14px 18px;
+            border-radius: 12px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.08);
+        }
+        .legend-item { display: flex; align-items: center; margin-bottom: 6px; }
+        .color-box { width: 14px; height: 14px; margin-right: 10px; border-radius: 3px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="control-panel">
+        <h2>원뿔곡선 초정밀 뷰어 v5.0</h2>
+        <div class="subtitle">✨ 신규 문제 조건 완전 커스텀 반영</div>
+        
+        <div class="control-group">
+            <label>점 P의 z축 좌표 ($z_p$)</label>
+            <div class="input-row">
+                <input type="range" id="zp-slider" min="0" max="12" step="0.01" value="3.00">
+                <input type="number" id="zp-input" min="0" max="12" step="0.01" value="3.00">
+            </div>
+        </div>
+
+        <label>해당 문제 핵심 좌표 워프</label>
+        <div class="preset-grid">
+            <button class="btn-preset" onclick="warpTo(3.00)">z = 3.00 (기본 문제 조건)</button>
+            <button class="btn-preset" onclick="warpTo(5.00)">z = 5.00 (하단 포물선)</button>
+            <button class="btn-preset" onclick="warpTo(6.00)">z = 6.00 (구 중심 쌍곡선)</button>
+            <button class="btn-preset" onclick="warpTo(7.00)">z = 7.00 (상단 포물선)</button>
+        </div>
+        
+        <div id="status-box">
+            <div style="font-size: 0.8rem; color: #94a3b8;">현재 교선의 기하학적 형태:</div>
+            <div id="conic-type">타원 (Ellipse)</div>
+        </div>
+
+        <div class="eq-title">xy평면($z=0$) 위의 실제 자취 방정식</div>
+        <div id="equation-box">계산 중...</div>
+    </div>
+
+    <div id="legend">
+        <div class="legend-item"><div class="color-box" style="background: #ffeb3b;"></div>점 P (0, 0, z_p)</div>
+        <div class="legend-item"><div class="color-box" style="background: #f43f5e;"></div>구 S (중심: 4, 0, 6 / R=1)</div>
+        <div class="legend-item"><div class="color-box" style="background: rgba(56, 189, 248, 0.85);"></div>그림자 자취 영역 ($\le 0$)</div>
+        <div class="legend-item"><div class="color-box" style="background: #ffffff; height: 2px;"></div>원뿔 접선 광선</div>
+    </div>
+
+    <script>
+        // --- 1. 3D 씬 세팅 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x06060a);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // 그림자가 음수 X축에 맺히므로 뷰포트를 시원하게 조정
+        camera.position.set(-18, 12, 22); 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(-3, 3, 0);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        const grid = new THREE.GridHelper(80, 80, 0x334155, 0x1e293b);
+        scene.add(grid);
+
+        // --- 2. [수정 완료] 신규 문제 오브젝트 배치 ---
+        // 구 S: 중심 (4, 0, 6), 반지름 1 -> Three.js 차원 매핑 (X=4, Y=6, Z=0)
+        const sphereGeo = new THREE.SphereGeometry(1, 64, 64);
+        const sphereMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, metalness: 0.3, roughness: 0.4 });
+        const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+        sphereMesh.position.set(4, 6, 0);
+        scene.add(sphereMesh);
+
+        // 광원 점 P (0, 0, zp) -> Three.js (0, zp, 0)
+        const pMesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 32, 32), new THREE.MeshBasicMaterial({ color: 0xffeb3b }));
+        scene.add(pMesh);
+
+        // 자취 평면 배치 (원점 기준 정확 매핑)
+        const canvasRes = 1024;
+        const locusCanvas = document.createElement('canvas');
+        locusCanvas.width = canvasRes;
+        locusCanvas.height = canvasRes;
+        const ctx = locusCanvas.getContext('2d');
+
+        const texture = new THREE.CanvasTexture(locusCanvas);
+        const planeSize = 100; // 넓은 관찰 범위를 위해 확장
+        
+        const planeMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(planeSize, planeSize),
+            new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide })
+        );
+        planeMesh.rotation.x = -Math.PI / 2;
+        planeMesh.position.set(0, 0, 0); 
+        scene.add(planeMesh);
+
+        let coneLines = new THREE.Group();
+        scene.add(coneLines);
+
+        // UI 바인딩
+        const slider = document.getElementById('zp-slider');
+        const numInput = document.getElementById('zp-input');
+        const conicType = document.getElementById('conic-type');
+        const statusBox = document.getElementById('status-box');
+        const equationBox = document.getElementById('equation-box');
+
+        const imgData = ctx.createImageData(canvasRes, canvasRes);
+        const data32 = new Uint32Array(imgData.data.buffer);
+
+        // --- 3. 연산 및 렌더링 동기화 루프 ---
+        function update(zp) {
+            // 부동소수점 오차로 인한 포물선 판정 버그 제어
+            if (Math.abs(zp - 5.00) < 0.005) zp = 5.00;
+            if (Math.abs(zp - 6.00) < 0.005) zp = 6.00;
+            if (Math.abs(zp - 7.00) < 0.005) zp = 7.00;
+
+            slider.value = zp.toFixed(2);
+            numInput.value = zp.toFixed(2);
+
+            pMesh.position.set(0, zp, 0);
+
+            data32.fill(0);
+            
+            // 새 문제 조건식 판별 상수 계산
+            const C0 = 15 + (zp - 6) ** 2;
+
+            for (let cy = 0; cy < canvasRes; cy++) {
+                // Three.js의 공간 축방향과 완벽 동기화 (y축이 Z에 대응)
+                const y = -50 + (cy / canvasRes) * planeSize; 
+                for (let cx = 0; cx < canvasRes; cx++) {
+                    const x = -50 + (cx / canvasRes) * planeSize;
+
+                    const A = x * x + y * y + zp * zp;
+                    const B = 4 * x + zp * (zp - 6); // 수식 유도 결과 반영
+
+                    if (B * B - A * C0 >= 0) {
+                        data32[cy * canvasRes + cx] = 0xd938bd00; // 스카이블루 자취 색상 색칠
+                    }
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            texture.needsUpdate = true;
+
+            // 표준 수식 추출 ($Ax^2 + By^2 + Cx + D \le 0$ 형태)
+            const coeffX2 = ((zp - 6) ** 2 - 1);
+            const coeffY2 = (15 + (zp - 6) ** 2);
+            const coeffX = (-8 * zp * (zp - 6));
+            const coeffConst = (15 * zp * zp);
+
+            const formatTerm = (val, label) => {
+                const n = parseFloat(val);
+                if (Math.abs(n) < 0.001) return "";
+                return n >= 0 ? `+ ${n.toFixed(2)}${label} ` : `- ${Math.abs(n).toFixed(2)}${label} `;
+            };
+
+            let eqStr = "";
+            if (Math.abs(coeffX2) < 0.001) {
+                eqStr = `0.00x² ${formatTerm(coeffY2, "y²")} ${formatTerm(coeffX, "x")} ${formatTerm(coeffConst, "")} ≤ 0`;
+            } else {
+                eqStr = `${coeffX2.toFixed(2)}x² ${formatTerm(coeffY2, "y²")} ${formatTerm(coeffX, "x")} ${formatTerm(coeffConst, "")} ≤ 0`;
+            }
+            equationBox.innerHTML = eqStr;
+
+            // 형태 판정 논리 회로 수정
+            statusBox.className = "";
+            if (zp === 5.00 || zp === 7.00) {
+                conicType.innerText = "포물선 (Parabola)";
+                statusBox.classList.add("parabola");
+            } else if (zp > 5.00 && zp < 7.00) {
+                conicType.innerText = "쌍곡선 (Hyperbola)";
+                statusBox.classList.add("hyperbola");
+            } else {
+                conicType.innerText = "타원 (Ellipse)";
+                statusBox.classList.add("ellipse");
+            }
+
+            // 실시간 물리 접선 광선 추적 드로잉
+            scene.remove(coneLines);
+            coneLines = new THREE.Group();
+            
+            const W = new THREE.Vector3(4, 6 - zp, 0);
+            const d = W.length();
+            if (d > 1) {
+                const d_sil = d * (1 - 1 / (d * d));
+                const R_sil = Math.sqrt(1 - 1 / (d * d));
+                const W_norm = W.clone().normalize();
+                const silCenter = new THREE.Vector3(0, zp, 0).addScaledVector(W_norm, d_sil);
+                let U1 = new THREE.Vector3(0, 0, 1);
+                if (Math.abs(W_norm.z) > 0.9) U1.set(1, 0, 0);
+                const U2 = new THREE.Vector3().crossVectors(W_norm, U1).normalize();
+                U1.crossVectors(U2, W_norm).normalize();
+
+                const linePoints = [];
+                for (let i = 0; i < 48; i++) {
+                    const phi = (i / 48) * Math.PI * 2;
+                    const S = silCenter.clone().addScaledVector(U1, R_sil * Math.cos(phi)).addScaledVector(U2, R_sil * Math.sin(phi));
+                    const dir = new THREE.Vector3().subVectors(S, pMesh.position);
+                    if (Math.abs(dir.y) > 0.001) {
+                        const k = -pMesh.position.y / dir.y;
+                        const intersect = pMesh.position.clone().addScaledVector(dir, k);
+                        if (intersect.length() < 70) { 
+                            linePoints.push(pMesh.position.clone(), intersect); 
+                        }
+                    }
+                }
+                const lineGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
+                const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 }));
+                coneLines.add(lines);
+            }
+            scene.add(coneLines);
+        }
+
+        // 입력 장치 양방향 동기화 바인딩
+        slider.addEventListener('input', (e) => update(parseFloat(e.target.value)));
+        numInput.addEventListener('input', (e) => {
+            let val = parseFloat(e.target.value);
+            if (isNaN(val)) val = 0;
+            if (val < 0) val = 0; if (val > 12) val = 12;
+            update(val);
+        });
+
+        function warpTo(val) { update(val); }
+
+        // 첫 시작 상태
+        update(3.00);
+
+        // 프레임 루프
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

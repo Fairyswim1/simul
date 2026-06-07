@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>기하학 문제 인터랙티브 시뮬레이션</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            width: 100%;
+        }
+        .canvas-container {
+            flex: 1;
+            min-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 2px solid #333;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        .control-panel {
+            flex: 1;
+            min-width: 350px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .slider-group {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .btn-container {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        .action-btn {
+            flex: 1;
+            background-color: #3182ce;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .action-btn:hover {
+            background-color: #2b6cb0;
+        }
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+        .stats-box {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .stats-title {
+            font-weight: bold;
+            color: #2b6cb0;
+            border-bottom: 2px solid #ebf8ff;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #dd6b20;
+        }
+        .info-text {
+            font-size: 0.85rem;
+            color: #718096;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>제20회 모의고사 1번 문항 시뮬레이터</h1>
+
+    <div class="container">
+        <div class="canvas-container">
+            <canvas id="geoCanvas" width="400" height="400"></canvas>
+            <p class="info-text" style="margin-top: 10px;">※ 정사각형 한 변의 길이 = 1</p>
+        </div>
+
+        <div class="control-panel">
+            <div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>각도 θ (라디안 / 도)</span>
+                        <span id="angleDisplay" class="highlight">0.30 rad (17.19°)</span>
+                    </div>
+                    <input type="range" id="thetaSlider" min="0.01" max="0.78" step="0.001" value="0.3">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #a0aec0;">
+                        <span>0 (0°)</span>
+                        <span>π/6 (30°)</span>
+                        <span>π/4 (45°)</span>
+                    </div>
+                </div>
+
+                <div class="btn-container">
+                    <button class="action-btn" id="maxRatioBtn">📊 S₂/S₁ 최댓값 위치로 이동 (θ = π/8)</button>
+                </div>
+
+                <div class="stats-box">
+                    <div class="stats-title">[물음 1] 방정식 |BP| × |CQ| = 1/9 검증</div>
+                    <div class="stat-item">
+                        <span>|BP| (길이):</span>
+                        <span id="valBP">0.0000</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>|CQ| (길이):</span>
+                        <span id="valCQ">0.0000</span>
+                    </div>
+                    <div class="stat-item" style="background: #fffaf0; padding: 4px; border-radius: 4px;">
+                        <span><strong>|BP| × |CQ| 값:</strong></span>
+                        <span id="valProduct" class="highlight" style="color:#d69e2e;">0.0000</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>목표값 (1/9 ≒ 0.1111):</span>
+                        <span style="color: #4a5568; font-weight: bold;">0.1111</span>
+                    </div>
+                </div>
+
+                <div class="stats-box">
+                    <div class="stats-title">[물음 2] S₂/S₁ 비율 최댓값 관찰</div>
+                    <div class="stat-item">
+                        <span>S₁ (삼각형 APQ 넓이):</span>
+                        <span id="valS1">0.0000</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>S₂ (삼각형 PCQ 넓이):</span>
+                        <span id="valS2">0.0000</span>
+                    </div>
+                    <div class="stat-item" style="background: #f0fff4; padding: 4px; border-radius: 4px;">
+                        <span><strong>S₂ / S₁ 비율:</strong></span>
+                        <span id="valRatio" class="highlight" style="color:#38a169;">0.0000</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-text" style="background: #edf2f7; padding: 10px; border-radius: 6px;">
+                <strong>💡 수학적 팁:</strong><br>
+                비율 최댓값 버튼을 누르면 θ = π/8 즉, <b>22.5°</b> 지점으로 순간 이동합니다. 이때 S₂/S₁의 비율이 약 <b>0.1716</b> (이론적 최댓값: 3 - 2√2)에 도달하는 것을 시각적으로 선명하게 관찰할 수 있습니다.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('geoCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('thetaSlider');
+        const maxRatioBtn = document.getElementById('maxRatioBtn');
+
+        const angleDisplay = document.getElementById('angleDisplay');
+        const valBP = document.getElementById('valBP');
+        const valCQ = document.getElementById('valCQ');
+        const valProduct = document.getElementById('valProduct');
+        const valS1 = document.getElementById('valS1');
+        const valS2 = document.getElementById('valS2');
+        const valRatio = document.getElementById('valRatio');
+
+        const size = 300; 
+        const offsetX = 50;
+        const offsetY = 50;
+
+        function draw() {
+            const theta = parseFloat(slider.value);
+            const degree = (theta * 180 / Math.PI).toFixed(2);
+            angleDisplay.innerText = `${theta.toFixed(3)} rad (${degree}°)`;
+
+            const bp = Math.tan(theta);
+            const pc = 1 - bp;
+            const cq = pc * Math.tan(theta); 
+            const dq = 1 - cq;
+
+            const areaABP = 0.5 * 1 * bp;
+            const areaPCQ = 0.5 * pc * cq;
+            const areaADQ = 0.5 * 1 * dq;
+            const s2 = areaPCQ;
+            const s1 = 1 - (areaABP + areaPCQ + areaADQ);
+
+            const product = bp * cq;
+            const ratio = s2 / s1;
+
+            valBP.innerText = bp.toFixed(4);
+            valCQ.innerText = cq.toFixed(4);
+            valProduct.innerText = product.toFixed(4);
+            valS1.innerText = s1.toFixed(4);
+            valS2.innerText = s2.toFixed(4);
+            valRatio.innerText = ratio.toFixed(4);
+
+            if (Math.abs(product - 1/9) < 0.002) {
+                valProduct.style.color = "#e53e3e";
+            } else {
+                valProduct.style.color = "#d69e2e";
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const ptA = { x: offsetX, y: offsetY };
+            const ptB = { x: offsetX, y: offsetY + size };
+            const ptC = { x: offsetX + size, y: offsetY + size };
+            const ptD = { x: offsetX + size, y: offsetY };
+            
+            const ptP = { x: offsetX + bp * size, y: offsetY + size };
+            const ptQ = { x: offsetX + size, y: offsetY + (1 - cq) * size };
+
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(offsetX, offsetY, size, size);
+
+            ctx.fillStyle = 'rgba(66, 153, 225, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(ptA.x, ptA.y);
+            ctx.lineTo(ptP.x, ptP.y);
+            ctx.lineTo(ptQ.x, ptQ.y);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(72, 187, 120, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(ptP.x, ptP.y);
+            ctx.lineTo(ptC.x, ptC.y);
+            ctx.lineTo(ptQ.x, ptQ.y);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = '#2b6cb0';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(ptA.x, ptA.y);
+            ctx.lineTo(ptP.x, ptP.y);
+            ctx.lineTo(ptQ.x, ptQ.y);
+            ctx.lineTo(ptA.x, ptA.y);
+            ctx.stroke();
+
+            const vPA = { x: ptA.x - ptP.x, y: ptA.y - ptP.y };
+            const vPQ = { x: ptQ.x - ptP.x, y: ptQ.y - ptP.y };
+            const lenPA = Math.sqrt(vPA.x*vPA.x + vPA.y*vPA.y);
+            const lenPQ = Math.sqrt(vPQ.x*vPQ.x + vPQ.y*vPQ.y);
+            const uPA = { x: vPA.x / lenPA, y: vPA.y / lenPA };
+            const uPQ = { x: vPQ.x / lenPQ, y: vPQ.y / lenPQ };
+            
+            const rSize = 12;
+            ctx.strokeStyle = '#e53e3e';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(ptP.x + uPA.x * rSize, ptP.y + uPA.y * rSize);
+            ctx.lineTo(ptP.x + uPA.x * rSize + uPQ.x * rSize, ptP.y + uPA.y * rSize + uPQ.y * rSize);
+            ctx.lineTo(ptP.x + uPQ.x * rSize, ptP.y + uPQ.y * rSize);
+            ctx.stroke();
+
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 14px Malgun Gothic';
+
+            const points = [
+                { pt: ptA, name: 'A', ox: -15, oy: -5 },
+                { pt: ptB, name: 'B', ox: -15, oy: 15 },
+                { pt: ptC, name: 'C', ox: 10, oy: 15 },
+                { pt: ptD, name: 'D', ox: 10, oy: -5 },
+                { pt: ptP, name: 'P', ox: -5, oy: 18 },
+                { pt: ptQ, name: 'Q', ox: 12, oy: 5 }
+            ];
+
+            points.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.pt.x, p.pt.y, 4, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillText(p.name, p.pt.x + p.ox, p.pt.y + p.oy);
+            });
+
+            ctx.fillStyle = '#2b6cb0';
+            ctx.fillText('S₁', (ptA.x + ptP.x + ptQ.x)/3 - 5, (ptA.y + ptP.y + ptQ.y)/3);
+            ctx.fillStyle = '#2f855a';
+            ctx.fillText('S₂', (ptP.x + ptC.x + ptQ.x)/3 - 5, (ptP.y + ptC.y + ptQ.y)/3);
+
+            ctx.strokeStyle = '#4a5568';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(ptA.x, ptA.y, 25, Math.PI/2 - theta, Math.PI/2);
+            ctx.stroke();
+            ctx.fillStyle = '#4a5568';
+            ctx.font = '12px Malgun Gothic';
+            ctx.fillText('θ', ptA.x + 8, ptA.y + 35);
+        }
+
+        maxRatioBtn.addEventListener('click', () => {
+            slider.value = (Math.PI / 8).toFixed(4);
+            draw();
+        });
+
+        slider.addEventListener('input', draw);
+        draw();
+    </script>
+</body>
+</html>

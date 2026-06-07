@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>수학 확률 시뮬레이터</title>
+    <style>
+        :root { --primary: #2c3e50; --accent: #3498db; --user-color: #27ae60; --comp-color: #e67e22; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f4f7f6; max-width: 1000px; margin: 20px auto; padding: 20px; }
+        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+
+        /* 설정창 */
+        .setup-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; background: #eee; padding: 15px; border-radius: 10px; }
+        input, select, button { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-weight: bold; }
+        button { background: var(--accent); color: white; border: none; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #2980b9; transform: translateY(-1px); }
+        .btn-reset { background: #e74c3c; }
+
+        /* 카드 테이블 */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 15px; margin: 20px 0; perspective: 1000px; min-height: 120px; }
+        
+        .card { width: 75px; height: 105px; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        .card.flipped { transform: rotateY(180deg); }
+
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 1.5em; font-weight: bold; border: 2px solid #2c3e50; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card-back { background: #34495e; color: white; z-index: 2; }
+        .card-back::after { content: "?"; opacity: 0.4; font-size: 1.2em; }
+        .card-front { background: white; transform: rotateY(180deg); z-index: 1; }
+        
+        .card.user-pick .card-front { border-color: var(--user-color); color: var(--user-color); background: #f0fff4; border-width: 3px; }
+        .card.comp-pick .card-front { border-color: var(--comp-color); color: var(--comp-color); background: #fff5f5; border-width: 3px; }
+
+        /* 상단 전광판 */
+        .display-board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .panel { padding: 15px; background: #fff; border: 1px solid #ddd; border-radius: 10px; text-align: center; }
+        .panel b { font-size: 0.9em; color: #666; }
+        .panel span { display: block; font-size: 2em; font-weight: 900; margin-top: 5px; min-height: 45px; }
+        .label-u { color: var(--user-color); }
+        .label-c { color: var(--comp-color); }
+
+        /* 데이터 테이블 */
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+        th { background: #f8f9fa; }
+        .theory-row { background: #fff9db; font-weight: bold; }
+        
+        .log-box { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 8px; height: 95px; overflow: hidden; font-family: monospace; font-size: 0.9em; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2> 카드 뽑기 확률 시뮬레이터</h2>
+        
+        <div class="setup-bar">
+            <label>카드 수(n):</label>
+            <input type="number" id="n-val" value="10" min="3" max="50" style="width: 60px;">
+            <label>내 역할:</label>
+            <select id="user-role">
+                <option value="A">A군 (비복원: 서로 다른 2장)</option>
+                <option value="B">B군 (복원: 중복 가능 2장)</option>
+            </select>
+            <button onclick="setupGame()">새 게임 세팅</button>
+            <button class="btn-reset" onclick="resetStats(true)">전체 통계 초기화</button>
+        </div>
+
+        <div class="display-board">
+            <div class="panel"><b>나의 최대값</b><span id="u-max" class="label-u">-</span></div>
+            <div class="panel"><b>상대 최대값</b><span id="c-max" class="label-c">-</span></div>
+            <div class="panel"><b>라운드 결과</b><span id="winner-tag">-</span></div>
+        </div>
+
+        <div id="card-area" class="card-grid"></div>
+        <p id="guide-text" style="text-align:center; font-weight:bold; color:#e67e22;">카드를 2장 클릭하여 게임을 진행하세요.</p>
+    </div>
+
+    <div class="container">
+        <h3>결과 통계 및 이론값 비교</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>구분</th>
+                    <th>A군 승리 (p)</th>
+                    <th>B군 승리 (q)</th>
+                    <th>무승부</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>실험 횟수</td>
+                    <td id="cnt-a">0</td>
+                    <td id="cnt-b">0</td>
+                    <td id="cnt-t">0</td>
+                </tr>
+                <tr>
+                    <td>통계적 확률</td>
+                    <td id="prob-a">0.00%</td>
+                    <td id="prob-b">0.00%</td>
+                    <td id="prob-t">0.00%</td>
+                </tr>
+                <tr class="theory-row">
+                    <td>수학적 이론값</td>
+                    <td id="theo-a">-</td>
+                    <td id="theo-b">-</td>
+                    <td id="theo-t">-</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div id="log-screen" class="log-box">시스템 준비 완료</div>
+
+        <div style="margin-top: 20px; background: #f9f9f9; padding: 15px; border-radius: 10px;">
+            <strong>자동 반복 실행 :</strong>
+            <input type="number" id="auto-n" value="1000" style="width: 80px;">
+            <button onclick="runAuto()"> 시뮬레이션 실행</button>
+        </div>
+    </div>
+
+<script>
+    let currentN = 10;
+    let lastN = null; // 이전 n 값을 저장
+    let stats = { aWin: 0, bWin: 0, tie: 0, total: 0 };
+    let userPicks = [], compPicks = [], deck = [];
+    let isBusy = false;
+
+    function addLog(msg) {
+        const screen = document.getElementById('log-screen');
+        const logs = screen.innerHTML.split('<br>').filter(x => x);
+        logs.unshift(`> ${msg}`);
+        if (logs.length > 5) logs.pop();
+        screen.innerHTML = logs.join('<br>');
+    }
+
+    function resetStats(manual = false) {
+        stats = { aWin: 0, bWin: 0, tie: 0, total: 0 };
+        updateStatsUI();
+        if(manual) addLog("통계가 사용자에 의해 초기화되었습니다.");
+    }
+
+    function setupGame() {
+        if(isBusy) return;
+
+        const inputN = parseInt(document.getElementById('n-val').value);
+        
+        // [수정 핵심 로직] n 값이 이전과 다를 때만 통계를 초기화합니다.
+        if (lastN !== null && inputN !== lastN) {
+            resetStats();
+            addLog(`카드 수가 ${lastN}에서 ${inputN}으로 변경되어 통계를 리셋했습니다.`);
+        } else if (lastN === null) {
+            resetStats(); // 첫 시작 시 초기화
+        }
+
+        lastN = inputN;
+        currentN = inputN;
+        userPicks = [];
+        compPicks = [];
+        isBusy = false;
+
+        document.getElementById('u-max').innerText = "-";
+        document.getElementById('c-max').innerText = "-";
+        document.getElementById('winner-tag').innerText = "진행 중";
+        document.getElementById('guide-text').innerText = "카드를 2장 클릭하세요!";
+
+        // 카드 셔플
+        deck = Array.from({length: currentN}, (_, i) => i + 1);
+        deck.sort(() => Math.random() - 0.5);
+
+        const area = document.getElementById('card-area');
+        area.innerHTML = "";
+        deck.forEach((val, idx) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.id = `card-${idx}`;
+            card.innerHTML = `<div class="card-face card-back"></div><div class="card-face card-front">${val}</div>`;
+            card.onclick = () => handleUserClick(idx, val);
+            area.appendChild(card);
+        });
+
+        updateTheory();
+    }
+
+    function handleUserClick(idx, val) {
+        if(isBusy) return;
+        const cardEl = document.getElementById(`card-${idx}`);
+        
+        if(cardEl.classList.contains('flipped')) {
+            if(document.getElementById('user-role').value !== 'B') return;
+        }
+
+        userPicks.push(val);
+        cardEl.classList.add('flipped', 'user-pick');
+
+        if(userPicks.length === 2) {
+            isBusy = true;
+            document.getElementById('guide-text').innerText = "컴퓨터의 선택을 기다리는 중...";
+            setTimeout(computerTurn, 800);
+        }
+    }
+
+    async function computerTurn() {
+        const userRole = document.getElementById('user-role').value;
+        for(let i=0; i<2; i++) {
+            let targetIdx;
+            if (userRole === 'A') { // 상대방은 B
+                targetIdx = Math.floor(Math.random() * currentN);
+            } else { // 상대방은 A (중복 불가)
+                let available = [];
+                deck.forEach((_, idx) => {
+                    if (!document.getElementById(`card-${idx}`).classList.contains('user-pick')) available.push(idx);
+                });
+                targetIdx = available[Math.floor(Math.random() * available.length)];
+            }
+            compPicks.push(deck[targetIdx]);
+            document.getElementById(`card-${targetIdx}`).classList.add('flipped', 'comp-pick');
+            await new Promise(r => setTimeout(r, 600));
+        }
+        resolveRound();
+    }
+
+    function resolveRound() {
+        const userRole = document.getElementById('user-role').value;
+        const uMax = Math.max(...userPicks);
+        const cMax = Math.max(...compPicks);
+
+        document.getElementById('u-max').innerText = uMax;
+        document.getElementById('c-max').innerText = cMax;
+
+        let aMax = (userRole === 'A') ? uMax : cMax;
+        let bMax = (userRole === 'A') ? cMax : uMax;
+
+        stats.total++;
+        let resMsg = "";
+        if(aMax > bMax) { stats.aWin++; resMsg = "A군 승리!"; }
+        else if(bMax > aMax) { stats.bWin++; resMsg = "B군 승리!"; }
+        else { stats.tie++; resMsg = "무승부"; }
+
+        document.getElementById('winner-tag').innerText = resMsg;
+        addLog(`[${stats.total}회] A:${aMax} vs B:${bMax} -> ${resMsg}`);
+        updateStatsUI();
+        isBusy = false;
+    }
+
+    function updateStatsUI() {
+        document.getElementById('cnt-a').innerText = stats.aWin;
+        document.getElementById('cnt-b').innerText = stats.bWin;
+        document.getElementById('cnt-t').innerText = stats.tie;
+
+        if (stats.total > 0) {
+            const pA = (stats.aWin / stats.total) * 100;
+            const pB = (stats.bWin / stats.total) * 100;
+            const pT = 100 - pA - pB;
+            document.getElementById('prob-a').innerText = pA.toFixed(2) + "%";
+            document.getElementById('prob-b').innerText = pB.toFixed(2) + "%";
+            document.getElementById('prob-t').innerText = Math.max(0, pT).toFixed(2) + "%";
+        } else {
+            document.getElementById('prob-a').innerText = "0.00%";
+            document.getElementById('prob-b').innerText = "0.00%";
+            document.getElementById('prob-t').innerText = "0.00%";
+        }
+    }
+
+    function updateTheory() {
+        const n = currentN;
+        const p = (n - 1) / (2 * n);
+        const q = ((n - 2) * (3 * n + 1)) / (6 * Math.pow(n, 2));
+        document.getElementById('theo-a').innerText = (p * 100).toFixed(2) + "%";
+        document.getElementById('theo-b').innerText = (q * 100).toFixed(2) + "%";
+        document.getElementById('theo-t').innerText = ((1 - p - q) * 100).toFixed(2) + "%";
+    }
+
+    function runAuto() {
+        const count = parseInt(document.getElementById('auto-n').value);
+        for(let i=0; i<count; i++) {
+            let a1 = Math.floor(Math.random() * currentN) + 1;
+            let a2; do { a2 = Math.floor(Math.random() * currentN) + 1; } while(a1 === a2);
+            let sa = Math.max(a1, a2);
+            let sb = Math.max(Math.floor(Math.random() * currentN) + 1, Math.floor(Math.random() * currentN) + 1);
+            stats.total++;
+            if(sa > sb) stats.aWin++;
+            else if(sb > sa) stats.bWin++;
+            else stats.tie++;
+        }
+        updateStatsUI();
+        addLog(`자동 시뮬레이션 ${count}회 완료.`);
+    }
+
+    setupGame();
+</script>
+</body>
+</html>

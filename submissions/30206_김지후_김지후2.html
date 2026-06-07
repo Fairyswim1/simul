@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>함수값과 삼각치환을 이용한 부등식 시각화 (드래그 지원)</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(255, 255, 255, 0.05);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --accent-gold: #fbbf24;
+            --font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+                              radial-gradient(circle at 85% 30%, rgba(34, 197, 94, 0.15), transparent 25%);
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            font-weight: 600;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .glass {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1400px;
+            flex-grow: 1;
+        }
+
+        /* 왼쪽 패널 스타일 */
+        .left-panel {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            max-height: 85vh;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--accent-blue);
+        }
+
+        .z-display {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .z-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent-gold);
+            margin: 10px 0;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .valid { background-color: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
+        .invalid { background-color: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+
+        .data-box {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 4px 0;
+        }
+        .data-row:last-child { border-bottom: none; }
+        
+        .equality-badge {
+            color: var(--accent-gold);
+            font-weight: bold;
+            text-align: center;
+            margin-top: 5px;
+            animation: pulse 1.5s infinite;
+            display: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; transform: scale(0.98); }
+            50% { opacity: 1; transform: scale(1.02); text-shadow: 0 0 10px var(--accent-gold); }
+            100% { opacity: 0.7; transform: scale(0.98); }
+        }
+
+        button {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        /* 오른쪽 패널 (그래프 영역) */
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .graph-container {
+            position: relative;
+            flex: 1;
+            min-height: 300px;
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.15);
+            display: block;
+        }
+
+        .formula-overlay {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            pointer-events: none;
+            font-size: 1.1rem;
+            z-index: 10;
+        }
+
+        .explanation {
+            margin-top: 20px;
+            padding: 20px 30px;
+            width: 100%;
+            max-width: 1400px;
+            box-sizing: border-box;
+            line-height: 1.6;
+        }
+
+        /* 반응형 */
+        @media (max-width: 1024px) {
+            .container { grid-template-columns: 1fr; }
+            .right-panel { height: auto; }
+            .left-panel { max-height: none; }
+            .graph-container { height: 400px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>조건부 부등식 & 삼각치환 시각화</h1>
+
+    <div class="container">
+        <div class="left-panel glass">
+            
+            <div class="control-group">
+                <label>
+                    <span>\(x\) 값 (드래그 가능): <span id="xValText">2.00</span></span>
+                </label>
+                <input type="range" id="xSlider" min="0.2" max="10" step="0.01" value="2">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <span>\(y\) 값 (드래그 가능): <span id="yValText">2.00</span></span>
+                </label>
+                <input type="range" id="ySlider" min="0.2" max="10" step="0.01" value="2">
+            </div>
+
+            <div class="z-display">
+                <div style="font-size:0.9rem; color:var(--text-muted);">\(x+y+z = xyz \implies z = \frac{x+y}{xy-1}\)</div>
+                <div class="z-value" id="zValText">-</div>
+                <div id="statusBadge" class="status-badge">상태 계산중...</div>
+            </div>
+
+            <div class="data-box">
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px;">삼각치환 (\(t = \tan \theta\))</div>
+                <div class="data-row"><span>\(\alpha = \arctan(x)\)</span> <span id="angleA">0.0°</span></div>
+                <div class="data-row"><span>\(\beta = \arctan(y)\)</span> <span id="angleB">0.0°</span></div>
+                <div class="data-row"><span>\(\gamma = \arctan(z)\)</span> <span id="angleC">0.0°</span></div>
+                <div class="data-row" style="color:var(--accent-blue); font-weight:bold;">
+                    <span>각도 합 (\(\alpha+\beta+\gamma\))</span> <span id="angleSum">180.0°</span>
+                </div>
+                
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 8px 0;">
+                
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 5px;">함수값 (\(f(t) = \sin \theta\))</div>
+                <div class="data-row"><span>\(A = f(x) = \sin(\alpha)\)</span> <span id="valA">0.000</span></div>
+                <div class="data-row"><span>\(B = f(y) = \sin(\beta)\)</span> <span id="valB">0.000</span></div>
+                <div class="data-row"><span>\(C = f(z) = \sin(\gamma)\)</span> <span id="valC">0.000</span></div>
+                
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 8px 0;">
+                
+                <div class="data-row" style="color:#a78bfa; font-weight:bold;">
+                    <span>평균 높이 \(M\)</span> <span id="valM">0.000</span>
+                </div>
+                <div class="data-row" style="margin-top: 10px;">
+                    <span>부등식 결과 (\(S \le 3\sqrt{3}/2\))</span>
+                    <span id="inequalityCheck" style="font-weight:bold;"></span>
+                </div>
+                <div id="equalityBadge" class="equality-badge">✨ Equality Achieved ✨<br>(\(x=y=z=\sqrt{3}\))</div>
+            </div>
+
+            <button id="btnSymmetric">대칭 상태로 이동 (\(x=y=\sqrt{3}\))</button>
+
+        </div>
+
+        <div class="right-panel">
+            
+            <div class="graph-container glass">
+                <div class="formula-overlay">
+                    \( f(t) = \frac{t}{\sqrt{1+t^2}} \)
+                </div>
+                <canvas id="canvasFt"></canvas>
+            </div>
+
+            <div class="graph-container glass">
+                <div class="formula-overlay">
+                    \( g(\theta) = \sin(\theta) \)
+                </div>
+                <canvas id="canvasSin"></canvas>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="explanation glass">
+        <h3>💡 드래그 기능 활용하기</h3>
+        <p>첫 번째 그래프에서 분홍색 점 <b>\(P_1(x)\)</b>이나 초록색 점 <b>\(P_2(y)\)</b>를 마우스로 직접 잡고 좌우로 드래그해 보세요! 변수를 직관적으로 움직이면서 두 그래프와 수식이 유기적으로 변하는 모습을 관찰할 수 있습니다.</p>
+        <p>세 각도의 합이 항상 \(180^\circ\)이므로, 하단 사인 그래프에서 세 점의 <b>무게중심의 x좌표는 신기하게도 항상 \(60^\circ\) 선상에 고정</b>됩니다. 그래프를 마음대로 휘저어도 노란색 무게중심점은 오직 수직으로만 움직이며, 정삼각형 조건(\(x=y=z=\sqrt{3}\))일 때 사인 곡선의 가장 높은 천장에 도달하게 됩니다.</p>
+	<h3>💡 삼각치환과 젠센의 부등식 (Jensen's Inequality)</h3>
+        <p>조건 \(x+y+z = xyz\) (\(x,y,z > 0\))는 예각 삼각형의 세 내각의 탄젠트 값의 성질과 완전히 일치합니다. 따라서 <b>\(x = \tan(\alpha), y = \tan(\beta), z = \tan(\gamma)\)</b> 로 치환할 수 있으며, 이 때 세 각의 합은 항상 <b>\(180^\circ\) (\(\pi\))</b> 가 됩니다.</p>
+        <p>이 치환을 함수에 적용하면 \( f(\tan \theta) = \frac{\tan \theta}{\sqrt{1+\tan^2 \theta}} = \sin(\theta) \) 가 됩니다. 즉, 원래의 부등식은 <b>\(\sin(\alpha) + \sin(\beta) + \sin(\gamma) \le \frac{3\sqrt{3}}{2}\)</b> 라는 유명한 삼각 부등식으로 변환됩니다.</p>
+        <p>하단의 사인(Sine) 그래프를 확인해 보세요. 세 각도의 합이 항상 \(180^\circ\)이므로, 세 점의 <b>무게중심의 x좌표는 항상 \(60^\circ\) (\(\pi/3\))에 고정</b>됩니다! 사인 함수는 위로 볼록(Concave)하기 때문에, 세 점의 무게중심(평균 높이)은 결코 \(60^\circ\)에서의 함수값(\(\sin 60^\circ = \frac{\sqrt{3}}{2}\))을 넘어설 수 없습니다. 이것이 부등식이 성립하는 시각적 이유입니다.</p>
+    </div>
+	
+    <script>
+        // DOM 요소
+        const xSlider = document.getElementById('xSlider');
+        const ySlider = document.getElementById('ySlider');
+        const xText = document.getElementById('xValText');
+        const yText = document.getElementById('yValText');
+        const zText = document.getElementById('zValText');
+        const statusBadge = document.getElementById('statusBadge');
+        
+        const angleA = document.getElementById('angleA');
+        const angleB = document.getElementById('angleB');
+        const angleC = document.getElementById('angleC');
+        const angleSum = document.getElementById('angleSum');
+
+        const valA = document.getElementById('valA');
+        const valB = document.getElementById('valB');
+        const valC = document.getElementById('valC');
+        const valM = document.getElementById('valM');
+        const inequalityCheck = document.getElementById('inequalityCheck');
+        const equalityBadge = document.getElementById('equalityBadge');
+
+        const canvasFt = document.getElementById('canvasFt');
+        const ctxFt = canvasFt.getContext('2d');
+        const canvasSin = document.getElementById('canvasSin');
+        const ctxSin = canvasSin.getContext('2d');
+
+        // 수학 상수
+        const SQRT3 = Math.sqrt(3);
+        const MAX_AVG = SQRT3 / 2; 
+        const MAX_SUM = (3 * SQRT3) / 2;
+        const padding = 40;
+
+        let animationId;
+        let isAnimating = false;
+
+        // 드래그 관련 상태 변수
+        let isDraggingX = false;
+        let isDraggingY = false;
+        let dragScaleX = 1; // 변환 연산을 위한 스케일 저장용 변수
+
+        // 함수 정의
+        function f(t) {
+            return t / Math.sqrt(1 + t * t);
+        }
+
+        function toDegrees(rad) {
+            return rad * (180 / Math.PI);
+        }
+
+        // 초기화
+        function init() {
+            window.addEventListener('resize', resizeCanvases);
+            xSlider.addEventListener('input', () => { if(isAnimating) cancelAnimation(); update(); });
+            ySlider.addEventListener('input', () => { if(isAnimating) cancelAnimation(); update(); });
+            document.getElementById('btnSymmetric').addEventListener('click', animateToSymmetric);
+            
+            setupDragEvents();
+            setTimeout(resizeCanvases, 100);
+        }
+
+        function resizeCanvases() {
+            [canvasFt, canvasSin].forEach(canvas => {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                canvas.width = rect.width - 40; 
+                canvas.height = rect.height - 40;
+            });
+            update();
+        }
+
+        function cancelAnimation() {
+            isAnimating = false;
+            if(animationId) cancelAnimationFrame(animationId);
+        }
+
+        function animateToSymmetric() {
+            cancelAnimation();
+            isAnimating = true;
+            let currentX = parseFloat(xSlider.value);
+            let currentY = parseFloat(ySlider.value);
+            
+            function step() {
+                if(!isAnimating) return;
+                currentX += (SQRT3 - currentX) * 0.08;
+                currentY += (SQRT3 - currentY) * 0.08;
+                xSlider.value = currentX;
+                ySlider.value = currentY;
+                update();
+                
+                if(Math.abs(currentX - SQRT3) < 0.001 && Math.abs(currentY - SQRT3) < 0.001) {
+                    xSlider.value = SQRT3;
+                    ySlider.value = SQRT3;
+                    update();
+                    isAnimating = false;
+                } else {
+                    animationId = requestAnimationFrame(step);
+                }
+            }
+            step();
+        }
+
+        // 마우스 및 터치 드래그 이벤트 설정
+        function setupDragEvents() {
+            // 마우스 이벤트
+            canvasFt.addEventListener('mousedown', dragStart);
+            window.addEventListener('mousemove', dragMove);
+            window.addEventListener('mouseup', dragEnd);
+
+            // 모바일 터치 이벤트
+            canvasFt.addEventListener('touchstart', (e) => dragStart(e.touches[0]), { passive: true });
+            window.addEventListener('touchmove', (e) => dragMove(e.touches[0]), { passive: false });
+            window.addEventListener('touchend', dragEnd);
+        }
+
+        function getMousePos(e) {
+            const rect = canvasFt.getBoundingClientRect();
+            // 캔버스 자체 크기와 렌더링 크기(width, height 속성) 비율 보정
+            const x = (e.clientX - rect.left) * (canvasFt.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvasFt.height / rect.height);
+            return { x, y };
+        }
+
+        function dragStart(e) {
+            if(isAnimating) cancelAnimation();
+            const pos = getMousePos(e);
+            
+            const xVal = parseFloat(xSlider.value);
+            const yVal = parseFloat(ySlider.value);
+
+            // 현재 화면 기준 스케일 계산식 역산
+            const maxDomain = Math.max(8, xVal, yVal, (xVal + yVal) / (xVal * yVal - 1 || 1)) + 1;
+            const currentScaleX = (canvasFt.width - padding * 2) / maxDomain;
+
+            const p1CanvasX = padding + xVal * currentScaleX;
+            const p1CanvasY = canvasFt.height - padding - f(xVal) * ((canvasFt.height - padding * 2) / 1.1);
+
+            const p2CanvasX = padding + yVal * currentScaleX;
+            const p2CanvasY = canvasFt.height - padding - f(yVal) * ((canvasFt.height - padding * 2) / 1.1);
+
+            // 클릭 반경 체크 (20픽셀 이내)
+            const distP1 = Math.hypot(pos.x - p1CanvasX, pos.y - p1CanvasY);
+            const distP2 = Math.hypot(pos.x - p2CanvasX, pos.y - p2CanvasY);
+
+            if (distP1 < 20 && distP1 < distP2) {
+                isDraggingX = true;
+                canvasFt.style.cursor = 'grabbing';
+            } else if (distP2 < 20) {
+                isDraggingY = true;
+                canvasFt.style.cursor = 'grabbing';
+            }
+        }
+
+        function dragMove(e) {
+            if (!isDraggingX && !isDraggingY) {
+                // 드래그 중이 아닐 때 점 위에 마우스가 오면 커서 바꾸기
+                const pos = getMousePos(e);
+                if(pos.x < 0 || pos.x > canvasFt.width || pos.y < 0 || pos.y > canvasFt.height) return;
+                
+                const xVal = parseFloat(xSlider.value);
+                const yVal = parseFloat(ySlider.value);
+                const maxDomain = Math.max(8, xVal, yVal, (xVal + yVal) / (xVal * yVal - 1 || 1)) + 1;
+                const currentScaleX = (canvasFt.width - padding * 2) / maxDomain;
+                
+                const p1X = padding + xVal * currentScaleX;
+                const p1Y = canvasFt.height - padding - f(xVal) * ((canvasFt.height - padding * 2) / 1.1);
+                const p2X = padding + yVal * currentScaleX;
+                const p2Y = canvasFt.height - padding - f(yVal) * ((canvasFt.height - padding * 2) / 1.1);
+                
+                if(Math.hypot(pos.x - p1X, pos.y - p1Y) < 15 || Math.hypot(pos.x - p2X, pos.y - p2Y) < 15) {
+                    canvasFt.style.cursor = 'grab';
+                } else {
+                    canvasFt.style.cursor = 'default';
+                }
+                return;
+            }
+
+            // 브라우저 기본 스크롤 현상 막기
+            if(e.cancelable) e.preventDefault();
+
+            const pos = getMousePos(e);
+            const xVal = parseFloat(xSlider.value);
+            const yVal = parseFloat(ySlider.value);
+            const maxDomain = Math.max(8, xVal, yVal, (xVal + yVal) / (xVal * yVal - 1 || 1)) + 1;
+            const currentScaleX = (canvasFt.width - padding * 2) / maxDomain;
+
+            // 마우스 X 좌표를 수학적 t 값으로 변환
+            let targetT = (pos.x - padding) / currentScaleX;
+            // 슬라이더 최소/최대값 범위 제한
+            targetT = Math.max(0.2, Math.min(10, targetT));
+
+            if (isDraggingX) {
+                xSlider.value = targetT.toFixed(2);
+            } else if (isDraggingY) {
+                ySlider.value = targetT.toFixed(2);
+            }
+
+            update();
+        }
+
+        function dragEnd() {
+            isDraggingX = false;
+            isDraggingY = false;
+            canvasFt.style.cursor = 'default';
+        }
+
+        // 메인 업데이트
+        function update() {
+            const x = parseFloat(xSlider.value);
+            const y = parseFloat(ySlider.value);
+            
+            xText.innerText = x.toFixed(2);
+            yText.innerText = y.toFixed(2);
+
+            const xy = x * y;
+            const isValid = (xy > 1);
+
+            let z = 0;
+            if (isValid) {
+                z = (x + y) / (xy - 1);
+                zText.innerText = z.toFixed(2);
+                statusBadge.innerText = `Valid (xy = ${xy.toFixed(2)} > 1)`;
+                statusBadge.className = 'status-badge valid';
+                
+                const alpha = Math.atan(x);
+                const beta = Math.atan(y);
+                const gamma = Math.atan(z);
+                
+                angleA.innerText = toDegrees(alpha).toFixed(1) + '°';
+                angleB.innerText = toDegrees(beta).toFixed(1) + '°';
+                angleC.innerText = toDegrees(gamma).toFixed(1) + '°';
+                angleSum.innerText = (toDegrees(alpha) + toDegrees(beta) + toDegrees(gamma)).toFixed(1) + '°';
+
+                const A = f(x); const B = f(y); const C = f(z);
+                const sum = A + B + C;
+                const avg = sum / 3;
+
+                valA.innerText = A.toFixed(3);
+                valB.innerText = B.toFixed(3);
+                valC.innerText = C.toFixed(3);
+                valM.innerText = avg.toFixed(3);
+
+                if (sum <= MAX_SUM + 0.001) {
+                    inequalityCheck.innerHTML = `${sum.toFixed(3)} ≤ ${(MAX_SUM).toFixed(3)} <span style="color:var(--accent-green)"> (성립)</span>`;
+                }
+
+                const isEquality = Math.abs(x - SQRT3) < 0.05 && Math.abs(y - SQRT3) < 0.05 && Math.abs(z - SQRT3) < 0.05;
+                equalityBadge.style.display = isEquality ? 'block' : 'none';
+
+                drawFtGraph(x, y, z, A, B, C, avg);
+                drawSinGraph(toDegrees(alpha), toDegrees(beta), toDegrees(gamma), A, B, C, avg);
+
+            } else {
+                ['zValText', 'angleA', 'angleB', 'angleC', 'angleSum', 'valA', 'valB', 'valC', 'valM', 'inequalityCheck'].forEach(id => {
+                    document.getElementById(id).innerText = '-';
+                });
+                statusBadge.innerText = `Invalid (xy = ${xy.toFixed(2)} ≤ 1)`;
+                statusBadge.className = 'status-badge invalid';
+                equalityBadge.style.display = 'none';
+                
+                drawInvalid(ctxFt, canvasFt);
+                drawInvalid(ctxSin, canvasSin);
+            }
+        }
+
+        function drawInvalid(ctx, cvs) {
+            ctx.clearRect(0, 0, cvs.width, cvs.height);
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.1)';
+            ctx.fillRect(0, 0, cvs.width, cvs.height);
+            ctx.fillStyle = '#ef4444';
+            ctx.font = '20px Pretendard, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('조건 위반: xy ≤ 1', cvs.width/2, cvs.height/2);
+        }
+
+        // 그래프 1: f(t) 그리기
+        function drawFtGraph(x, y, z, A, B, C, avg) {
+            const W = canvasFt.width; const H = canvasFt.height;
+            ctxFt.clearRect(0, 0, W, H);
+
+            const maxDomain = Math.max(8, x, y, z) + 1;
+            const scaleX = (W - padding * 2) / maxDomain;
+            const scaleY = (H - padding * 2) / 1.1; 
+
+            const mapX = (t) => padding + t * scaleX;
+            const mapY = (v) => H - padding - v * scaleY;
+
+            drawGridAndAxes(ctxFt, W, H, scaleY, mapX, mapY, maxDomain, 't');
+
+            // Max Bound Line
+            const yMaxCanvas = mapY(MAX_AVG);
+            drawLine(ctxFt, padding, yMaxCanvas, W-padding, yMaxCanvas, '#ef4444', [8,6]);
+            ctxFt.fillStyle = '#ef4444'; ctxFt.textAlign = 'right';
+            ctxFt.fillText(`y = √3/2`, W - padding, yMaxCanvas - 10);
+
+            // f(t) Curve
+            ctxFt.beginPath();
+            for(let t=0; t<=maxDomain; t+=0.05) {
+                if(t===0) ctxFt.moveTo(mapX(t), mapY(f(t)));
+                else ctxFt.lineTo(mapX(t), mapY(f(t)));
+            }
+            ctxFt.strokeStyle = '#38bdf8'; ctxFt.lineWidth = 3; ctxFt.stroke();
+
+            // Average Line
+            const yAvgCanvas = mapY(avg);
+            drawLine(ctxFt, padding, yAvgCanvas, W-padding, yAvgCanvas, '#a78bfa', [4,4]);
+
+            // Points
+            drawPoint(ctxFt, mapX(x), mapY(A), '#f472b6', 'P1(x)');
+            drawPoint(ctxFt, mapX(y), mapY(B), '#4ade80', 'P2(y)');
+            drawPoint(ctxFt, mapX(z), mapY(C), '#fb923c', 'P3(z)');
+
+            // Centroid
+            const cx = mapX((x+y+z)/3);
+            drawCentroid(ctxFt, cx, mapY(avg), mapX(x), mapY(A), mapX(y), mapY(B), mapX(z), mapY(C));
+        }
+
+        // 그래프 2: sin(theta) 그리기
+        function drawSinGraph(degA, degB, degC, A, B, C, avg) {
+            const W = canvasSin.width; const H = canvasSin.height;
+            ctxSin.clearRect(0, 0, W, H);
+
+            const maxDomain = 100; 
+            const scaleX = (W - padding * 2) / maxDomain;
+            const scaleY = (H - padding * 2) / 1.1; 
+
+            const mapX = (deg) => padding + deg * scaleX;
+            const mapY = (v) => H - padding - v * scaleY;
+
+            drawGridAndAxes(ctxSin, W, H, scaleY, mapX, mapY, maxDomain, 'θ (°)', true);
+
+            // Max Bound Line
+            const yMaxCanvas = mapY(MAX_AVG);
+            drawLine(ctxSin, padding, yMaxCanvas, W-padding, yMaxCanvas, '#ef4444', [8,6]);
+
+            // sin(theta) Curve
+            ctxSin.beginPath();
+            for(let deg=0; deg<=maxDomain; deg+=1) {
+                const val = Math.sin(deg * Math.PI / 180);
+                if(deg===0) ctxSin.moveTo(mapX(deg), mapY(val));
+                else ctxSin.lineTo(mapX(deg), mapY(val));
+            }
+            ctxSin.strokeStyle = '#38bdf8'; ctxSin.lineWidth = 3; ctxSin.stroke();
+
+            // Average Line
+            const yAvgCanvas = mapY(avg);
+            drawLine(ctxSin, padding, yAvgCanvas, W-padding, yAvgCanvas, '#a78bfa', [4,4]);
+
+            // Points
+            drawPoint(ctxSin, mapX(degA), mapY(A), '#f472b6', 'α');
+            drawPoint(ctxSin, mapX(degB), mapY(B), '#4ade80', 'β');
+            drawPoint(ctxSin, mapX(degC), mapY(C), '#gamma');
+
+            // 60도 수직선 강조
+            ctxSin.beginPath();
+            ctxSin.moveTo(mapX(60), mapY(0));
+            ctxSin.lineTo(mapX(60), mapY(1.1));
+            ctxSin.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+            ctxSin.lineWidth = 2;
+            ctxSin.setLineDash([4, 4]);
+            ctxSin.stroke();
+            ctxSin.setLineDash([]);
+            
+            // 꼭대기 점 (60도, sin60)
+            ctxSin.beginPath();
+            ctxSin.arc(mapX(60), mapY(MAX_AVG), 5, 0, Math.PI*2);
+            ctxSin.fillStyle = '#ef4444'; ctxSin.fill();
+
+            // Centroid
+            drawCentroid(ctxSin, mapX(60), mapY(avg), mapX(degA), mapY(A), mapX(degB), mapY(B), mapX(degC), mapY(C));
+            
+            ctxSin.fillStyle = '#fbbf24';
+            ctxSin.textAlign = 'left';
+            ctxSin.font = '12px sans-serif';
+            ctxSin.fillText('← x좌표 60° 고정!', mapX(60) + 12, mapY(avg) + 4);
+        }
+
+        // 공통 그리기 유틸리티
+        function drawGridAndAxes(ctx, W, H, scaleY, mapX, mapY, maxDomain, xLabel, isDegree=false) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for(let i=0; i<=10; i++) {
+                let yy = mapY(i/10);
+                drawLine(ctx, padding, yy, W-padding, yy, 'rgba(255,255,255,0.05)');
+            }
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, mapY(0)); ctx.lineTo(W - padding, mapY(0)); 
+            ctx.moveTo(padding, mapY(0)); ctx.lineTo(padding, mapY(1.1)); 
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            
+            if(isDegree) {
+                [0, 30, 60, 90].forEach(deg => {
+                    ctx.fillText(deg + '°', mapX(deg), mapY(0) + 15);
+                });
+            } else {
+                for(let i=2; i<=maxDomain; i+=2) {
+                    ctx.fillText(i, mapX(i), mapY(0) + 15);
+                }
+            }
+            ctx.fillText(xLabel, W - padding + 15, mapY(0) + 4);
+        }
+
+        function drawLine(ctx, x1, y1, x2, y2, color, dash=[]) {
+            ctx.beginPath();
+            ctx.setLineDash(dash);
+            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+            ctx.strokeStyle = color; ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function drawPoint(ctx, x, y, color, label) {
+            ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = color; ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(label, x, y - 12);
+        }
+
+        function drawCentroid(ctx, cx, cy, x1, y1, x2, y2, x3, y3) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; ctx.stroke();
+
+            ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#fbbf24'; ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+            ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('Centroid', cx, cy - 12);
+        }
+
+        init();
+    </script>
+</body>
+</html>

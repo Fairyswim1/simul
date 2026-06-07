@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>해석학적 원리 시각화 시뮬레이터</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #333; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .container { display: flex; gap: 20px; max-width: 1200px; margin: auto; }
+        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .left-panel { flex: 2; }
+        .right-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+        canvas { border: 1px solid #ddd; background-color: #fff; border-radius: 4px; width: 100%; }
+        
+        .func-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .func-card { padding: 12px; border: 2px solid #ddd; border-radius: 8px; cursor: pointer; text-align: center; background: #fff; transition: all 0.2s; user-select: none; }
+        .func-card:hover { border-color: #007bff; background: #f0f8ff; }
+        .func-card.active { background: #007bff; color: white; border-color: #007bff; box-shadow: 0 2px 5px rgba(0,123,255,0.4); }
+        .func-title { font-weight: bold; font-size: 13px; margin-bottom: 5px; }
+        .func-math { font-size: 15px; font-family: 'Times New Roman', Times, serif; font-style: italic; }
+        
+        .controls { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 15px; align-items: center; background: #eef2f5; padding: 15px; border-radius: 8px; justify-content: center;}
+        .control-group { display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 14px; }
+        input[type="range"] { width: 180px; }
+        input[type="number"] { width: 60px; padding: 4px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
+        
+        #playBtn { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
+        #playBtn:hover { background: #0056b3; }
+        #playBtn.playing { background: #dc3545; }
+        #playBtn.playing:hover { background: #c82333; }
+
+        .bar-container { margin-top: 15px; }
+        .bar-label { font-size: 14px; font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .bar-track { width: 100%; background: #ddd; height: 24px; border-radius: 12px; overflow: hidden; margin-bottom: 10px; position: relative; }
+        .bar-fill { height: 100%; transition: width 0.1s; }
+        .bar-fill.above { background: rgba(255, 99, 132, 0.8); }
+        .bar-fill.below { background: rgba(54, 162, 235, 0.8); }
+        .highlight { color: #d32f2f; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>[최종 버전] 정적분과 도함수, 부호 함수(Sign)의 관계 탐구</h2>
+        <p>함수 위쪽 구간 길이(L<sub>above</sub>)와 아래쪽 구간 길이(L<sub>below</sub>)의 합이 같아질 때 S'(a)=0 임을 증명</p>
+    </div>
+
+    <div class="container">
+        <!-- 메인 그래프 및 조작 패널 -->
+        <div class="panel left-panel">
+            
+            <!-- 함수 선택 블록 -->
+            <div class="func-grid" id="funcGrid">
+                <div class="func-card active" data-idx="0">
+                    <div class="func-title">1. 비대칭 초월함수</div>
+                    <div class="func-math">f(x) = (x &middot; ln 2) / ln x</div>
+                </div>
+                <div class="func-card" data-idx="1">
+                    <div class="func-title">2. 대칭 다항함수</div>
+                    <div class="func-math">f(x) = 0.5(x - 4)&sup2; + 1</div>
+                </div>
+                <div class="func-card" data-idx="2">
+                    <div class="func-title">3. 고밀도 진동 함수</div>
+                    <div class="func-math">f(x) = 0.3x &middot; sin(5x) + 3</div>
+                </div>
+                <div class="func-card" data-idx="3">
+                    <div class="func-title">4. 점근선 유사 유리함수</div>
+                    <div class="func-math">f(x) = 1 / (|x - 4| + 0.3) + 1</div>
+                </div>
+                <div class="func-card" data-idx="4">
+                    <div class="func-title">5. 미분 불가능 첨점 함수</div>
+                    <div class="func-math">f(x) = |x - 4| + 1.5</div>
+                </div>
+                <div class="func-card" data-idx="5">
+                    <div class="func-title">6. 지수/로그 복합 함수</div>
+                    <div class="func-math">f(x) = 0.5 &middot; e<sup>x/4</sup> &middot; ln(x + 1)</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>정의역(x):</label>
+                    <input type="number" id="xMin" value="2" step="0.5"> ~ 
+                    <input type="number" id="xMax" value="6" step="0.5">
+                </div>
+                <div class="control-group" style="margin-left: 10px;">
+                    <label>y = a 조절:</label>
+                    <input type="range" id="aSlider" min="0" max="5" step="0.005" value="2.2">
+                    <span id="aValDisp" style="color:red; min-width: 45px;">2.200</span>
+                    <button id="playBtn">▶ 자동재생</button>
+                </div>
+            </div>
+
+            <canvas id="mainCanvas" width="700" height="350"></canvas>
+            
+            <!-- 직관적 구간 길이 비교 막대 그래프 -->
+            <div class="bar-container">
+                <div class="bar-label">
+                    <span>f(x) > a 인 x구간 길이 총합 (L<sub>above</sub>)</span>
+                    <span id="lenAboveVal">0.0000</span>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill above" id="barAbove" style="width: 0%;"></div>
+                </div>
+                <div class="bar-label">
+                    <span>f(x) < a 인 x구간 길이 총합 (L<sub>below</sub>)</span>
+                    <span id="lenBelowVal">0.0000</span>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill below" id="barBelow" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 넓이 함수 및 도함수 패널 -->
+        <div class="right-panel">
+            <div class="panel" style="padding-bottom: 10px;">
+                <h4 style="margin-top:0; margin-bottom: 5px; text-align:center;">전체 면적 S(a) 그래프</h4>
+                <div style="text-align:center; font-weight:bold; margin-bottom: 5px; font-size: 14px;">현재 면적 S = <span id="sVal" class="highlight">0.0000</span></div>
+                <canvas id="sCanvas" width="300" height="200"></canvas>
+            </div>
+            <div class="panel" style="padding-bottom: 10px;">
+                <h4 style="margin-top:0; margin-bottom: 5px; text-align:center;">도함수 S'(a) 그래프</h4>
+                <div style="text-align:center; font-size:14px; margin-bottom: 5px; font-weight:bold;">
+                    S'(a) = L<sub>below</sub> - L<sub>above</sub> = <span id="dsVal" style="color:#27ae60;">0.0000</span>
+                </div>
+                <canvas id="dsCanvas" width="300" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const funcs = [
+            (x) => (x * Math.LN2) / Math.log(x),                
+            (x) => 0.5 * Math.pow(x - 4, 2) + 1,                
+            (x) => x * Math.sin(5 * x) * 0.3 + 3,               
+            (x) => 1 / (Math.abs(x - 4) + 0.3) + 1,             
+            (x) => Math.abs(x - 4) + 1.5,                       
+            (x) => Math.exp(x / 4) * Math.log(x + 1) * 0.5      
+        ];
+
+        // UI Elements
+        const mainCanvas = document.getElementById('mainCanvas');
+        const mainCtx = mainCanvas.getContext('2d');
+        const sCanvas = document.getElementById('sCanvas');
+        const sCtx = sCanvas.getContext('2d');
+        const dsCanvas = document.getElementById('dsCanvas');
+        const dsCtx = dsCanvas.getContext('2d');
+        
+        const funcCards = document.querySelectorAll('.func-card');
+        const xMinInput = document.getElementById('xMin');
+        const xMaxInput = document.getElementById('xMax');
+        const aSlider = document.getElementById('aSlider');
+        const aValDisp = document.getElementById('aValDisp');
+        const playBtn = document.getElementById('playBtn');
+        
+        const barAbove = document.getElementById('barAbove');
+        const barBelow = document.getElementById('barBelow');
+        const lenAboveVal = document.getElementById('lenAboveVal');
+        const lenBelowVal = document.getElementById('lenBelowVal');
+        const sValDisp = document.getElementById('sVal');
+        const dsValDisp = document.getElementById('dsVal');
+
+        let currentFuncIdx = 0;
+        let currentFunc = funcs[currentFuncIdx];
+        let xMin = 2, xMax = 6;
+        let yMin = 0, yMax = 5;
+        
+        // 애니메이션 상태 변수
+        let isPlaying = false;
+        let animationId = null;
+
+        function init() {
+            funcCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    funcCards.forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFuncIdx = parseInt(this.getAttribute('data-idx'));
+                    updateFunction();
+                });
+            });
+
+            xMinInput.addEventListener('change', updateDomain);
+            xMaxInput.addEventListener('change', updateDomain);
+            aSlider.addEventListener('input', () => {
+                stopAnimation();
+                drawAll();
+            });
+            
+            playBtn.addEventListener('click', togglePlay);
+            
+            updateFunction();
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        }
+
+        function startAnimation() {
+            isPlaying = true;
+            playBtn.innerText = "⏸ 정지";
+            playBtn.classList.add('playing');
+            
+            // 만약 이미 최대값이면 처음부터 다시 시작
+            if (parseFloat(aSlider.value) >= parseFloat(aSlider.max)) {
+                aSlider.value = aSlider.min;
+            }
+            
+            animate();
+        }
+
+        function stopAnimation() {
+            isPlaying = false;
+            playBtn.innerText = "▶ 자동재생";
+            playBtn.classList.remove('playing');
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+
+        function animate() {
+            if (!isPlaying) return;
+            
+            let currentA = parseFloat(aSlider.value);
+            let maxA = parseFloat(aSlider.max);
+            let speed = (maxA - parseFloat(aSlider.min)) / 400; // 이동 속도 조절
+            
+            currentA += speed;
+            
+            if (currentA >= maxA) {
+                currentA = maxA;
+                aSlider.value = currentA;
+                drawAll();
+                stopAnimation(); // 최대치에 도달하면 자동 정지
+                return;
+            }
+            
+            aSlider.value = currentA;
+            drawAll();
+            
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function updateFunction() {
+            stopAnimation();
+            currentFunc = funcs[currentFuncIdx];
+            const defaults = [
+                {min: 2, max: 6}, {min: 1, max: 7}, {min: 1, max: 6}, 
+                {min: 1, max: 7}, {min: 1, max: 7}, {min: 0.1, max: 5}
+            ];
+            const def = defaults[currentFuncIdx];
+            xMinInput.value = def.min;
+            xMaxInput.value = def.max;
+            updateDomain();
+        }
+
+        function updateDomain() {
+            stopAnimation();
+            xMin = parseFloat(xMinInput.value);
+            xMax = parseFloat(xMaxInput.value);
+            
+            let minY = Infinity, maxY = -Infinity;
+            for(let x = xMin; x <= xMax; x += 0.05) {
+                let y = currentFunc(x);
+                if(y < minY) minY = y;
+                if(y > maxY) maxY = y;
+            }
+            yMin = Math.max(0, minY - 1);
+            yMax = maxY + 1;
+            
+            aSlider.min = yMin;
+            aSlider.max = yMax;
+            aSlider.value = yMin; // 범위를 바꾸면 최소값에서 시작하도록 초기화
+            
+            drawAll();
+        }
+
+        function toScreen(ctx, x, y, x0, x1, y0, y1) {
+            const sx = (x - x0) / (x1 - x0) * ctx.canvas.width;
+            const sy = ctx.canvas.height - (y - y0) / (y1 - y0) * ctx.canvas.height;
+            return { sx, sy };
+        }
+
+        function drawMain(a) {
+            mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            
+            mainCtx.strokeStyle = "#eee";
+            mainCtx.lineWidth = 1;
+            for(let i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+                let pt = toScreen(mainCtx, i, 0, xMin, xMax, yMin, yMax);
+                mainCtx.beginPath(); mainCtx.moveTo(pt.sx, 0); mainCtx.lineTo(pt.sx, mainCanvas.height); mainCtx.stroke();
+                mainCtx.fillStyle = "#999"; mainCtx.fillText(i, pt.sx + 5, mainCanvas.height - 5);
+            }
+
+            const dx = (xMax - xMin) / 1000;
+            let L_above = 0, L_below = 0;
+            let area = 0;
+
+            for(let x = xMin; x < xMax; x += dx) {
+                let y = currentFunc(x);
+                let pt1 = toScreen(mainCtx, x, y, xMin, xMax, yMin, yMax);
+                let pt2 = toScreen(mainCtx, x, a, xMin, xMax, yMin, yMax);
+                let ptNext = toScreen(mainCtx, x+dx, currentFunc(x+dx), xMin, xMax, yMin, yMax);
+                
+                mainCtx.beginPath();
+                if(y > a) {
+                    mainCtx.fillStyle = "rgba(255, 99, 132, 0.3)";
+                    L_above += dx;
+                } else {
+                    mainCtx.fillStyle = "rgba(54, 162, 235, 0.3)";
+                    L_below += dx;
+                }
+                mainCtx.rect(pt1.sx, Math.min(pt1.sy, pt2.sy), ptNext.sx - pt1.sx + 1.5, Math.abs(pt1.sy - pt2.sy));
+                mainCtx.fill();
+                
+                area += Math.abs(y - a) * dx;
+            }
+
+            mainCtx.beginPath();
+            mainCtx.strokeStyle = "#333";
+            mainCtx.lineWidth = 2.5;
+            for(let x = xMin; x <= xMax; x += dx) {
+                let pt = toScreen(mainCtx, x, currentFunc(x), xMin, xMax, yMin, yMax);
+                if(x === xMin) mainCtx.moveTo(pt.sx, pt.sy);
+                else mainCtx.lineTo(pt.sx, pt.sy);
+            }
+            mainCtx.stroke();
+            mainCtx.fillStyle = "#333";
+            mainCtx.font = "bold 14px Arial";
+            mainCtx.fillText("y = f(x)", 10, 20);
+
+            let pLeft = toScreen(mainCtx, xMin, a, xMin, xMax, yMin, yMax);
+            let pRight = toScreen(mainCtx, xMax, a, xMin, xMax, yMin, yMax);
+            mainCtx.beginPath();
+            mainCtx.strokeStyle = "red";
+            mainCtx.lineWidth = 2;
+            mainCtx.moveTo(pLeft.sx, pLeft.sy);
+            mainCtx.lineTo(pRight.sx, pRight.sy);
+            mainCtx.stroke();
+            mainCtx.fillStyle = "red";
+            mainCtx.fillText("y = a", pRight.sx - 45, pRight.sy - 10);
+
+            let totalL = xMax - xMin;
+            barAbove.style.width = (L_above / totalL * 100) + "%";
+            barBelow.style.width = (L_below / totalL * 100) + "%";
+            lenAboveVal.innerText = L_above.toFixed(4);
+            lenBelowVal.innerText = L_below.toFixed(4);
+            sValDisp.innerText = area.toFixed(4);
+            
+            let dS = L_below - L_above;
+            dsValDisp.innerText = dS.toFixed(4);
+
+            return {area, dS};
+        }
+
+        function drawGridForSubPanel(ctx, yMin, yMax, yDataMin, yDataMax, drawZeroLine = false) {
+            ctx.strokeStyle = "#f0f0f0";
+            ctx.lineWidth = 1;
+            ctx.font = "10px Arial";
+            ctx.fillStyle = "#888";
+            
+            for(let a = Math.ceil(yMin); a <= Math.floor(yMax); a++) {
+                let pt = toScreen(ctx, a, 0, yMin, yMax, yDataMin, yDataMax);
+                ctx.beginPath(); ctx.moveTo(pt.sx, 0); ctx.lineTo(pt.sx, ctx.canvas.height); ctx.stroke();
+                ctx.fillText("a=" + a, pt.sx + 2, ctx.canvas.height - 5);
+            }
+
+            if (drawZeroLine) {
+                let zeroPt = toScreen(ctx, yMin, 0, yMin, yMax, yDataMin, yDataMax);
+                ctx.strokeStyle = "#999";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(0, zeroPt.sy); ctx.lineTo(ctx.canvas.width, zeroPt.sy); ctx.stroke();
+                ctx.fillStyle = "#333"; ctx.fillText("0", 5, zeroPt.sy - 5);
+            }
+        }
+
+        function drawSAndDS(currentA) {
+            sCtx.clearRect(0, 0, sCanvas.width, sCanvas.height);
+            dsCtx.clearRect(0, 0, dsCanvas.width, dsCanvas.height);
+            
+            const aPoints = 300;
+            const da = (yMax - yMin) / aPoints;
+            const dx = (xMax - xMin) / 800;
+            
+            let sData = [], dsData = [];
+            let minS = Infinity, maxS = -Infinity;
+            let minDS = Infinity, maxDS = -Infinity;
+
+            for(let a = yMin; a <= yMax; a += da) {
+                let area = 0, L_above = 0, L_below = 0;
+                for(let x = xMin; x < xMax; x += dx) {
+                    let y = currentFunc(x);
+                    area += Math.abs(y - a) * dx;
+                    if(y > a) L_above += dx; else L_below += dx;
+                }
+                let ds = L_below - L_above;
+                sData.push({a, val: area});
+                dsData.push({a, val: ds});
+                
+                if(area < minS) minS = area; if(area > maxS) maxS = area;
+                if(ds < minDS) minDS = ds; if(ds > maxDS) maxDS = ds;
+            }
+
+            let sRange = maxS - minS;
+            let sYMin = Math.max(0, minS - sRange * 0.1);
+            let sYMax = maxS + sRange * 0.1;
+
+            let absMaxDS = Math.max(Math.abs(minDS), Math.abs(maxDS));
+            let dsYMin = -absMaxDS * 1.1;
+            let dsYMax = absMaxDS * 1.1;
+
+            drawGridForSubPanel(sCtx, yMin, yMax, sYMin, sYMax);
+            drawGridForSubPanel(dsCtx, yMin, yMax, dsYMin, dsYMax, true);
+
+            sCtx.beginPath();
+            sCtx.strokeStyle = "#8e44ad";
+            sCtx.lineWidth = 2.5;
+            sData.forEach((d, i) => {
+                let pt = toScreen(sCtx, d.a, d.val, yMin, yMax, sYMin, sYMax);
+                if(i===0) sCtx.moveTo(pt.sx, pt.sy); else sCtx.lineTo(pt.sx, pt.sy);
+            });
+            sCtx.stroke();
+
+            dsCtx.beginPath();
+            dsCtx.strokeStyle = "#27ae60";
+            dsCtx.lineWidth = 2.5;
+            dsData.forEach((d, i) => {
+                let pt = toScreen(dsCtx, d.a, d.val, yMin, yMax, dsYMin, dsYMax);
+                if(i===0) dsCtx.moveTo(pt.sx, pt.sy); else dsCtx.lineTo(pt.sx, pt.sy);
+            });
+            dsCtx.stroke();
+
+            let alignPt = toScreen(sCtx, currentA, 0, yMin, yMax, sYMin, sYMax);
+            
+            sCtx.beginPath(); sCtx.setLineDash([5, 5]); sCtx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+            sCtx.moveTo(alignPt.sx, 0); sCtx.lineTo(alignPt.sx, sCanvas.height); sCtx.stroke(); sCtx.setLineDash([]);
+            
+            let currentS = sData.reduce((prev, curr) => Math.abs(curr.a - currentA) < Math.abs(prev.a - currentA) ? curr : prev).val;
+            let pS = toScreen(sCtx, currentA, currentS, yMin, yMax, sYMin, sYMax);
+            sCtx.beginPath(); sCtx.fillStyle="red"; sCtx.arc(pS.sx, pS.sy, 5, 0, Math.PI*2); sCtx.fill();
+
+            dsCtx.beginPath(); dsCtx.setLineDash([5, 5]); dsCtx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+            dsCtx.moveTo(alignPt.sx, 0); dsCtx.lineTo(alignPt.sx, dsCanvas.height); dsCtx.stroke(); dsCtx.setLineDash([]);
+
+            let currentDS = dsData.reduce((prev, curr) => Math.abs(curr.a - currentA) < Math.abs(prev.a - currentA) ? curr : prev).val;
+            let pDS = toScreen(dsCtx, currentA, currentDS, yMin, yMax, dsYMin, dsYMax);
+            dsCtx.beginPath(); dsCtx.fillStyle="red"; dsCtx.arc(pDS.sx, pDS.sy, 5, 0, Math.PI*2); dsCtx.fill();
+        }
+
+        function drawAll() {
+            const a = parseFloat(aSlider.value);
+            aValDisp.innerText = a.toFixed(3);
+            drawMain(a);
+            drawSAndDS(a);
+        }
+
+        init();
+    </script>
+</body>
+</html>

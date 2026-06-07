@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3차 함수 접선 시뮬레이터 (개정판 v2)</title>
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']], // $ 기호를 인라인 수식으로 인식
+                displayMath: [['$$', '$$'], ['\\[', '\\]']], // $$ 기호를 블록 수식으로 인식
+                processEscapes: true
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f6f8;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            padding-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            background-color: #e2e8f0;
+        }
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        .tab:hover {
+            background-color: #cbd5e1;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom-color: #3b82f6;
+            color: #3b82f6;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .control-panel {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: #f8fafc;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        input[type="range"] {
+            flex: 1;
+            min-width: 200px;
+        }
+        .val-display {
+            font-weight: bold;
+            color: #2563eb;
+            min-width: 60px;
+        }
+        .btn-action {
+            padding: 8px 14px;
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .btn-action:hover {
+            background-color: #1d4ed8;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+        }
+        .alert-box {
+            text-align: center;
+            color: #ef4444;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin: 10px 0;
+            min-height: 25px;
+        }
+        .info-display-box {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+            text-align: center;
+            border-left: 4px solid #64748b;
+        }
+        .stats-box {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #eff6ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+        }
+        .stats-row span {
+            font-weight: bold;
+        }
+        /* 해설 토글 스타일 */
+        .solution-container {
+            margin: 20px 20px 0 20px;
+        }
+        .solution-toggle {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            color: #475569;
+        }
+        .solution-toggle:hover {
+            background: #f1f5f9;
+        }
+        .solution-content {
+            display: none;
+            padding: 15px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            font-size: 0.92rem;
+            line-height: 1.6;
+            color: #334155;
+        }
+        .sol-highlight {
+            color: #b91c1c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab(1)">소문제 (1): P, Q 존재 조건 및 접선 탐구</div>
+        <div class="tab" onclick="switchTab(2)">소문제 (2): 모든 삼각형 및 비율 탐구</div>
+    </div>
+
+    <div id="tab1" class="tab-content active">
+        <div class="control-panel">
+            <label for="k-slider1">k 값 조절 (-2.00 ~ 2.00):</label>
+            <input type="range" id="k-slider1" min="-2" max="2" step="0.01" value="0.8">
+            <div class="val-display" id="k-val1">0.80</div>
+        </div>
+        <div id="tangent-info1" class="info-display-box">기울기 및 각도 정보가 여기에 표시됩니다.</div>
+        <div class="alert-box" id="alert1"></div>
+        <canvas id="canvas1" width="850" height="480"></canvas>
+        
+        <div class="solution-container">
+            <button class="solution-toggle" onclick="toggleSolution('sol1')">💡 소문제 (1) 핵심 해법 및 수식 과정 보기/숨기기</button>
+            <div id="sol1" class="solution-content">
+                <strong>[해답 구하는 과정 요약]</strong><br>
+                1. 원점을 지나는 곡선 $y = x^3 - kx$의 원점에서의 접선의 기울기는 $y'(0) = -k$입니다.<br>
+                2. 다른 두 접선(접점 $P, Q$)이 원점 접선과 각각 $60^\circ$의 각도를 이루어야 정삼각형 기하 구조가 만들어지므로, 탄젠트 덧셈정리 $\tan(60^\circ) = \left|\frac{s - (-k)}{1 + s(-k)}\right| = \sqrt{3}$ 관계식을 세울 수 있습니다.<br>
+                3. 위 방정식을 만족하는 두 접선의 기울기는 각각 <span class="sol-highlight"> $s_1 = \frac{\sqrt{3}-k}{1+k\sqrt{3}}$</span>, <span class="sol-highlight">$s_2 = \frac{-\sqrt{3}-k}{1-k\sqrt{3}}$</span>로 유도됩니다.<br>
+                4. 접점의 $x$좌표는 $3x^2 - k = s \implies x^2 = \frac{s+k}{3}$이므로 실근 접점이 존재하려면 $s_1+k > 0$ 및 $s_2+k > 0$이어야 합니다.<br>
+                5. $s_2+k = \frac{\sqrt{3}(1+k^2)}{k\sqrt{3}-1} > 0$ 조건을 만족해야 하므로, 최종 존재 조건 분기점은 <span class="sol-highlight">$k > \frac{1}{\sqrt{3}} \approx 0.577$</span>이 됩니다.
+            </div>
+        </div>
+    </div>
+
+    <div id="tab2" class="tab-content">
+        <div class="control-panel">
+            <label for="k-slider2">k 값 조절 (0.58 ~ 2.50):</label>
+            <input type="range" id="k-slider2" min="0.58" max="2.50" step="0.001" value="1.000">
+            <div class="val-display" id="k-val2">1.000</div>
+            <button class="btn-action" onclick="setExactKForRatio4()">Ratio = 4.00 자동 설정</button>
+        </div>
+        <div class="stats-box">
+            <div class="stats-row">
+                <div>최대 넓이 M: <span id="max-area" style="color: #1e40af;">-</span></div>
+                <div>최소 넓이 m: <span id="min-area" style="color: #1e40af;">-</span></div>
+                <div>비율 M / m: <span id="area-ratio" style="color: #b91c1c;">-</span></div>
+            </div>
+            <div class="stats-row" style="border-top: 1px solid #bfdbfe; padding-top: 10px; font-size: 0.95rem; color: #475569;">
+                <div>P₁: <span id="coord-p1" style="font-weight: normal; color:#2563eb;">-</span> &nbsp;&nbsp; P₂: <span id="coord-p2" style="font-weight: normal; color:#1d4ed8;">-</span></div>
+                <div>Q₁: <span id="coord-q1" style="font-weight: normal; color:#ef4444;">-</span> &nbsp;&nbsp; Q₂: <span id="coord-q2" style="font-weight: normal; color:#b91c1c;">-</span></div>
+            </div>
+        </div>
+        <canvas id="canvas2" width="850" height="480"></canvas>
+        
+        <div class="solution-container">
+            <button class="solution-toggle" onclick="toggleSolution('sol2')">💡 소문제 (2) 핵심 해법 및 수식 과정 보기/숨기기</button>
+            <div id="sol2" class="solution-content">
+                <strong>[해답 구하는 과정 요약]</strong><br><br>
+                
+                <strong>1. 세 직선의 방정식 설정</strong><br>
+                원점 접선 $L_0: y = -kx$, $P$ 계열 접선 $L_P: y = s_1x + b_1$ (이때 $b_1 = \pm 2p^3$), $Q$ 계열 접선 $L_Q: y = s_2x + b_2$ (이때 $b_2 = \pm 2q^3$)로 둡니다.<br><br>
+                
+                <strong>2. 삼각형의 넓이 공식 유도</strong><br>
+                세 직선이 만나는 교점들을 구해 삼각형을 만듭니다. $L_0$ 위에 있는 두 교점을 이은 선분을 밑변으로, 나머지 한 교점에서 $L_0$까지의 거리를 점과 직선 사이의 거리 공식을 이용해 높이로 계산하면 삼각형의 넓이 $S$는 다음과 같이 일반화됩니다.<br>
+                $$ S = \frac{(3p^2b_2 - 3q^2b_1)^2}{18p^2q^2|s_1 - s_2|} $$<br>
+                
+                <strong>3. 최소 넓이 $m$과 최대 넓이 $M$ 도출</strong><br>
+                * <strong>최소 넓이 $m$</strong>: 두 $Y$절편의 부호가 같을 때 ($b_1 = -2p^3, b_2 = -2q^3$). 대입하여 분자를 정리하면 $(3p^2b_2 - 3q^2b_1)^2 = 36p^4q^4(p-q)^2$가 되며, <span class="sol-highlight">$m = \frac{2p^2q^2(p-q)^2}{|s_1-s_2|}$</span>가 완성됩니다.<br>
+                * <strong>최대 넓이 $M$</strong>: 두 $Y$절편의 부호가 다를 때 ($b_1 = 2p^3, b_2 = -2q^3$). 대입하여 분자를 정리하면 $(3p^2b_2 - 3q^2b_1)^2 = 36p^4q^4(p+q)^2$가 되며, <span class="sol-highlight">$M = \frac{2p^2q^2(p+q)^2}{|s_1-s_2|}$</span>가 완성됩니다.<br><br>
+                
+                <strong>4. 넓이 비율과 $k$값 계산</strong><br>
+                두 넓이의 비율을 구하면 공통 덩어리들이 모두 약분되어 기하학적으로 매우 깔끔한 비율로 축약됩니다.<br>
+                $$ \frac{M}{m} = \frac{(p+q)^2}{(p-q)^2} $$<br>
+                이 비율이 정확히 $4$가 되려면 $\frac{p+q}{|p-q|} = 2 \implies p = 3q \implies p^2 = 9q^2$이 성립해야 합니다. $p^2 = \frac{s_1+k}{3}$, $q^2 = \frac{s_2+k}{3}$ 관계식에 기울기 공식을 대입하여 방정식을 풀면, 최종적으로 <span class="sol-highlight">$k = \frac{5}{4\sqrt{3}} = \frac{5\sqrt{3}}{12} \approx 0.722$</span>라는 유일한 해를 얻습니다.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const scale = 85; 
+    const SQRT3 = Math.sqrt(3);
+    
+    function switchTab(tabIndex) {
+        document.querySelectorAll('.tab').forEach((t, i) => {
+            t.classList.toggle('active', i === tabIndex - 1);
+        });
+        document.querySelectorAll('.tab-content').forEach((c, i) => {
+            c.classList.toggle('active', i === tabIndex - 1);
+        });
+        if (tabIndex === 1) updateTab1();
+        if (tabIndex === 2) updateTab2();
+    }
+
+    // 풀이창 토글 기능
+    function toggleSolution(id) {
+        const content = document.getElementById(id);
+        if (content.style.display === "block") {
+            content.style.display = "none";
+        } else {
+            content.style.display = "block";
+        }
+    }
+
+    // 비율 4가 되는 k값 정밀 주입
+    function setExactKForRatio4() {
+        const exactK = 5 / (4 * Math.sqrt(3)); // 약 0.7216878...
+        const slider = document.getElementById("k-slider2");
+        slider.value = exactK.toFixed(3);
+        updateTab2();
+    }
+
+    function getTangentsSlopes(k) {
+        let s1 = (-k + SQRT3) / (1 + k * SQRT3);
+        let s2 = (-k - SQRT3) / (1 - k * SQRT3);
+        return {s1, s2};
+    }
+
+    function getPoints(k, s1, s2) {
+        let pSq = (s1 + k) / 3;
+        let qSq = (s2 + k) / 3;
+        return {pSq, qSq};
+    }
+
+    function getIntersection(m1, b1, m2, b2) {
+        if (Math.abs(m1 - m2) < 1e-8) return null;
+        let x = (b2 - b1) / (m1 - m2);
+        let y = m1 * x + b1;
+        return {x, y};
+    }
+
+    function getTriangleArea(v1, v2, v3) {
+        if (!v1 || !v2 || !v3) return 0;
+        return 0.5 * Math.abs(v1.x * (v2.y - v3.y) + v2.x * (v3.y - v1.y) + v3.x * (v1.y - v2.y));
+    }
+
+    function drawGridAndAxes(ctx, width, height) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.lineWidth = 1;
+        let cx = width / 2;
+        let cy = height / 2;
+
+        for(let i = 0; i < width/2; i += scale) {
+            ctx.beginPath(); ctx.moveTo(cx + i, 0); ctx.lineTo(cx + i, height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx - i, 0); ctx.lineTo(cx - i, height); ctx.stroke();
+        }
+        for(let i = 0; i < height/2; i += scale) {
+            ctx.beginPath(); ctx.moveTo(0, cy + i); ctx.lineTo(width, cy + i); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, cy - i); ctx.lineTo(width, cy - i); ctx.stroke();
+        }
+
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(width, cy); ctx.stroke(); 
+        ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, height); ctx.stroke(); 
+    }
+
+    function drawCurve(ctx, k, width, height) {
+        let cx = width / 2;
+        let cy = height / 2;
+        ctx.beginPath();
+        ctx.strokeStyle = "#1e293b";
+        ctx.lineWidth = 2.5;
+        for (let px = 0; px <= width; px += 2) {
+            let x = (px - cx) / scale;
+            let y = x*x*x - k*x;
+            let py = cy - y * scale;
+            if (px === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+    }
+
+    function drawLine(ctx, m, b, color, width, h, isDash = true) {
+        let cx = width / 2;
+        let cy = h / 2;
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.2;
+        if (isDash) ctx.setLineDash([4, 4]);
+        let x1 = -width/2 / scale;
+        let y1 = m * x1 + b;
+        let x2 = width/2 / scale;
+        let y2 = m * x2 + b;
+        ctx.moveTo(cx + x1 * scale, cy - y1 * scale);
+        ctx.lineTo(cx + x2 * scale, cy - y2 * scale);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function drawPoint(ctx, x, y, color, label, width, height) {
+        let cx = width / 2;
+        let cy = height / 2;
+        let px = cx + x * scale;
+        let py = cy - y * scale;
+        
+        if (px < 0 || px > width || py < 0 || py > height) return;
+
+        ctx.beginPath();
+        ctx.arc(px, py, 5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.font = "bold 12px Arial";
+        ctx.fillText(label, px + 8, py - 8);
+    }
+
+    // 탭 1 구현부
+    const kSlider1 = document.getElementById("k-slider1");
+    const kVal1 = document.getElementById("k-val1");
+    const alert1 = document.getElementById("alert1");
+    const info1 = document.getElementById("tangent-info1");
+    const canvas1 = document.getElementById("canvas1");
+    const ctx1 = canvas1.getContext("2d");
+
+    function updateTab1() {
+        let k = parseFloat(kSlider1.value);
+        kVal1.textContent = k.toFixed(2);
+        drawGridAndAxes(ctx1, canvas1.width, canvas1.height);
+        drawCurve(ctx1, k, canvas1.width, canvas1.height);
+
+        drawLine(ctx1, -k, 0, "#475569", canvas1.width, canvas1.height, false); // 원점 접선
+        drawPoint(ctx1, 0, 0, "black", "O(0,0)", canvas1.width, canvas1.height);
+
+        let {s1, s2} = getTangentsSlopes(k);
+        let {pSq, qSq} = getPoints(k, s1, s2);
+
+        // 조건 미충족 시 메시지 처리
+        if (pSq < 0 || qSq < 0 || Math.abs(1 - k*SQRT3) < 1e-5) {
+            alert1.textContent = "조건을 만족하는 P, Q가 존재하지 않습니다! (k > 1/√3 ≒ 0.577 이 필요합니다)";
+            info1.innerHTML = `<span style="color: #ef4444; font-weight:bold;">접선 형성 불가 (기하학적 모순)</span>`;
+            return;
+        } else {
+            alert1.textContent = "";
+        }
+
+        // 라디안을 호도법 디그리로 변환
+        let deg1 = Math.atan(s1) * 180 / Math.PI;
+        let deg2 = Math.atan(s2) * 180 / Math.PI;
+
+        // 실시간 정보 출력 바인딩
+        info1.innerHTML = `
+            <strong>접선 P₁ 계열:</strong> 기울기 = <span style="color:#2563eb; font-weight:bold;">${s1.toFixed(3)}</span> (각도: ${deg1.toFixed(1)}°) 
+            &nbsp;&nbsp;|&nbsp;&nbsp; 
+            <strong>접선 Q₁ 계열:</strong> 기울기 = <span style="color:#ef4444; font-weight:bold;">${s2.toFixed(3)}</span> (각도: ${deg2.toFixed(1)}°)
+        `;
+
+        let p = Math.sqrt(pSq);
+        let q = Math.sqrt(qSq);
+        let yp = p*p*p - k*p;
+        let yq = q*q*q - k*q;
+        let bp = -2*p*p*p;
+        let bq = -2*q*q*q;
+
+        drawLine(ctx1, s1, bp, "#3b82f6", canvas1.width, canvas1.height);
+        drawLine(ctx1, s2, bq, "#ef4444", canvas1.width, canvas1.height);
+        
+        drawPoint(ctx1, p, yp, "#3b82f6", "P", canvas1.width, canvas1.height);
+        drawPoint(ctx1, q, yq, "#ef4444", "Q", canvas1.width, canvas1.height);
+    }
+    kSlider1.addEventListener("input", updateTab1);
+
+    // 탭 2 구현부
+    const kSlider2 = document.getElementById("k-slider2");
+    const kVal2 = document.getElementById("k-val2");
+    const canvas2 = document.getElementById("canvas2");
+    const ctx2 = canvas2.getContext("2d");
+
+    function updateTab2() {
+        let k = parseFloat(kSlider2.value);
+        kVal2.textContent = k.toFixed(3);
+        drawGridAndAxes(ctx2, canvas2.width, canvas2.height);
+        drawCurve(ctx2, k, canvas2.width, canvas2.height);
+
+        let {s1, s2} = getTangentsSlopes(k);
+        let {pSq, qSq} = getPoints(k, s1, s2);
+        let p = Math.sqrt(pSq);
+        let q = Math.sqrt(qSq);
+
+        let yp = p*p*p - k*p;
+        let yq = q*q*q - k*q;
+
+        document.getElementById("coord-p1").textContent = `(${p.toFixed(3)}, ${yp.toFixed(3)})`;
+        document.getElementById("coord-p2").textContent = `(${-p.toFixed(3)}, ${(-yp).toFixed(3)})`;
+        document.getElementById("coord-q1").textContent = `(${q.toFixed(3)}, ${yq.toFixed(3)})`;
+        document.getElementById("coord-q2").textContent = `(${-q.toFixed(3)}, ${(-yq).toFixed(3)})`;
+
+        let bp1 = -2*p*p*p;
+        let bp2 = 2*p*p*p;
+        let bq1 = -2*q*q*q;
+        let bq2 = 2*q*q*q;
+
+        drawLine(ctx2, -k, 0, "#475569", canvas2.width, canvas2.height, false); 
+        drawLine(ctx2, s1, bp1, "rgba(59, 130, 246, 0.2)", canvas2.width, canvas2.height);
+        drawLine(ctx2, s1, bp2, "rgba(59, 130, 246, 0.2)", canvas2.width, canvas2.height);
+        drawLine(ctx2, s2, bq1, "rgba(239, 68, 68, 0.2)", canvas2.width, canvas2.height);
+        drawLine(ctx2, s2, bq2, "rgba(239, 68, 68, 0.2)", canvas2.width, canvas2.height);
+
+        // 삼각형 교점 분석 조합
+        let vA1 = getIntersection(-k, 0, s1, bp1);
+        let vA2 = getIntersection(-k, 0, s2, bq1);
+        let vA3 = getIntersection(s1, bp1, s2, bq1);
+        let area_m = getTriangleArea(vA1, vA2, vA3);
+
+        let vB1 = getIntersection(-k, 0, s1, bp2);
+        let vB2 = getIntersection(-k, 0, s2, bq2);
+        let vB3 = getIntersection(s1, bp2, s2, bq2);
+
+        let vC1 = vA1;
+        let vC2 = vB2;
+        let vC3 = getIntersection(s1, bp1, s2, bq2);
+        let area_M = getTriangleArea(vC1, vC2, vC3);
+
+        let vD1 = vB1;
+        let vD2 = vA2;
+        let vD3 = getIntersection(s1, bp2, s2, bq1);
+
+        document.getElementById("max-area").textContent = area_M.toFixed(4);
+        document.getElementById("min-area").textContent = area_m.toFixed(4);
+        document.getElementById("area-ratio").textContent = (area_M / area_m).toFixed(3);
+
+        let cx = canvas2.width / 2;
+        let cy = canvas2.height / 2;
+
+        function drawTri(v1, v2, v3, fill, stroke) {
+            if(!v1 || !v2 || !v3) return;
+            ctx2.beginPath();
+            ctx2.moveTo(cx + v1.x * scale, cy - v1.y * scale);
+            ctx2.lineTo(cx + v2.x * scale, cy - v2.y * scale);
+            ctx2.lineTo(cx + v3.x * scale, cy - v3.y * scale);
+            ctx2.closePath();
+            ctx2.fillStyle = fill;
+            ctx2.fill();
+            ctx2.strokeStyle = stroke;
+            ctx2.lineWidth = 1.5;
+            ctx2.stroke();
+        }
+
+        // 4개의 삼각형 채우기
+        drawTri(vC1, vC2, vC3, "rgba(239, 68, 68, 0.1)", "rgba(239, 68, 68, 0.4)");
+        drawTri(vD1, vD2, vD3, "rgba(185, 28, 28, 0.1)", "rgba(185, 28, 28, 0.4)");
+        drawTri(vA1, vA2, vA3, "rgba(59, 130, 246, 0.18)", "rgba(59, 130, 246, 0.6)");
+        drawTri(vB1, vB2, vB3, "rgba(29, 78, 216, 0.18)", "rgba(29, 78, 216, 0.6)");
+
+        // 레이블링
+        drawPoint(ctx2, p, yp, "#2563eb", `P₁(${p.toFixed(2)}, ${yp.toFixed(2)})`, canvas2.width, canvas2.height);
+        drawPoint(ctx2, -p, -yp, "#1d4ed8", `P₂(${(-p).toFixed(2)}, ${(-yp).toFixed(2)})`, canvas2.width, canvas2.height);
+        drawPoint(ctx2, q, yq, "#ef4444", `Q₁(${q.toFixed(2)}, ${yq.toFixed(2)})`, canvas2.width, canvas2.height);
+        drawPoint(ctx2, -q, -yq, "#b91c1c", `Q₂(${(-q).toFixed(2)}, ${(-yq).toFixed(2)})`, canvas2.width, canvas2.height);
+        drawPoint(ctx2, 0, 0, "black", "O(0,0)", canvas2.width, canvas2.height);
+    }
+    kSlider2.addEventListener("input", updateTab2);
+
+    // 초기 활성화 로드
+    updateTab1();
+</script>
+</body>
+</html>

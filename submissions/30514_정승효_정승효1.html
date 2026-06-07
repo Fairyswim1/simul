@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연립부등식 영역 및 S(a) 통합 시뮬레이터</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 1.6rem;
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 10px;
+        }
+        .problem-context {
+            background-color: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+        
+        /* 상단 2분할 레이아웃 */
+        .screens-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 25px;
+        }
+        .screen-card {
+            flex: 1;
+            min-width: 450px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+        }
+        
+        /* 하단 전체폭 레이아웃 */
+        .full-card {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        .screen-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #2b6cb0;
+            margin-top: 0;
+            margin-bottom: 15px;
+            width: 100%;
+            text-align: center;
+            border-bottom: 2px solid #ebf8ff;
+            padding-bottom: 8px;
+        }
+        canvas {
+            background: #ffffff;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            max-width: 100%;
+        }
+        
+        /* 컨트롤러 디자인 */
+        .controls {
+            width: 100%;
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .control-group {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+        }
+        label {
+            font-weight: bold;
+            color: #4a5568;
+            font-size: 0.95rem;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .inputs-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        input[type="range"] {
+            flex: 1;
+            cursor: pointer;
+            min-width: 150px;
+        }
+        input[type="number"] {
+            width: 70px;
+            padding: 6px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #2b6cb0;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        /* 재생 버튼 스타일 */
+        .btn-play {
+            background-color: #4299e1;
+            color: white;
+            border: none;
+            padding: 7px 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-play:hover {
+            background-color: #3182ce;
+        }
+        .btn-play.playing {
+            background-color: #e53e3e;
+        }
+        .btn-play.playing:hover {
+            background-color: #c53030;
+        }
+
+        .stats-panel {
+            background: #ebf8ff;
+            border: 1px solid #bee3f8;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95rem;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: #2c5282;
+        }
+        .highlight {
+            color: #e53e3e;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📐 연립부등식 시각화 및 <i>S</i>(<i>a</i>) 추적 자동재생 시뮬레이터</h1>
+    
+    <div class="problem-context">
+        <strong>[문제 조건]</strong><br>
+        • 기준 곡선: <i>y</i> = <i>x</i> ln 2 / ln <i>x</i> (단, <i>x</i> &ge; 2)<br>
+        • <b>화면 (1):</b> 연립부등식 <i>x</i> &ge; 2, 2<sup><i>x</i></sup> &le; <i>x</i><sup><i>y</i></sup> &le; <i>x</i><sup>2</sup> 의 정적 해집합 영역<br>
+        • <b>화면 (2) 및 (3):</b> 변수 <i>a</i> 변화에 따른 <i>S</i>(<i>a</i>) 영역의 변형과 함수 <i>S</i>(<i>a</i>)의 최솟값 동적 추적
+    </div>
+
+    <div class="screens-container">
+        <div class="screen-card">
+            <div class="screen-title">정적 화면: 소문항 (1) 해집합 영역</div>
+            <canvas id="staticCanvas" width="450" height="380"></canvas>
+            <div style="margin-top: 12px; font-size: 0.85rem; color: #4a5568; line-height: 1.4; width: 100%;">
+                곡선 <i>y</i>와 직선 <i>y</i> = 2 사이의 영역입니다. 부등식 조건에 의해 <b>2 &le; <i>x</i> &le; 4</b> 구간 내부의 녹색 영역에 해당합니다.
+            </div>
+        </div>
+        
+        <div class="screen-card">
+            <div class="screen-title">동적 화면: 소문항 (2) <i>a</i>에 따른 영역 변화</div>
+            <canvas id="dynamicCanvas" width="450" height="380"></canvas>
+            
+            <div class="controls">
+                <div class="control-group">
+                    <label>변수 <i>a</i> 값 조절 및 제어</label>
+                    <div class="inputs-container">
+                        <button id="playBtn" class="btn-play">▶ 자동재생</button>
+                        <input type="range" id="aSlider" min="1.50" max="2.50" step="0.01" value="1.75">
+                        <input type="number" id="aInput" min="1.50" max="2.50" step="0.01" value="1.75">
+                    </div>
+                </div>
+                
+                <div class="stats-panel">
+                    <div class="stat-row">
+                        <span>현재 직선: <span class="stat-value"><i>y</i> = <span id="aText">1.75</span></span></span>
+                        <span>현재 면적: <span class="stat-value highlight" id="saValue">0.0000</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="full-card">
+        <div class="screen-title">함수 분석 화면: <i>a</i>의 변화에 따른 면적 <i>S</i>(<i>a</i>) 그래프</div>
+        <canvas id="saCanvas" width="940" height="240"></canvas>
+        <div style="margin-top: 10px; font-size: 0.85rem; color: #4a5568; text-align: center; width: 100%;">
+            위에서 <i>a</i>가 변할 때, <i>S</i>(<i>a</i>) 값이 그리는 궤적입니다. 빨간 점이 실시간 현재 위치이며, <b><i>a</i> = 2.00일 때 <i>S</i>(<i>a</i>)가 최소</b>가 됨을 볼 수 있습니다.
+        </div>
+    </div>
+</div>
+
+<script>
+    // 엘리먼트 참조
+    const staticCanvas = document.getElementById('staticCanvas');
+    const sCtx = staticCanvas.getContext('2d');
+    
+    const dynamicCanvas = document.getElementById('dynamicCanvas');
+    const dCtx = dynamicCanvas.getContext('2d');
+
+    const saCanvas = document.getElementById('saCanvas');
+    const saCtx = saCanvas.getContext('2d');
+
+    const aSlider = document.getElementById('aSlider');
+    const aInput = document.getElementById('aInput');
+    const aText = document.getElementById('aText');
+    const saValueDisplay = document.getElementById('saValue');
+    const playBtn = document.getElementById('playBtn');
+
+    // 그래프 축 설정
+    const minX = 1.5, maxX = 6.5;
+    const minY = 1.6, maxY = 2.5; 
+
+    const minA = 1.5, maxA = 2.5;
+    const minSaY = 0.0, maxSaY = 2.5;
+
+    // [중요 고정] 내부 연산 전용 정밀 변수 도입
+    let currentAVal = 1.75; 
+
+    // 자동 재생 설정
+    let isPlaying = false;
+    let playDirection = 1; 
+    const speed = 0.0025; // 끊김없이 부드러우면서 인지하기 딱 좋은 속도 조율
+    let animationId = null;
+
+    // 좌표 변환 유틸리티
+    function toPixelX(x, canvas, min, max) {
+        return ((x - min) / (max - min)) * canvas.width;
+    }
+    function toPixelY(y, canvas, min, max) {
+        return canvas.height - ((y - min) / (max - min)) * canvas.height;
+    }
+
+    // 대상 곡선 함수 f(x)
+    function f(x) {
+        if (x <= 1) return 0;
+        return (x * Math.log(2)) / Math.log(x);
+    }
+
+    // 정밀 수치적분(Riemann Sum)으로 S(a) 구하기
+    function calculateSa(a) {
+        let sum = 0;
+        const startX = 2.0;
+        const endX = 6.0;
+        const steps = 1000;
+        const dx = (endX - startX) / steps;
+
+        for (let i = 0; i < steps; i++) {
+            let x = startX + i * dx + dx / 2;
+            sum += Math.abs(f(x) - a) * dx;
+        }
+        return sum;
+    }
+
+    // 기본 그리드 및 스케일 그리기
+    function drawGrid(ctx, canvas, scaleX, scaleY) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+
+        // X축 가이드 라벨링
+        for (let x = scaleX.min; x <= scaleX.max; x += scaleX.step) {
+            let px = toPixelX(x, canvas, scaleX.min, scaleX.max);
+            ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); ctx.stroke();
+            ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif';
+            ctx.fillText(scaleX.prefix + x.toFixed(scaleX.decimals), px - 12, canvas.height - 8);
+        }
+
+        // Y축 가이드 라벨링
+        for (let y = scaleY.min; y <= scaleY.max; y += scaleY.step) {
+            let py = toPixelY(y, canvas, scaleY.min, scaleY.max);
+            ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();
+            ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif';
+            ctx.fillText(y.toFixed(scaleY.decimals), 8, py + 4);
+        }
+    }
+
+    // 함수 1, 2 화면용 공통 곡선 렌더링
+    function drawCurve(ctx, canvas) {
+        ctx.strokeStyle = '#2b6cb0';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        let started = false;
+        for (let x = 2.0; x <= 6.2; x += 0.02) {
+            let y = f(x);
+            let px = toPixelX(x, canvas, minX, maxX);
+            let py = toPixelY(y, canvas, minY, maxY);
+            if (!started) { ctx.moveTo(px, py); started = true; } 
+            else { ctx.lineTo(px, py); }
+        }
+        ctx.stroke();
+    }
+
+    // 주요 특이점 마킹
+    function drawKeyPoints(ctx, canvas) {
+        const points = [
+            { x: 2, y: f(2), label: '(2, 2.0)', color: '#2d3748' },
+            { x: Math.E, y: f(Math.E), label: '극소점(e, 1.88)', color: '#e53e3e' },
+            { x: 4, y: f(4), label: '(4, 2.0)', color: '#2d3748' },
+            { x: 6, y: f(6), label: '(6, 2.32)', color: '#2d3748' }
+        ];
+        points.forEach(pt => {
+            ctx.fillStyle = pt.color;
+            ctx.beginPath();
+            ctx.arc(toPixelX(pt.x, canvas, minX, maxX), toPixelY(pt.y, canvas, minY, maxY), 4, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillText(pt.label, toPixelX(pt.x, canvas, minX, maxX) + 6, toPixelY(pt.y, canvas, minY, maxY) - 4);
+        });
+    }
+
+    // [화면 1] 고정 연립부등식 해집합
+    function drawStaticScreen() {
+        drawGrid(sCtx, staticCanvas, {min:2, max:6, step:1, decimals:0, prefix:'x='}, {min:1.6, max:2.5, step:0.1, decimals:1});
+        
+        sCtx.fillStyle = 'rgba(72, 187, 120, 0.3)';
+        sCtx.beginPath();
+        sCtx.moveTo(toPixelX(2, staticCanvas, minX, maxX), toPixelY(2, staticCanvas, minY, maxY));
+        for (let x = 2.0; x <= 4.0; x += 0.02) {
+            sCtx.lineTo(toPixelX(x, staticCanvas, minX, maxX), toPixelY(f(x), staticCanvas, minY, maxY));
+        }
+        sCtx.lineTo(toPixelX(4, staticCanvas, minX, maxX), toPixelY(2, staticCanvas, minY, maxY));
+        sCtx.closePath(); sCtx.fill();
+
+        sCtx.strokeStyle = '#48bb78'; sCtx.lineWidth = 2;
+        sCtx.beginPath();
+        sCtx.moveTo(toPixelX(2, staticCanvas, minX, maxX), toPixelY(2, staticCanvas, minY, maxY));
+        sCtx.lineTo(toPixelX(4, staticCanvas, minX, maxX), toPixelY(2, staticCanvas, minY, maxY));
+        sCtx.stroke();
+        
+        sCtx.fillStyle = '#48bb78'; sCtx.font = 'bold 11px sans-serif';
+        sCtx.fillText('y = 2', toPixelX(2.8, staticCanvas, minX, maxX), toPixelY(2, staticCanvas, minY, maxY) - 8);
+
+        drawCurve(sCtx, staticCanvas);
+        drawKeyPoints(sCtx, staticCanvas);
+    }
+
+    // [화면 2 및 화면 3] 동적 화면 및 S(a) 곡선 연동 드로잉
+    function drawDynamicAndAnalysis() {
+        const a = currentAVal; // 내부 정밀 변수값 매핑
+        const currentSa = calculateSa(a);
+
+        // 데이터 텍스트 갱신
+        aText.textContent = a.toFixed(2);
+        saValueDisplay.textContent = currentSa.toFixed(4);
+
+        // --- 화면 2 그리기 ---
+        drawGrid(dCtx, dynamicCanvas, {min:2, max:6, step:1, decimals:0, prefix:'x='}, {min:1.6, max:2.5, step:0.1, decimals:1});
+        
+        dCtx.strokeStyle = '#cbd5e0'; dCtx.lineWidth = 1.5;
+        dCtx.beginPath();
+        dCtx.moveTo(toPixelX(2, dynamicCanvas, minX, maxX), 0); dCtx.lineTo(toPixelX(2, dynamicCanvas, minX, maxX), dynamicCanvas.height);
+        dCtx.moveTo(toPixelX(6, dynamicCanvas, minX, maxX), 0); dCtx.lineTo(toPixelX(6, dynamicCanvas, minX, maxX), dynamicCanvas.height);
+        dCtx.stroke();
+
+        dCtx.fillStyle = 'rgba(66, 153, 225, 0.35)';
+        dCtx.beginPath();
+        dCtx.moveTo(toPixelX(2, dynamicCanvas, minX, maxX), toPixelY(a, dynamicCanvas, minY, maxY));
+        for (let x = 2.0; x <= 6.0; x += 0.02) {
+            dCtx.lineTo(toPixelX(x, dynamicCanvas, minX, maxX), toPixelY(f(x), dynamicCanvas, minY, maxY));
+        }
+        dCtx.lineTo(toPixelX(6, dynamicCanvas, minX, maxX), toPixelY(a, dynamicCanvas, minY, maxY));
+        dCtx.closePath(); dCtx.fill();
+
+        dCtx.strokeStyle = '#e53e3e'; dCtx.lineWidth = 2.5; dCtx.setLineDash([5, 4]);
+        dCtx.beginPath();
+        dCtx.moveTo(toPixelX(minX, dynamicCanvas, minX, maxX), toPixelY(a, dynamicCanvas, minY, maxY));
+        dCtx.lineTo(toPixelX(maxX, dynamicCanvas, minX, maxX), toPixelY(a, dynamicCanvas, minY, maxY));
+        dCtx.stroke(); dCtx.setLineDash([]);
+
+        dCtx.fillStyle = '#e53e3e'; dCtx.font = 'bold 11px sans-serif';
+        dCtx.fillText('y = a (' + a.toFixed(2) + ')', toPixelX(2.1, dynamicCanvas, minX, maxX), toPixelY(a, dynamicCanvas, minY, maxY) - 6);
+
+        drawCurve(dCtx, dynamicCanvas);
+        drawKeyPoints(dCtx, dynamicCanvas);
+
+        // --- 화면 3 (S(a) 함수 분석 그래프) 그리기 ---
+        drawGrid(saCtx, saCanvas, {min:1.5, max:2.5, step:0.1, decimals:1, prefix:'a='}, {min:0.0, max:2.5, step:0.5, decimals:1});
+
+        saCtx.strokeStyle = '#4a5568'; saCtx.lineWidth = 2;
+        saCtx.beginPath();
+        let saStarted = false;
+        for (let ta = minA; ta <= maxA; ta += 0.01) {
+            let tsa = calculateSa(ta);
+            let px = toPixelX(ta, saCanvas, minA, maxA);
+            let py = toPixelY(tsa, saCanvas, minSaY, maxSaY);
+            if (!saStarted) { saCtx.moveTo(px, py); saStarted = true; }
+            else { saCtx.lineTo(px, py); }
+        }
+        saCtx.stroke();
+
+        let minX_Px = toPixelX(2.0, saCanvas, minA, maxA);
+        saCtx.strokeStyle = '#48bb78'; saCtx.lineWidth = 1; saCtx.setLineDash([3, 3]);
+        saCtx.beginPath(); saCtx.moveTo(minX_Px, 0); saCtx.lineTo(minX_Px, saCanvas.height); saCtx.stroke(); saCtx.setLineDash([]);
+        saCtx.fillStyle = '#48bb78'; saCtx.font = '10px sans-serif';
+        saCtx.fillText('이론상 최소 (a=2.00)', minX_Px + 5, 20);
+
+        let curAPx = toPixelX(a, saCanvas, minA, maxA);
+        let curSaPy = toPixelY(currentSa, saCanvas, minSaY, maxSaY);
+        
+        saCtx.fillStyle = '#e53e3e';
+        saCtx.beginPath(); saCtx.arc(curAPx, curSaPy, 6, 0, 2 * Math.PI); saCtx.fill();
+        
+        saCtx.font = 'bold 11px sans-serif';
+        let textOffsetX = (a > 2.3) ? -110 : 10;
+        saCtx.fillText('S(' + a.toFixed(2) + ') = ' + currentSa.toFixed(4), curAPx + textOffsetX, curSaPy - 5);
+    }
+
+    // 입력 데이터 동기화
+    function syncInputs(val) {
+        let parsed = parseFloat(val);
+        if (isNaN(parsed)) return;
+
+        if (parsed < minA) parsed = minA;
+        if (parsed > maxA) parsed = maxA;
+
+        currentAVal = parsed; // 정밀 수치 보존 업데이트
+        aSlider.value = parsed;
+        aInput.value = parsed.toFixed(2);
+
+        drawDynamicAndAnalysis();
+    }
+
+    // 자동 재생 핵심 연산 루프
+    function playLoop() {
+        if (!isPlaying) return;
+
+        // 버림 현상 없이 소수점 아래를 완전히 더해나감
+        currentAVal += playDirection * speed;
+
+        if (currentAVal >= maxA) { currentAVal = maxA; playDirection = -1; }
+        else if (currentAVal <= minA) { currentAVal = minA; playDirection = 1; }
+
+        // UI 표현값 업데이트
+        aSlider.value = currentAVal;
+        aInput.value = currentAVal.toFixed(2);
+        
+        drawDynamicAndAnalysis();
+        animationId = requestAnimationFrame(playLoop);
+    }
+
+    // 재생 단추 이벤트 리스너
+    playBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        if (isPlaying) {
+            playBtn.textContent = '⏸ 일시정지';
+            playBtn.classList.add('playing');
+            playLoop();
+        } else {
+            playBtn.textContent = '▶ 자동재생';
+            playBtn.classList.remove('playing');
+            cancelAnimationFrame(animationId);
+        }
+    });
+
+    // 수동 컨트롤 개입 시 재생 정지
+    function stopAutoplayIfPlaying() {
+        if (isPlaying) {
+            isPlaying = false;
+            playBtn.textContent = '▶ 자동재생';
+            playBtn.classList.remove('playing');
+            cancelAnimationFrame(animationId);
+        }
+    }
+
+    aSlider.addEventListener('input', (e) => {
+        stopAutoplayIfPlaying();
+        syncInputs(e.target.value);
+    });
+    aInput.addEventListener('input', (e) => {
+        stopAutoplayIfPlaying();
+        syncInputs(e.target.value);
+    });
+
+    // 초기 빌드
+    drawStaticScreen();
+    drawDynamicAndAnalysis();
+</script>
+
+</body>
+</html>

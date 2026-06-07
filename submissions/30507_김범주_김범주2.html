@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>정다각형 굴리기 수학 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f8fafc; }
+        #canvas-container { position: relative; width: 100%; height: 100%; min-height: 400px; background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .math-text { font-family: 'Times New Roman', Times, serif; font-style: italic; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .formula-box { background: #f1f5f9; padding: 0.75rem; border-radius: 0.5rem; border-left: 4px solid #3b82f6; margin-bottom: 1rem; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col text-slate-800 overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 px-6 py-3 flex justify-between items-center shrink-0 z-10 shadow-sm">
+        <div>
+            <h1 class="text-xl font-bold text-slate-800">정다각형 굴리기 시뮬레이터 (일반화 모델)</h1>
+            <p class="text-sm text-slate-500 mt-0.5">한 변의 길이(s)와 변의 개수(N)에 따른 점 A의 자취와 이동 거리 분석</p>
+        </div>
+        <div class="flex gap-3">
+            <button id="btn-limit" class="px-4 py-2 bg-indigo-50 text-indigo-700 font-semibold rounded border border-indigo-200 hover:bg-indigo-100 transition shadow-sm text-sm flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                극한 시각화 (N→∞, 둘레 1 고정)
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left: Canvas & Controls -->
+        <div class="flex-1 flex flex-col p-4 gap-4 bg-slate-50 relative">
+            
+            <!-- Canvas -->
+            <div id="canvas-container" class="flex-1 relative">
+                <!-- Overlay Legends -->
+                <div class="absolute top-4 left-4 bg-white/90 backdrop-blur text-xs p-3 rounded shadow-sm border border-slate-200 pointer-events-none space-y-2">
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 border border-slate-300 bg-slate-50 opacity-80 rounded-sm"></div><span>출발점 다각형 (고정)</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-slate-800 rounded-sm"></div><span id="legend-perimeter">구르는 다각형</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-blue-500 rounded-full"></div><span class="font-bold text-blue-700">점 A의 이동 자취</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-500 rounded-full"></div><span>현재 회전 중심 (Pivot)</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-0 border-t-2 border-green-500 border-dashed"></div><span>실제 회전 반경 (초록)</span></div>
+                    <div class="flex items-center gap-2"><div class="w-3 h-0 border-t-2 border-orange-500 border-dashed"></div><span>일반식 거리 A<sub class="text-[8px]">k</sub>A<sub class="text-[8px]">n</sub> (주황)</span></div>
+                </div>
+                <canvas id="sim-canvas"></canvas>
+            </div>
+
+            <!-- Controls -->
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-3 shrink-0">
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-3 flex-1">
+                        <label class="font-bold text-sm shrink-0 w-24">변의 개수 (N):</label>
+                        <input type="range" id="input-n-slider" min="3" max="30" value="3" class="flex-1 accent-blue-600">
+                        <input type="number" id="input-n-num" min="3" max="100" value="3" class="w-16 border rounded p-1 text-center font-mono text-sm">
+                    </div>
+                    <div class="w-px h-6 bg-slate-200 shrink-0"></div>
+                    <div class="flex items-center gap-3 flex-1">
+                        <label class="font-bold text-sm shrink-0 w-28">한 변 길이 (s):</label>
+                        <input type="range" id="input-s-slider" min="0.1" max="5.0" step="0.1" value="1.0" class="flex-1 accent-green-600">
+                        <input type="number" id="input-s-num" min="0.1" max="5.0" step="0.1" value="1.0" class="w-16 border rounded p-1 text-center font-mono text-sm">
+                    </div>
+                </div>
+                
+                <div class="h-px w-full bg-slate-100"></div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3 w-64 shrink-0">
+                        <label class="font-bold text-sm">재생 속도:</label>
+                        <input type="range" id="input-speed" min="0.5" max="5" step="0.1" value="1.5" class="w-full accent-slate-500">
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button id="btn-reset" class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 transition font-semibold text-sm flex items-center gap-1" title="처음으로">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path></svg>
+                            초기화
+                        </button>
+                        <button id="btn-play" class="px-8 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold transition shadow-sm flex items-center gap-2">
+                            재생
+                        </button>
+                        <button id="btn-step" class="px-3 py-2 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 transition font-semibold text-sm flex items-center gap-1" title="한 단계 진행">
+                            스텝 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Math Info Panel -->
+        <div class="w-[420px] bg-white border-l border-slate-200 shadow-xl z-20 flex flex-col shrink-0 overflow-y-auto">
+            <div class="p-5 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
+                <h2 class="font-bold text-lg text-slate-800 flex justify-between items-center">
+                    수학적 분석
+                    <span id="n-display" class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full border border-blue-200 font-mono">N=3, s=1.0</span>
+                </h2>
+            </div>
+            
+            <div class="p-5 space-y-6">
+                <!-- Status & Live Metrics -->
+                <div>
+                    <h3 class="text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">진행 상태 (시뮬레이션)</h3>
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="bg-slate-50 p-2 rounded border border-slate-200 text-center">
+                            <div class="text-[10px] text-slate-500 mb-1">회전 단계</div>
+                            <div class="font-mono font-bold text-sm text-slate-800" id="step-info">0 / 2</div>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded border border-slate-200 text-center">
+                            <div class="text-[10px] text-slate-500 mb-1">현재 반지름 (<span class="math-text">r</span>)</div>
+                            <div class="font-mono font-bold text-sm text-green-600" id="val-r">-</div>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded border border-slate-200 text-center">
+                            <div class="text-[10px] text-slate-500 mb-1">외각 (<span class="math-text">&theta;</span>)</div>
+                            <div class="font-mono font-bold text-sm text-slate-800" id="val-theta">-</div>
+                        </div>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-1.5 mb-2">
+                        <div id="progress-bar" class="bg-blue-600 h-1.5 rounded-full transition-all duration-100" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="formula-box">
+                    <div class="text-xs font-bold text-slate-500 mb-1">현재까지 점 A가 이동한 누적 거리</div>
+                    <div class="flex items-end gap-2">
+                        <div class="text-2xl font-mono font-bold text-blue-600" id="val-total-dist">0.0000</div>
+                        <div class="text-xs text-slate-500 mb-1" id="val-exact-dist"></div>
+                    </div>
+                </div>
+
+                <!-- NEW: General Formula Breakdown -->
+                <div class="border-t border-slate-200 pt-5">
+                    <h3 class="text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide flex items-center gap-2">
+                        <span class="text-orange-500">◆</span> 선분 A<sub>k</sub>A<sub>n</sub> 일반식 탐구
+                    </h3>
+                    
+                    <div class="bg-orange-50 border border-orange-200 p-3 rounded mb-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold text-orange-800">관찰할 회전 중심 (k):</label>
+                            <span class="font-mono font-bold text-orange-600 bg-white px-2 py-0.5 rounded border border-orange-200" id="k-display">k = 1</span>
+                        </div>
+                        <input type="range" id="input-k-slider" min="1" max="2" value="1" class="w-full accent-orange-500">
+                        
+                        <div class="mt-3 text-[11px] text-orange-900 leading-relaxed text-center">
+                            선택된 중심 <span class="font-bold">A<sub id="sub-k">1</sub></span> 과 점 <span class="font-bold">A<sub>n</sub></span> 사이의 기하학적 거리
+                            <div class="font-mono text-xl font-bold my-1 text-orange-600" id="val-rk-formula">0.0000</div>
+                            <span class="text-slate-500">(좌측 캔버스 원점의 점선 확인)</span>
+                        </div>
+                    </div>
+
+                    <div class="text-xs space-y-2 text-slate-700 leading-relaxed bg-slate-50 p-3 rounded border border-slate-200">
+                        <p><span class="font-bold text-slate-800">일반식 유도:</span></p>
+                        <p>정<span class="math-text">N</span>각형의 외접원 반지름 <span class="math-text">R = s / 2sin(&pi;/N)</span> 이며, 꼭짓점 <span class="math-text">A_k</span>와 <span class="math-text">A_N</span> 사이의 중심각은 <span class="math-text">k(2&pi;/N)</span> 입니다.</p>
+                        <p>사인법칙 (현의 길이 공식 <span class="math-text">2R sin(&theta;/2)</span>)을 적용하면:</p>
+                        <p class="font-mono bg-white px-2 py-2 rounded text-[11px] block text-center border border-slate-200 text-blue-700 font-bold my-2 shadow-sm">
+                            r<sub>k</sub> = s &middot; <span class="inline-block align-middle text-center"><span class="border-b border-slate-400 block px-1">sin(k&pi;/N)</span><span class="block px-1">sin(&pi;/N)</span></span>
+                        </p>
+                    </div>
+
+                    <div class="mt-3">
+                        <h4 class="text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wide">모든 k에 대한 회전 반지름 리스트</h4>
+                        <div class="text-xs font-mono bg-slate-50 p-1.5 rounded max-h-32 overflow-y-auto border border-slate-200 shadow-inner" id="list-rk">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Distance Formula -->
+                <div class="border-t border-slate-200 pt-5">
+                    <h3 class="text-sm font-bold text-slate-500 mb-2 uppercase tracking-wide">총 이동 거리 <span class="math-text">d(N)</span></h3>
+                    <div class="text-xs text-slate-700 leading-relaxed space-y-1">
+                        <p>총 이동 거리는 각 단계별 호의 길이의 합입니다.</p>
+                        <p class="font-mono text-center text-blue-700 font-bold my-2 bg-blue-50 p-2 rounded">
+                            d(N) = <span class="text-slate-500 font-normal">&sum; r<sub>k</sub>&theta; =</span> <span class="inline-block align-middle text-center"><span class="border-b border-slate-400 block px-1">2&pi;s</span><span class="block px-1">N</span></span> &middot; cot<span class="text-[10px] align-baseline">(</span><span class="inline-block align-middle text-center text-[10px]"><span class="border-b border-slate-400 block px-1">&pi;</span><span class="block px-1">2N</span></span><span class="text-[10px] align-baseline">)</span>
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- State Management ---
+        const State = {
+            N: 3,
+            s: 1.0, // Length of one side
+            status: 'idle', // 'idle', 'playing', 'paused', 'finished'
+            currentStep: 1, // 1 to N-1
+            progress: 0.0,  // 0.0 to 1.0 for the current step
+            speed: 1.5,
+            
+            exploreK: 1, // Currently selected k for general formula exploration
+            
+            // Precomputed data
+            pathInfo: null,
+            
+            showLimit: false
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            canvas: document.getElementById('sim-canvas'),
+            ctx: document.getElementById('sim-canvas').getContext('2d'),
+            nSlider: document.getElementById('input-n-slider'),
+            nNum: document.getElementById('input-n-num'),
+            sSlider: document.getElementById('input-s-slider'),
+            sNum: document.getElementById('input-s-num'),
+            speed: document.getElementById('input-speed'),
+            btnPlay: document.getElementById('btn-play'),
+            btnStep: document.getElementById('btn-step'),
+            btnReset: document.getElementById('btn-reset'),
+            btnLimit: document.getElementById('btn-limit'),
+            
+            nDisplay: document.getElementById('n-display'),
+            stepInfo: document.getElementById('step-info'),
+            progressBar: document.getElementById('progress-bar'),
+            valR: document.getElementById('val-r'),
+            valTheta: document.getElementById('val-theta'),
+            valTotalDist: document.getElementById('val-total-dist'),
+            valExactDist: document.getElementById('val-exact-dist'),
+            
+            kSlider: document.getElementById('input-k-slider'),
+            kDisplay: document.getElementById('k-display'),
+            subK: document.getElementById('sub-k'),
+            valRkFormula: document.getElementById('val-rk-formula'),
+            listRk: document.getElementById('list-rk'),
+            
+            legendPerimeter: document.getElementById('legend-perimeter')
+        };
+
+        // --- Geometry / Math Functions ---
+
+        // Get initial CCW vertices where V0 is (0,0) and V1 is (s,0)
+        function getInitialVertices(N) {
+            let v = [];
+            let s = State.s;
+            let current = {x: 0, y: 0};
+            v.push({...current});
+            
+            let angle = 0; // heading angle
+            for(let i = 0; i < N - 1; i++) {
+                current.x += s * Math.cos(angle);
+                current.y += s * Math.sin(angle);
+                v.push({...current});
+                angle += 2 * Math.PI / N;
+            }
+            return v;
+        }
+
+        function rotatePoint(p, pivot, angle) {
+            let dx = p.x - pivot.x;
+            let dy = p.y - pivot.y;
+            let cos = Math.cos(angle);
+            let sin = Math.sin(angle);
+            return {
+                x: pivot.x + dx * cos - dy * sin,
+                y: pivot.y + dx * sin + dy * cos
+            };
+        }
+
+        // Calculate polygon state at a given step (1 to N-1) and progress (0.0 to 1.0)
+        function getPolygonState(N, step, progress) {
+            let v = getInitialVertices(N);
+            let theta = 2 * Math.PI / N;
+            
+            // Apply completed full rolls
+            for (let k = 1; k < step; k++) {
+                let pivot = v[k];
+                for (let i = 0; i < N; i++) {
+                    v[i] = rotatePoint(v[i], pivot, -theta);
+                }
+            }
+            
+            // Apply current partial roll
+            if (progress > 0) {
+                // Ensure we don't index out of bounds if finished
+                let pivotIdx = Math.min(step, N - 1);
+                let pivot = v[pivotIdx];
+                for (let i = 0; i < N; i++) {
+                    v[i] = rotatePoint(v[i], pivot, -theta * progress);
+                }
+            }
+            return v;
+        }
+
+        // Precompute all arcs for the path of V0 (Point A)
+        function precomputePath(N) {
+            let v = getInitialVertices(N);
+            let theta = 2 * Math.PI / N;
+            let arcs = [];
+            let totalDist = 0;
+
+            for (let k = 1; k < N; k++) {
+                let pivot = {x: v[k].x, y: v[k].y};
+                let A = {x: v[0].x, y: v[0].y};
+                
+                let dx = A.x - pivot.x;
+                let dy = A.y - pivot.y;
+                let radius = Math.sqrt(dx*dx + dy*dy);
+                let startAngle = Math.atan2(dy, dx);
+                let endAngle = startAngle - theta; // Clockwise
+                let arcLen = radius * theta;
+                totalDist += arcLen;
+
+                arcs.push({
+                    pivot: pivot,
+                    radius: radius,
+                    startAngle: startAngle,
+                    endAngle: endAngle,
+                    arcLen: arcLen,
+                    k: k
+                });
+
+                // Apply the full roll to update vertices for the next iteration
+                for (let i = 0; i < N; i++) {
+                    v[i] = rotatePoint(v[i], pivot, -theta);
+                }
+            }
+            return { arcs, totalDist };
+        }
+
+        // Exact formula for d(n)
+        function exactFormulaResult(N, s) {
+            let sum = 0;
+            let R_circum = s / (2 * Math.sin(Math.PI / N));
+            let theta = 2 * Math.PI / N;
+            
+            for(let k=1; k<N; k++) {
+                let r_k = 2 * R_circum * Math.sin(k * Math.PI / N);
+                sum += r_k * theta;
+            }
+            return sum;
+        }
+
+        // --- Core Logic ---
+
+        function updateMathInfo() {
+            let totalPerimeter = State.N * State.s;
+            els.nDisplay.textContent = `N=${State.N}, s=${State.s.toFixed(2)}`;
+            els.legendPerimeter.textContent = `구르는 다각형 (둘레: ${totalPerimeter.toFixed(2)})`;
+            
+            let displayStep = Math.min(State.currentStep, State.N - 1);
+            els.stepInfo.textContent = `${displayStep} / ${State.N - 1}`;
+            
+            let totalSteps = State.N - 1;
+            let overallProgress = ((State.currentStep - 1 + State.progress) / totalSteps) * 100;
+            if (State.status === 'finished') overallProgress = 100;
+            els.progressBar.style.width = `${Math.min(100, overallProgress)}%`;
+
+            let theta = 2 * Math.PI / State.N;
+            els.valTheta.innerHTML = `2&pi;/${State.N} = ${(theta * 180 / Math.PI).toFixed(1)}&deg;`;
+            
+            els.valExactDist.innerHTML = '';
+
+            if (State.pathInfo && displayStep <= State.pathInfo.arcs.length) {
+                let currentArc = State.pathInfo.arcs[displayStep - 1];
+                els.valR.textContent = currentArc.radius.toFixed(4);
+                
+                // Calculate drawn distance so far
+                let drawnDist = 0;
+                for(let i=0; i<displayStep-1; i++) {
+                    drawnDist += State.pathInfo.arcs[i].arcLen;
+                }
+                drawnDist += currentArc.radius * (theta * State.progress);
+                
+                if (State.status === 'finished') drawnDist = State.pathInfo.totalDist;
+                
+                els.valTotalDist.textContent = drawnDist.toFixed(4);
+                
+                // Final exact value
+                if (State.status === 'finished') {
+                    let exact = exactFormulaResult(State.N, State.s);
+                     els.valExactDist.innerHTML = `(이론적 정확도 확인: ${exact.toFixed(4)})`;
+                }
+            }
+
+            // Update k slider UI
+            els.kSlider.max = State.N - 1;
+            if (State.exploreK > State.N - 1) State.exploreK = State.N - 1;
+            els.kSlider.value = State.exploreK;
+            els.kDisplay.textContent = `k = ${State.exploreK}`;
+            els.subK.textContent = State.exploreK;
+
+            // Generate Rk list
+            let rkHtml = "";
+            let R_c = State.s / (2 * Math.sin(Math.PI / State.N));
+            for(let k=1; k<State.N; k++) {
+                let r_val = 2 * R_c * Math.sin(k * Math.PI / State.N);
+                let isActive = k === parseInt(State.exploreK) ? "bg-orange-100 text-orange-800 font-bold border-l-2 border-orange-500" : "text-slate-600 border-l-2 border-transparent";
+                rkHtml += `<div class="py-1.5 border-b border-slate-200/50 last:border-0 ${isActive} px-2 flex justify-between transition-colors">
+                    <span>A<sub>${k}</sub>A<sub>n</sub> (k=${k})</span>
+                    <span class="font-mono">r<sub>${k}</sub> = ${r_val.toFixed(4)}</span>
+                </div>`;
+            }
+            els.listRk.innerHTML = rkHtml;
+
+            // Current formula value
+            let curRk = 2 * R_c * Math.sin(State.exploreK * Math.PI / State.N);
+            els.valRkFormula.textContent = curRk.toFixed(4);
+        }
+
+        function resetSimulation() {
+            State.status = 'idle';
+            State.currentStep = 1;
+            State.progress = 0.0;
+            State.pathInfo = precomputePath(State.N);
+            
+            // Adjust k bounds if N shrank
+            if(State.exploreK >= State.N) State.exploreK = State.N - 1;
+            
+            els.btnPlay.innerHTML = `재생`;
+            els.btnPlay.classList.replace('bg-orange-500', 'bg-blue-600');
+            els.btnPlay.classList.replace('hover:bg-orange-600', 'hover:bg-blue-700');
+            
+            updateMathInfo();
+            draw();
+        }
+
+        // --- Rendering ---
+
+        function draw() {
+            const canvas = els.canvas;
+            const ctx = els.ctx;
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Calculate responsive scale and offset
+            // Scale dynamically based on total roll distance (N * s)
+            let totalDist = State.N * State.s;
+            let scale = Math.min(width * 0.8 / totalDist, 800); 
+            if(scale < 15) scale = 15; // Minimum scale safety
+            
+            let offsetX = width * 0.1; // 10% from left
+            let offsetY = height - 120; // from bottom
+
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, -scale); // Y up
+
+            // 1. Draw floor
+            ctx.lineWidth = 1 / scale;
+            ctx.beginPath();
+            ctx.moveTo(-State.s, 0);
+            ctx.lineTo(totalDist + State.s, 0);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.stroke();
+            
+            // Marks on floor for each side length
+            ctx.fillStyle = '#94a3b8';
+            for(let i=0; i<=State.N; i++) {
+                ctx.beginPath();
+                ctx.arc(i * State.s, 0, 3/scale, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            if (State.showLimit) {
+                // Draw ideal cycloid background (radius of rolling circle = total perimeter / 2pi)
+                ctx.beginPath();
+                let L = State.N * State.s;
+                let R_c = L / (2 * Math.PI);
+                for (let t = 0; t <= 2 * Math.PI; t += 0.05) {
+                    let x = R_c * (t - Math.sin(t));
+                    let y = R_c * (1 - Math.cos(t));
+                    if (t === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.3)'; // Indigo light
+                ctx.lineWidth = 3 / scale;
+                ctx.stroke();
+            }
+
+            // 2. Draw Initial Polygon (Faintly, at origin)
+            let initialV = getInitialVertices(State.N);
+            ctx.beginPath();
+            ctx.moveTo(initialV[0].x, initialV[0].y);
+            for(let i=1; i<State.N; i++) ctx.lineTo(initialV[i].x, initialV[i].y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(241, 245, 249, 0.5)'; // slate-100 trans
+            ctx.fill();
+            ctx.lineWidth = 1.5 / scale;
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)'; // slate-400
+            ctx.stroke();
+
+            // Draw line Ak to An (General formula visualization)
+            let k = parseInt(State.exploreK);
+            if(k >= 1 && k < State.N) {
+                let Ak = initialV[k];
+                let An = initialV[0]; // Point A is at 0 initially
+                
+                ctx.beginPath();
+                ctx.moveTo(An.x, An.y);
+                ctx.lineTo(Ak.x, Ak.y);
+                ctx.strokeStyle = 'rgba(249, 115, 22, 0.9)'; // orange-500
+                ctx.lineWidth = 2.5 / scale;
+                ctx.setLineDash([5/scale, 5/scale]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Highlight Ak
+                ctx.beginPath();
+                ctx.arc(Ak.x, Ak.y, 4/scale, 0, Math.PI*2);
+                ctx.fillStyle = '#f97316';
+                ctx.fill();
+
+                // Label Ak
+                ctx.save();
+                ctx.translate(Ak.x, Ak.y);
+                ctx.scale(1, -1); // Unflip text
+                ctx.font = `bold ${14/scale}px Pretendard, sans-serif`;
+                ctx.fillStyle = '#c2410c'; // orange-700
+                ctx.fillText(`A${k}`, -8/scale, 18/scale);
+                ctx.restore();
+
+                // Label An (A0) at origin
+                ctx.save();
+                ctx.translate(An.x, An.y);
+                ctx.scale(1, -1);
+                ctx.font = `bold ${14/scale}px Pretendard, sans-serif`;
+                ctx.fillStyle = '#1e40af';
+                ctx.fillText(`A_n (A)`, -30/scale, -10/scale);
+                ctx.restore();
+            }
+
+            // 3. Draw Path (Blue Arcs)
+            let displayStep = State.status === 'finished' ? State.N : State.currentStep;
+            
+            ctx.lineWidth = 3 / scale;
+            ctx.strokeStyle = '#3b82f6'; // Blue
+            ctx.lineCap = 'round';
+            
+            for (let i = 0; i < displayStep - 1; i++) {
+                let arc = State.pathInfo.arcs[i];
+                ctx.beginPath();
+                let steps = 30;
+                for(let j=0; j<=steps; j++) {
+                    let a = arc.startAngle - (j/steps) * (2*Math.PI/State.N);
+                    let x = arc.pivot.x + arc.radius * Math.cos(a);
+                    let y = arc.pivot.y + arc.radius * Math.sin(a);
+                    if(j===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                }
+                ctx.stroke();
+            }
+
+            // Current partial arc
+            if (State.status === 'playing' || State.status === 'paused' || State.status === 'idle') {
+                if (displayStep <= State.N - 1 && State.progress > 0) {
+                    let arc = State.pathInfo.arcs[displayStep - 1];
+                    ctx.beginPath();
+                    let steps = Math.max(2, Math.floor(30 * State.progress));
+                    for(let j=0; j<=steps; j++) {
+                        let a = arc.startAngle - (j/steps) * (2*Math.PI/State.N) * State.progress;
+                        let x = arc.pivot.x + arc.radius * Math.cos(a);
+                        let y = arc.pivot.y + arc.radius * Math.sin(a);
+                        if(j===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            // 4. Draw Rolling Polygon
+            let currentV = getPolygonState(State.N, displayStep, State.progress);
+            
+            ctx.beginPath();
+            ctx.moveTo(currentV[0].x, currentV[0].y);
+            for (let i = 1; i < State.N; i++) {
+                ctx.lineTo(currentV[i].x, currentV[i].y);
+            }
+            ctx.closePath();
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; 
+            ctx.fill();
+            ctx.lineWidth = 2 / scale;
+            ctx.strokeStyle = '#1e293b'; // slate-800
+            ctx.stroke();
+
+            // Draw Radius Line (Green Dashed) - Realtime Pivot to A
+            if (displayStep <= State.N - 1 && State.status !== 'finished') {
+                let pivot = currentV[displayStep];
+                let A = currentV[0];
+                
+                ctx.beginPath();
+                ctx.moveTo(pivot.x, pivot.y);
+                ctx.lineTo(A.x, A.y);
+                ctx.strokeStyle = '#22c55e'; // Green-500
+                ctx.lineWidth = 2.5 / scale;
+                ctx.setLineDash([6 / scale, 6 / scale]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw Pivot point
+                ctx.beginPath();
+                ctx.arc(pivot.x, pivot.y, 5/scale, 0, 2*Math.PI);
+                ctx.fillStyle = '#ef4444'; // Red-500
+                ctx.fill();
+            }
+
+            // Draw Point A (always)
+            ctx.beginPath();
+            ctx.arc(currentV[0].x, currentV[0].y, 6/scale, 0, 2*Math.PI);
+            ctx.fillStyle = '#3b82f6'; // Blue-500
+            ctx.fill();
+            ctx.lineWidth = 1.5/scale;
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        // --- Animation Loop ---
+        
+        let lastTime = 0;
+        function animate(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            let dt = (timestamp - lastTime) / 1000; // seconds
+            lastTime = timestamp;
+
+            if (State.status === 'playing') {
+                // Adjust speed based on user setting
+                let rate = State.speed;
+                // Auto-accelerate for very large N so it doesn't take forever
+                if (State.N > 10) rate *= (State.N / 5); 
+                
+                State.progress += rate * dt;
+
+                if (State.progress >= 1.0) {
+                    State.progress = 0.0;
+                    State.currentStep++;
+                    
+                    if (State.currentStep >= State.N) {
+                        State.status = 'finished';
+                        State.currentStep = State.N;
+                        els.btnPlay.innerHTML = `재생`;
+                        els.btnPlay.classList.replace('bg-orange-500', 'bg-blue-600');
+                        els.btnPlay.classList.replace('hover:bg-orange-600', 'hover:bg-blue-700');
+                    }
+                }
+                
+                updateMathInfo();
+                draw();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners ---
+
+        function handleConfigChange() {
+            let n = parseInt(els.nSlider.value);
+            let s = parseFloat(els.sSlider.value);
+            
+            if(n < 3) n = 3;
+            if(n > 100) n = 100;
+            if(s <= 0) s = 0.1;
+
+            State.N = n;
+            State.s = s;
+            State.showLimit = false; // Turn off limit mode on manual change
+            
+            els.nSlider.value = n;
+            els.nNum.value = n;
+            els.sSlider.value = s.toFixed(1);
+            els.sNum.value = s.toFixed(1);
+            
+            resetSimulation();
+        }
+
+        els.nSlider.addEventListener('input', () => { els.nNum.value = els.nSlider.value; handleConfigChange(); });
+        els.nNum.addEventListener('change', () => { els.nSlider.value = els.nNum.value; handleConfigChange(); });
+        
+        els.sSlider.addEventListener('input', () => { els.sNum.value = els.sSlider.value; handleConfigChange(); });
+        els.sNum.addEventListener('change', () => { els.sSlider.value = els.sNum.value; handleConfigChange(); });
+
+        els.kSlider.addEventListener('input', (e) => {
+            State.exploreK = parseInt(e.target.value);
+            updateMathInfo();
+            draw();
+        });
+
+        els.speed.addEventListener('input', (e) => {
+            State.speed = parseFloat(e.target.value);
+        });
+
+        els.btnPlay.addEventListener('click', () => {
+            if (State.status === 'finished') {
+                resetSimulation();
+                State.status = 'playing';
+            } else if (State.status === 'playing') {
+                State.status = 'paused';
+            } else {
+                State.status = 'playing';
+            }
+            
+            if (State.status === 'playing') {
+                els.btnPlay.innerHTML = `일시정지`;
+                els.btnPlay.classList.replace('bg-blue-600', 'bg-orange-500');
+                els.btnPlay.classList.replace('hover:bg-blue-700', 'hover:bg-orange-600');
+            } else {
+                els.btnPlay.innerHTML = `재생`;
+                els.btnPlay.classList.replace('bg-orange-500', 'bg-blue-600');
+                els.btnPlay.classList.replace('hover:bg-orange-600', 'hover:bg-blue-700');
+            }
+            updateMathInfo();
+            draw();
+        });
+
+        els.btnStep.addEventListener('click', () => {
+            if (State.status === 'finished') return;
+            State.status = 'paused';
+            els.btnPlay.innerHTML = `재생`;
+            els.btnPlay.classList.replace('bg-orange-500', 'bg-blue-600');
+            els.btnPlay.classList.replace('hover:bg-orange-600', 'hover:bg-blue-700');
+            
+            State.currentStep++;
+            State.progress = 0.0;
+            if (State.currentStep >= State.N) {
+                State.status = 'finished';
+                State.currentStep = State.N;
+            }
+            updateMathInfo();
+            draw();
+        });
+
+        els.btnReset.addEventListener('click', resetSimulation);
+
+        // Resize handling
+        window.addEventListener('resize', () => {
+            els.canvas.width = els.canvas.parentElement.clientWidth * window.devicePixelRatio;
+            els.canvas.height = els.canvas.parentElement.clientHeight * window.devicePixelRatio;
+            draw();
+        });
+
+        // Limit Mode Trigger
+        els.btnLimit.addEventListener('click', () => {
+            // N을 크게, 전체 둘레는 1.0으로 고정하여 사이클로이드 극한과 비교
+            State.N = 60;
+            State.s = 1.0 / 60;
+            State.showLimit = true;
+            
+            els.nSlider.value = 60;
+            els.nNum.value = 60;
+            els.sSlider.value = State.s;
+            els.sNum.value = State.s.toFixed(3);
+            
+            State.speed = 4.0;
+            els.speed.value = 4.0;
+            
+            resetSimulation();
+            State.status = 'playing';
+            els.btnPlay.innerHTML = `일시정지`;
+            els.btnPlay.classList.replace('bg-blue-600', 'bg-orange-500');
+            els.btnPlay.classList.replace('hover:bg-blue-700', 'hover:bg-orange-600');
+        });
+
+        // Initial setup
+        els.canvas.width = els.canvas.parentElement.clientWidth * window.devicePixelRatio;
+        els.canvas.height = els.canvas.parentElement.clientHeight * window.devicePixelRatio;
+        resetSimulation();
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>
