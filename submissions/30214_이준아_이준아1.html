@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>W(k) 정밀 시뮬레이터 - 속도 최적화</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 900px; width: 100%; }
+        h1 { color: #1a73e8; text-align: center; margin-bottom: 10px; }
+        .controls { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 10px; flex-wrap: wrap; align-items: center; }
+        .status-panel { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; text-align: center; }
+        .stat-box { background: #e8f0fe; padding: 10px; border-radius: 8px; border: 1px solid #d2e3fc; }
+        .stat-val { display: block; font-size: 20px; font-weight: bold; color: #1967d2; }
+        .ball-container { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; min-height: 120px; padding: 20px; border: 2px dashed #ccc; border-radius: 10px; margin-bottom: 20px; }
+        .ball { width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; transition: all 0.1s; border: 2px solid rgba(0,0,0,0.1); }
+        .red { background-color: #ff4757; }
+        .blue { background-color: #2f3542; }
+        .empty { background-color: #f1f2f6; color: #ced4da; border: 1px dashed #ced4da; }
+        .highlight { transform: scale(1.3); border: 3px solid #ffa502; box-shadow: 0 0 15px #ffa502; z-index: 10; }
+        .log { height: 180px; overflow-y: auto; background: #2f3542; color: #ced4da; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 13px; line-height: 1.5; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-start { background: #1a73e8; color: white; }
+        .btn-stop { background: #ea4335; color: white; }
+        input[type="range"] { width: 150px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Van der Waerden Number Finder</h1>
+    
+    <div class="controls">
+        <div>
+            <label>길이 <b>k</b>: </label>
+            <input type="number" id="inputK" value="3" min="2" max="5" style="width:50px; padding:5px;">
+        </div>
+        <div style="margin-left: 15px;">
+            <label>지연 시간: </label>
+            <input type="range" id="speedRange" min="0" max="500" value="150">
+            <span id="speedVal">150ms</span>
+        </div>
+        <button class="btn-start" id="startBtn" onclick="startSim()">탐색 시작</button>
+        <button class="btn-stop" id="stopBtn" onclick="stopSim()" style="display:none;">중지</button>
+    </div>
+
+    <div class="status-panel">
+        <div class="stat-box">검사 중인 n<span class="stat-val" id="statN">-</span></div>
+        <div class="stat-box">현재 상태<span class="stat-val" id="statStatus">대기 중</span></div>
+        <div class="stat-box">결과 W(k)<span class="stat-val" id="statResult" style="color: #d93025;">-</span></div>
+    </div>
+
+    <div class="ball-container" id="ballStage"></div>
+
+    <div class="log" id="logBox">탐색을 시작하면 백트래킹 알고리즘이 W(k)를 찾습니다.</div>
+</div>
+
+<script>
+    let k = 3, n = 3;
+    let isRunning = false;
+    let stopRequested = false;
+
+    const logBox = document.getElementById('logBox');
+    const ballStage = document.getElementById('ballStage');
+    const speedRange = document.getElementById('speedRange');
+    const speedVal = document.getElementById('speedVal');
+
+    speedRange.oninput = () => speedVal.innerText = speedRange.value + "ms";
+
+    function addLog(msg, color = "#ced4da") {
+        const div = document.createElement('div');
+        div.style.color = color;
+        div.innerHTML = `> ${msg}`;
+        logBox.prepend(div);
+    }
+
+    function renderBalls(currentArr, targetN, highlightIndices = []) {
+        ballStage.innerHTML = '';
+        for (let i = 0; i < targetN; i++) {
+            const ball = document.createElement('div');
+            if (i < currentArr.length) {
+                ball.className = `ball ${currentArr[i] === 0 ? 'red' : 'blue'}`;
+                if (highlightIndices.includes(i)) ball.classList.add('highlight');
+            } else {
+                ball.className = `ball empty`;
+            }
+            ball.innerText = i + 1;
+            ballStage.appendChild(ball);
+        }
+    }
+
+    function checkAP(arr, kLen) {
+        const len = arr.length;
+        if (len < kLen) return null;
+        const lastIdx = len - 1;
+        const lastColor = arr[lastIdx];
+
+        for (let d = 1; d * (kLen - 1) <= lastIdx; d++) {
+            let match = true;
+            let indices = [lastIdx];
+            for (let j = 1; j < kLen; j++) {
+                let prevIdx = lastIdx - (j * d);
+                if (arr[prevIdx] !== lastColor) {
+                    match = false;
+                    break;
+                }
+                indices.push(prevIdx);
+            }
+            if (match) return indices;
+        }
+        return null;
+    }
+
+    async function startSim() {
+        k = parseInt(document.getElementById('inputK').value);
+        n = k;
+        isRunning = true;
+        stopRequested = false;
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'inline-block';
+        
+        while (isRunning) {
+            document.getElementById('statN').innerText = n;
+            addLog(`n=${n} 검증 중... (모든 조합에 등차수열이 있는지 확인)`, "#ffffff");
+            
+            let result = await solve(0, [], n);
+            
+            if (result === "FOUND_CE") {
+                addLog(`n=${n}에서 반례(Safe 배치)를 찾았습니다. $W(${k}) > ${n}$`, "#ffa502");
+                n++;
+                // 공 추가 시 지연 시간의 3배만큼 대기
+                await sleep(parseInt(speedRange.value) * 3);
+            } else if (result === "NO_CE") {
+                document.getElementById('statResult').innerText = n;
+                addLog(`모든 시도가 등차수열로 막혔습니다! W(${k}) = ${n}`, "#2ed573");
+                isRunning = false;
+            } else {
+                break; 
+            }
+        }
+        stopSim();
+    }
+
+    async function solve(depth, currentArr, targetN) {
+        if (stopRequested) return "STOP";
+        if (depth === targetN) {
+            renderBalls(currentArr, targetN);
+            return "FOUND_CE"; 
+        }
+
+        for (let color of [0, 1]) { 
+            if (stopRequested) return "STOP";
+            currentArr.push(color);
+            let ap = checkAP(currentArr, k);
+            
+            renderBalls(currentArr, targetN, ap || []);
+            document.getElementById('statStatus').innerText = (color === 0 ? "빨강" : "파랑") + " 시도";
+            await sleep(parseInt(speedRange.value));
+
+            if (ap) {
+                currentArr.pop();
+                continue; 
+            }
+
+            let res = await solve(depth + 1, currentArr, targetN);
+            if (res === "FOUND_CE" || res === "STOP") return res;
+            currentArr.pop();
+        }
+        return "NO_CE";
+    }
+
+    function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+    function stopSim() {
+        isRunning = false;
+        stopRequested = true;
+        document.getElementById('startBtn').style.display = 'inline-block';
+        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('statStatus').innerText = "중지됨";
+    }
+</script>
+</body>
+</html>

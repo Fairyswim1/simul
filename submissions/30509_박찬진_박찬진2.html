@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>정사각형 내 삼각형 기하학 시뮬레이션</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            margin: 20px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        h2 { color: #2c3e50; }
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+        /* 왜곡을 방지하기 위해 캔버스의 가로세로 비율을 CSS로 1:1 강제 고정 */
+        canvas {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 1 / 1; /* 가로세로 1:1 비율 유지 */
+            display: block;
+        }
+        .control-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            min-width: 320px;
+            flex: 1;
+            max-width: 450px;
+        }
+        .slider-container {
+            margin: 20px 0;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .data-display {
+            margin-top: 15px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>제20회 모의고사 1번 문제 시뮬레이션</h2>
+    <p>슬라이더를 움직여 각도(θ)에 따른 점 P, Q의 움직임과 넓이 변화를 관찰하세요.</p>
+
+    <div class="container">
+        <canvas id="geoCanvas" width="500" height="500"></canvas>
+
+        <div class="control-box">
+            <h3>컨트롤러</h3>
+            <div class="slider-container">
+                <label for="thetaSlider">각도 θ: <span id="degreeVal" class="highlight">15</span>°</label>
+                <input type="range" id="thetaSlider" min="0.5" max="44.5" step="0.1" value="15">
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:#666;">
+                    <span>0°</span>
+                    <span>30° (π/6)</span>
+                    <span>45° (π/4)</span>
+                </div>
+            </div>
+
+            <hr>
+
+            <h3>실시간 데이터 분석</h3>
+            <div class="data-display">
+                <div><strong>선분 길이:</strong></div>
+                <ul>
+                    <li>|BP| (tan θ) = <span id="valBP">0</span></li>
+                    <li>|CQ| = <span id="valCQ">0</span></li>
+                </ul>
+                
+                <div style="margin-top:10px;"><strong>(1)번 조건 확인:</strong></div>
+                <ul>
+                    <li><span style="color:#2980b9;">|BP| × |CQ|</span> = <span id="valProd" class="highlight">0</span></li>
+                    <li style="color:#7f8c8d;">목표값 1/9 = 0.1111...</li>
+                </ul>
+
+                <div style="margin-top:10px;"><strong>(2)번 넓이 비 확인:</strong></div>
+                <ul>
+                    <li>직각삼각형 S₁ (APQ) = <span id="valS1">0</span></li>
+                    <li>직각삼각형 S₂ (PCQ) = <span id="valS2">0</span></li>
+                    <li><span style="color:#27ae60;">넓이 비율 (S₂ / S₁)</span> = <span id="valRatio" class="highlight">0</span></li>
+                    <li style="color:#7f8c8d;">이론상 최댓값 (√2-1)/2 ≈ 0.2071</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('geoCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('thetaSlider');
+
+        const degShow = document.getElementById('degreeVal');
+        const valBP = document.getElementById('valBP');
+        const valCQ = document.getElementById('valCQ');
+        const valProd = document.getElementById('valProd');
+        const valS1 = document.getElementById('valS1');
+        const valS2 = document.getElementById('valS2');
+        const valRatio = document.getElementById('valRatio');
+
+        // 여백 및 정사각형의 실제 픽셀 크기 동일하게 매칭
+        const offset = 70;
+        const size = 350; // 가로 세로 모두 350픽셀로 드로잉 공간 지정
+
+        function draw() {
+            const deg = parseFloat(slider.value);
+            degShow.innerText = deg.toFixed(1);
+
+            const theta = deg * Math.PI / 180;
+
+            const bp = Math.tan(theta);
+            const pc = 1 - bp;
+            const cq = pc * Math.tan(theta);
+            
+            const prod = bp * cq;
+
+            const s1 = (1 - Math.tan(theta)) / (2 * Math.cos(theta) * Math.cos(theta));
+            const s2 = (Math.tan(theta) * Math.pow(1 - Math.tan(theta), 2)) / 2;
+            const ratio = s2 / s1;
+
+            valBP.innerText = bp.toFixed(4);
+            valCQ.innerText = cq.toFixed(4);
+            valProd.innerText = prod.toFixed(4);
+            valS1.innerText = s1.toFixed(4);
+            valS2.innerText = s2.toFixed(4);
+            valRatio.innerText = ratio.toFixed(4);
+
+            if (Math.abs(prod - 1/9) < 0.002) valProd.style.color = '#e67e22'; 
+            else valProd.style.color = '#e74c3c';
+
+            if (Math.abs(deg - 22.5) < 0.5) valRatio.style.color = '#2ecc71';
+            else valRatio.style.color = '#e74c3c';
+
+            // 정사각형 좌표 (Ax, Ay부터 Dx, Dy까지 철저히 가로세로 크기를 size로 통일)
+            const Ax = offset,          Ay = offset;
+            const Bx = offset,          By = offset + size;
+            const Cx = offset + size,    Cy = offset + size;
+            const Dx = offset + size,    Dy = offset;
+
+            const Px = offset + (bp * size), Py = offset + size;
+            const Qx = offset + size,        Qy = offset + size - (cq * size);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 외곽선 정사각형 그리기
+            ctx.strokeStyle = '#34495e';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(offset, offset, size, size);
+
+            // 알파벳 라벨링
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.fillText('A', Ax - 20, Ay);
+            ctx.fillText('B', Bx - 20, By + 20);
+            ctx.fillText('C', Cx + 10, Cy + 20);
+            ctx.fillText('D', Dx + 10, Dy);
+            ctx.fillText('P', Px - 5, Py + 20);
+            ctx.fillText('Q', Qx + 10, Qy + 5);
+
+            // S1 삼각형 내부 색상 및 선
+            ctx.fillStyle = 'rgba(41, 128, 185, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(Ax, Ay);
+            ctx.lineTo(Px, Py);
+            ctx.lineTo(Qx, Qy);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.strokeStyle = '#2980b9';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // S2 삼각형 내부 색상 및 선
+            ctx.fillStyle = 'rgba(39, 174, 96, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(Px, Py);
+            ctx.lineTo(Cx, Cy);
+            ctx.lineTo(Qx, Qy);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.strokeStyle = '#27ae60';
+            ctx.stroke();
+
+            // 선분 AP 재확인 선
+            ctx.strokeStyle = '#2980b9';
+            ctx.beginPath();
+            ctx.moveTo(Ax, Ay);
+            ctx.lineTo(Px, Py);
+            ctx.stroke();
+
+            // 각도 각 호(Arc) 그리기
+            ctx.strokeStyle = '#e67e22';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(Ax, Ay, 30, Math.PI/2, Math.PI/2 - theta, true);
+            ctx.stroke();
+            ctx.fillStyle = '#e67e22';
+            ctx.font = '13px sans-serif';
+            ctx.fillText('θ', Ax + 10, Ay + 45);
+
+            // 직각 기호 표시 (∠APQ = 90도)
+            const len = 12;
+            const vAx = Ax - Px, vAy = Ay - Py;
+            const vQx = Qx - Px, vQy = Qy - Py;
+            const nAx = vAx / Math.hypot(vAx, vAy), nAy = vAy / Math.hypot(vAx, vAy);
+            const nQx = vQx / Math.hypot(vQx, vQy), nQy = vQy / Math.hypot(vQx, vQy);
+
+            ctx.strokeStyle = '#7f8c8d';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(Px + nAx*len, Py + nAy*len);
+            ctx.lineTo(Px + nAx*len + nQx*len, Py + nAy*len + nQy*len);
+            ctx.lineTo(Px + nQx*len, Py + nQy*len);
+            ctx.stroke();
+
+            // 움직이는 점 P, Q 붉은 점 포인트
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath(); ctx.arc(Px, Py, 4, 0, 2*Math.PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(Qx, Qy, 4, 0, 2*Math.PI); ctx.fill();
+            
+            // 삼각형 중앙 텍스트라벨
+            ctx.fillStyle = '#2980b9';
+            ctx.font = 'italic 16px sans-serif';
+            ctx.fillText('S₁', (Ax+Px+Qx)/3, (Ay+Py+Qy)/3);
+            ctx.fillStyle = '#27ae60';
+            ctx.fillText('S₂', (Px+Cx+Qx)/3, (Py+Cy+Qy)/3 - 5);
+        }
+
+        slider.addEventListener('input', draw);
+        draw();
+    </script>
+</body>
+</html>

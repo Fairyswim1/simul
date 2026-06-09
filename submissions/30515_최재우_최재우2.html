@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>개미 시간 적분 문제 풀이 도우미</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      background: #f3f6fb;
+      color: #111827;
+      line-height: 1.55;
+    }
+    header {
+      padding: 22px 26px 16px;
+      background: #111827;
+      color: white;
+    }
+    header h1 { margin: 0 0 8px; font-size: 26px; }
+    header p { margin: 0; color: #d1d5db; font-size: 15px; }
+
+    main {
+      display: grid;
+      grid-template-columns: 330px minmax(520px, 1fr) 430px;
+      gap: 14px;
+      padding: 14px;
+      align-items: start;
+    }
+    .card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      overflow: hidden;
+    }
+    .card-body { padding: 16px; }
+    .sticky { position: sticky; top: 12px; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    h3 { margin: 0 0 6px; font-size: 15px; }
+    p { margin: 0 0 8px; }
+    .small { color: #6b7280; font-size: 13px; }
+
+    .control { margin-bottom: 16px; }
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .badge {
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    input[type="range"] { width: 100%; }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 800;
+      color: white;
+      background: #111827;
+      cursor: pointer;
+    }
+    button:hover { background: #374151; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+    .btn-blue { background: #2563eb; }
+    .btn-blue:hover { background: #1d4ed8; }
+    .btn-green { background: #059669; }
+    .btn-green:hover { background: #047857; }
+
+    .box {
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .math {
+      font-family: "Times New Roman", serif;
+      font-size: 17px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 9px 10px;
+      margin: 7px 0;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .important {
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+    .important h3 { color: #9a3412; }
+    .success {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+    }
+    .success h3 { color: #047857; }
+    .danger {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+    .danger h3 { color: #b91c1c; }
+
+    svg {
+      width: 100%;
+      height: 560px;
+      display: block;
+      background: #ffffff;
+      border-radius: 14px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .tab {
+      background: #e5e7eb;
+      color: #374151;
+      padding: 9px 6px;
+      font-size: 13px;
+    }
+    .tab.active {
+      background: #111827;
+      color: white;
+    }
+    .step-card { display: none; }
+    .step-card.active { display: block; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .flow-item {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 9px;
+      align-items: center;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 9px;
+      background: #f9fafb;
+    }
+    .num {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      background: #2563eb;
+      color: white;
+      display: grid;
+      place-items: center;
+      font-weight: 900;
+    }
+    .flow-item b { display: block; font-size: 14px; }
+    .flow-item span { display: block; font-size: 13px; color: #4b5563; }
+
+    .answer {
+      background: linear-gradient(135deg, #111827, #374151);
+      color: white;
+      border-radius: 16px;
+      padding: 14px;
+      margin-top: 10px;
+    }
+    .answer .math {
+      color: #111827;
+      background: white;
+      border: none;
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .check-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .check {
+      padding: 10px;
+      border-radius: 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      text-align: center;
+    }
+    .check .name { color: #1d4ed8; font-size: 12px; font-weight: 800; }
+    .check .val { font-weight: 900; font-size: 18px; }
+
+    .note-line {
+      border-left: 5px solid #2563eb;
+      padding: 9px 10px;
+      background: #eff6ff;
+      border-radius: 10px;
+      margin: 8px 0;
+      font-size: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      main { grid-template-columns: 1fr; }
+      .sticky { position: static; }
+      svg { height: 460px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>개미의 도착 시간 문제 풀이 도우미</h1>
+    <p>목표: 그림을 보는 문제에서 끝나지 않고, 왜 답이 S(1/3)과 A(2/3,1)의 합성식으로 나오는지 단계별로 확인한다.</p>
+  </header>
+
+  <main>
+    <section class="card sticky">
+      <div class="card-body">
+        <h2>1. 조작 및 관찰</h2>
+        <div class="control">
+          <label>현재 y좌표 h <span class="badge" id="hBadge">1/3</span></label>
+          <input id="hSlider" type="range" min="0" max="1" step="0.001" value="0.333333" />
+          <p class="small">h를 움직이며 집까지 남은 길이 S(h)가 무엇을 뜻하는지 확인한다.</p>
+        </div>
+
+        <div class="check-grid">
+          <div class="check"><div class="name">현재 h</div><div class="val" id="hVal">0.333</div></div>
+          <div class="check"><div class="name">속도 크기</div><div class="val" id="vVal">1.054</div></div>
+        </div>
+
+        <div class="box important" style="margin-top:12px;">
+          <h3>부호가 가장 중요</h3>
+          <p>개미는 집으로 가므로 남은 길이 s(t)는 감소한다. 따라서 ds/dt는 음수로 잡는다.</p>
+          <div class="math">ds/dt = -√(y² - 3y + 2)</div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-blue" onclick="animateToHome()">집까지 이동</button>
+          <button class="btn-green" onclick="resetAnt()">처음 위치</button>
+        </div>
+
+        <div class="box">
+          <h3>이 시뮬레이터의 핵심</h3>
+          <p class="small">그래프 모양 자체보다 <b>s(t)=S(y(t))</b>를 미분하고, 시간을 적분식으로 바꾸는 흐름을 이해하는 것이 목적이다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-body">
+        <h2>2. 상황 그림</h2>
+        <svg viewBox="0 0 820 560" aria-label="개미 이동 곡선 시각화">
+          <rect x="0" y="0" width="820" height="560" fill="#ffffff"/>
+
+          <line x1="90" y1="490" x2="750" y2="490" stroke="#111827" stroke-width="3"/>
+          <line x1="120" y1="515" x2="120" y2="55" stroke="#111827" stroke-width="3"/>
+          <text x="758" y="498" font-size="22">x</text>
+          <text x="128" y="55" font-size="22">y</text>
+          <text x="96" y="514" font-size="20">O</text>
+
+          <line x1="120" y1="100" x2="182" y2="100" stroke="#9ca3af" stroke-dasharray="5 5" stroke-width="2"/>
+          <text x="92" y="107" font-size="23">1</text>
+          <line id="hGuide" x1="120" y1="360" x2="270" y2="360" stroke="#9ca3af" stroke-dasharray="5 5" stroke-width="2"/>
+          <text id="hTextSvg" x="92" y="367" font-size="23">h</text>
+
+          <path id="pathFull" d="M180,100 C220,170 250,230 315,262 C395,302 465,300 530,350 C585,392 632,410 690,490" fill="none" stroke="#d1d5db" stroke-width="7" stroke-linecap="round"/>
+          <path id="pathLeft" d="M180,100 C220,170 250,230 315,262 C395,302 465,300 530,350 C585,392 632,410 690,490" fill="none" stroke="#111827" stroke-width="4" stroke-linecap="round"/>
+          <path id="pathRemain" d="M180,100 C220,170 250,230 315,262 C395,302 465,300 530,350 C585,392 632,410 690,490" fill="none" stroke="#2563eb" stroke-width="6" stroke-linecap="round"/>
+
+          <circle cx="180" cy="100" r="10" fill="#111827"/>
+          <text x="195" y="96" font-size="18" font-weight="700">출발 y=1</text>
+
+          <circle id="antDot" cx="0" cy="0" r="12" fill="#dc2626"/>
+          <text id="antLabel" x="0" y="0" font-size="18" fill="#dc2626" font-weight="800">현재 위치</text>
+
+          <circle cx="690" cy="490" r="18" fill="white" stroke="#111827" stroke-width="3"/>
+          <line x1="678" y1="478" x2="702" y2="502" stroke="#111827" stroke-width="3"/>
+          <line x1="702" y1="478" x2="678" y2="502" stroke="#111827" stroke-width="3"/>
+          <text x="708" y="480" font-size="22" font-weight="700">개미집 y=0</text>
+
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L6,3 z" fill="#111827"/>
+            </marker>
+          </defs>
+          <line x1="205" y1="140" x2="230" y2="175" stroke="#111827" stroke-width="3" marker-end="url(#arrow)"/>
+
+          <rect x="430" y="50" width="335" height="138" rx="18" fill="#eff6ff" stroke="#bfdbfe"/>
+          <text x="452" y="84" font-size="20" font-weight="800" fill="#1d4ed8">파란색으로 봐야 할 것</text>
+          <text x="452" y="115" font-size="17" fill="#1f2937">현재 위치에서 집까지 남은 곡선 길이</text>
+          <text x="452" y="145" font-size="22" font-weight="900" fill="#1d4ed8">s(t) = S(y(t))</text>
+          <text x="452" y="170" font-size="16" fill="#4b5563">시간이 지나면 y도 줄고, 남은 길이도 줄어든다.</text>
+        </svg>
+      </div>
+    </section>
+
+    <section class="card sticky">
+      <div class="card-body">
+        <h2>3. 풀이 단계</h2>
+        <div class="tabs">
+          <button class="tab active" onclick="showStep(0)">전체</button>
+          <button class="tab" onclick="showStep(1)">부호</button>
+          <button class="tab" onclick="showStep(2)">적분</button>
+          <button class="tab" onclick="showStep(3)">A연결</button>
+        </div>
+
+        <div id="step0" class="step-card active">
+          <div class="flow">
+            <div class="flow-item"><div class="num">1</div><div><b>남은 길이 s를 y로 표현</b><span>s(t)=S(y(t))</span></div></div>
+            <div class="flow-item"><div class="num">2</div><div><b>개미가 집으로 가므로 s 감소</b><span>ds/dt는 음수</span></div></div>
+            <div class="flow-item"><div class="num">3</div><div><b>체인룰로 y에 대한 적분식 생성</b><span>S'(y)가 등장</span></div></div>
+            <div class="flow-item"><div class="num">4</div><div><b>h=1-y 치환</b><span>A(2/3,1)의 모양으로 바꿈</span></div></div>
+            <div class="flow-item"><div class="num">5</div><div><b>부분적분</b><span>A에 들어 있는 식은 미분 꼴</span></div></div>
+          </div>
+          <div class="answer">
+            <div>최종적으로 얻는 형태</div>
+            <div class="math">T = 3S(1/3)/√10 − A(2/3,1)/2</div>
+          </div>
+        </div>
+
+        <div id="step1" class="step-card">
+          <div class="box important">
+            <h3>왜 음의 제곱근인가?</h3>
+            <p>문제는 속도의 제곱을 준다. 그래서 부호를 직접 판단해야 한다.</p>
+            <div class="math">(ds/dt)² = y² − 3y + 2</div>
+            <p>집까지 남은 길이 s(t)는 시간이 지날수록 줄어든다. 따라서 ds/dt는 음수다.</p>
+            <div class="math">ds/dt = −√(y² − 3y + 2)</div>
+          </div>
+          <div class="note-line">여기서 부호를 잘못 잡으면 최종 시간의 부호가 틀어진다.</div>
+        </div>
+
+        <div id="step2" class="step-card">
+          <div class="box">
+            <h3>시간 적분식 만들기</h3>
+            <p>s(t)=S(y(t))이므로 체인룰을 적용한다.</p>
+            <div class="math">ds/dt = S'(y)·dy/dt</div>
+            <p>이를 시간 미소량으로 정리하면 다음 흐름이 된다.</p>
+            <div class="math">dt = −S'(y)dy / √(y²−3y+2)</div>
+            <p>개미는 y=1/3에서 y=0으로 내려가므로 적분 구간을 정리하면</p>
+            <div class="math">T = ∫₀¹ᐟ³ S'(h)/√((1−h)(2−h)) dh</div>
+          </div>
+        </div>
+
+        <div id="step3" class="step-card">
+          <div class="box success">
+            <h3>A(α,β)와 연결하는 핵심</h3>
+            <p>A에는 S(1-y)가 들어 있다. 따라서 h=1-y로 치환한다.</p>
+            <div class="math">T = ∫₂ᐟ³¹ S'(1-y)/√(y²+y) dy</div>
+            <p>그다음 아래 미분꼴을 이용해 부분적분한다.</p>
+            <div class="math">d/dy[1/√(y²+y)] = −(2y+1)/(2(y²+y)³ᐟ²)</div>
+            <p>이 식 때문에 문제에서 A(α,β)가 주어진 것이다.</p>
+          </div>
+          <div class="box danger">
+            <h3>자주 틀리는 부분</h3>
+            <p>부분적분 뒤 끝값에서 S(0)=0을 사용해야 한다. 집에 도착한 지점에서는 남은 곡선 길이가 0이기 때문이다.</p>
+          </div>
+        </div>
+
+        <div class="box important">
+          <h3>답안 작성 순서</h3>
+          <p class="small">부호 결정 → 체인룰 → 시간 적분식 → h=1-y 치환 → 부분적분 → S(0)=0 대입 순서로 쓰면 된다.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const hSlider = document.getElementById('hSlider');
+    const hBadge = document.getElementById('hBadge');
+    const hVal = document.getElementById('hVal');
+    const vVal = document.getElementById('vVal');
+    const hGuide = document.getElementById('hGuide');
+    const hTextSvg = document.getElementById('hTextSvg');
+    const antDot = document.getElementById('antDot');
+    const antLabel = document.getElementById('antLabel');
+    const pathRemain = document.getElementById('pathRemain');
+    const pathFull = document.getElementById('pathFull');
+
+    function fmt(x) { return Number(x).toFixed(3).replace(/0+$/, '').replace(/\.$/, ''); }
+
+    function setPathProgress(h) {
+      const total = pathRemain.getTotalLength();
+      const progressFromStart = 1 - h;
+      const p = Math.max(0, Math.min(1, progressFromStart));
+      const point = pathRemain.getPointAtLength(total * p);
+      antDot.setAttribute('cx', point.x);
+      antDot.setAttribute('cy', point.y);
+      antLabel.setAttribute('x', point.x + 16);
+      antLabel.setAttribute('y', point.y - 8);
+
+      pathRemain.style.strokeDasharray = total;
+      pathRemain.style.strokeDashoffset = total * p;
+    }
+
+    function update() {
+      const h = parseFloat(hSlider.value);
+      const speed = Math.sqrt(Math.max(0, (1-h)*(2-h)));
+      hBadge.textContent = Math.abs(h - 1/3) < 0.002 ? '1/3' : fmt(h);
+      hVal.textContent = fmt(h);
+      vVal.textContent = fmt(speed);
+
+      const yPx = 490 - 390 * h;
+      hGuide.setAttribute('y1', yPx);
+      hGuide.setAttribute('y2', yPx);
+      hTextSvg.setAttribute('y', yPx + 7);
+      setPathProgress(h);
+    }
+
+    function animateToHome() {
+      const start = parseFloat(hSlider.value);
+      const duration = 1800;
+      const t0 = performance.now();
+      function frame(now) {
+        const p = Math.min((now - t0) / duration, 1);
+        const eased = 1 - Math.pow(1-p, 3);
+        hSlider.value = start * (1 - eased);
+        update();
+        if (p < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function resetAnt() {
+      hSlider.value = 1/3;
+      update();
+    }
+
+    function showStep(n) {
+      document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', i === n));
+      document.querySelectorAll('.step-card').forEach((el, i) => el.classList.toggle('active', i === n));
+    }
+
+    hSlider.addEventListener('input', update);
+    update();
+  </script>
+</body>
+</html>

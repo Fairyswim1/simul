@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>정사각형 PQRS 분석 시뮬레이터</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px; width: 18px;
+      border-radius: 50%;
+      background: #4f46e5;
+      cursor: pointer;
+      margin-top: -6px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.3);
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%; height: 6px;
+      cursor: pointer; background: #e5e7eb;
+      border-radius: 3px;
+    }
+    input[type=range]:focus { outline: none; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4 font-sans text-gray-800">
+
+  <div class="max-w-6xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col lg:flex-row">
+    
+    <div class="p-6 bg-slate-50 border-r border-gray-200 flex justify-center items-center relative">
+      <canvas id="simCanvas" width="600" height="600" class="bg-white rounded-lg shadow-inner border border-gray-300"></canvas>
+      <div id="intersect-badge" class="absolute top-10 left-10 bg-rose-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg opacity-0 transition-opacity duration-300">
+        🎯 임계 조건 만족! 정확히 8개 교점 감지
+      </div>
+    </div>
+
+    <div class="p-8 flex flex-col flex-1">
+      <h1 class="text-2xl font-bold text-gray-900 mb-1">정사각형 PQRS 정밀 분석기</h1>
+      <p class="text-gray-600 mb-6 text-sm">
+        선분 PQ의 길이 a의 변화에 따라 시계 반대 방향으로 회전하는 사각형의 궤적과 교점을 대수적으로 추적합니다.
+      </p>
+
+      <div class="mb-5 bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+        <div class="flex justify-between mb-2">
+          <label class="font-bold text-indigo-900">선분 PQ의 길이 (a)</label>
+          <span id="a-value" class="font-mono text-indigo-700 font-bold">1.000</span>
+        </div>
+        <input type="range" id="a-slider" min="0.5" max="1.0" step="0.001" value="1.0">
+        <div class="flex gap-2 mt-3">
+          <button id="btn-a1" class="flex-1 text-xs bg-indigo-200 hover:bg-indigo-300 text-indigo-800 py-1.5 rounded transition">문제(1) a = 1.000</button>
+          <button id="btn-a-root" class="flex-1 text-xs bg-rose-200 hover:bg-rose-300 text-rose-800 py-1.5 rounded transition font-bold">문제(2) a = √2/2 (≒0.707)</button>
+        </div>
+      </div>
+
+      <div class="mb-5">
+        <div class="flex justify-between mb-2">
+          <label class="font-semibold text-gray-700">이동 진행률 (t)</label>
+          <span id="t-value" class="font-mono text-gray-500">0.00</span>
+        </div>
+        <input type="range" id="t-slider" min="0" max="8" step="0.01" value="0">
+      </div>
+
+      <div class="mb-5">
+        <button id="play-btn" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2">
+          자동 재생 / 멈춤
+        </button>
+      </div>
+
+      <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-5 text-sm font-semibold flex flex-col gap-2">
+        <div class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer text-green-700">
+            <input type="checkbox" id="chk-r" checked class="w-4 h-4 accent-green-600"> R 자취 가이드
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-purple-700">
+            <input type="checkbox" id="chk-s" class="w-4 h-4 accent-purple-600"> S 자취 가이드
+          </label>
+        </div>
+        <hr class="border-gray-200 my-1">
+        <label class="flex items-center gap-2 cursor-pointer text-slate-600 font-medium text-xs">
+          <input type="checkbox" id="chk-guide" checked class="w-3.5 h-3.5 accent-slate-500"> 대칭 중심 보조선 및 축 표시
+        </label>
+      </div>
+
+      <div class="bg-slate-900 rounded-lg p-4 text-white mt-auto shadow-inner">
+        <div class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">실시간 꼭짓점 좌표계</div>
+        <div class="grid grid-cols-2 gap-2 font-mono text-xs">
+          <div id="pos-p" class="text-sky-400">P: (0.00, 0.00)</div>
+          <div id="pos-q" class="text-sky-400">Q: (0.00, 0.00)</div>
+          <div id="pos-r" class="text-emerald-400">R: (0.00, 0.00)</div>
+          <div id="pos-s" class="text-fuchsia-400">S: (0.00, 0.00)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const W = canvas.width; const H = canvas.height;
+    
+    const scale = 150; 
+    const originX = W / 2 - scale / 2; 
+    const originY = H / 2 + scale / 2; 
+
+    function toSX(x) { return originX + x * scale; }
+    function toSY(y) { return originY - y * scale; }
+
+    let a = 1.0;
+    let t = 0;
+    let isPlaying = false;
+    let animId;
+
+    function getPositions(time, valA) {
+      let phase = Math.floor(time);
+      let r = time - phase;
+      if (time >= 8) { phase = 7; r = 1; }
+
+      let Px, Py, Qx, Qy;
+      let L = 1 - valA;
+
+      if (phase === 0) { 
+        let th = r * Math.PI / 2;
+        Px = valA * Math.cos(th); Py = 0;
+        Qx = 0; Qy = valA * Math.sin(th);
+      } else if (phase === 1) { 
+        let u = r * L;
+        Px = 0; Py = u; Qx = 0; Qy = u + valA;
+      } else if (phase === 2) { 
+        let th = r * Math.PI / 2;
+        Px = 0; Py = 1 - valA * Math.cos(th);
+        Qx = valA * Math.sin(th); Qy = 1;
+      } else if (phase === 3) { 
+        let u = r * L;
+        Px = u; Py = 1; Qx = u + valA; Qy = 1;
+      } else if (phase === 4) { 
+        let th = r * Math.PI / 2;
+        Px = 1 - valA * Math.cos(th); Py = 1;
+        Qx = 1; Qy = 1 - valA * Math.sin(th);
+      } else if (phase === 5) { 
+        let u = r * L;
+        Px = 1; Py = 1 - u; Qx = 1; Qy = 1 - u - valA;
+      } else if (phase === 6) { 
+        let th = r * Math.PI / 2;
+        Px = 1; Py = valA * Math.cos(th);
+        Qx = 1 - valA * Math.sin(th); Qy = 0;
+      } else if (phase === 7) { 
+        let u = r * L;
+        Px = 1 - u; Py = 0; Qx = 1 - u - valA; Qy = 0;
+      }
+
+      let dx = Qx - Px;
+      let dy = Qy - Py;
+      let Rx = Qx + dy; let Ry = Qy - dx;
+      let Sx = Px + dy; let Sy = Py - dx;
+
+      return { P:{x:Px,y:Py}, Q:{x:Qx,y:Qy}, R:{x:Rx,y:Ry}, S:{x:Sx,y:Sy} };
+    }
+
+    function drawFullGuide(target, color) {
+      ctx.beginPath();
+      let first = getPositions(0, a)[target];
+      ctx.moveTo(toSX(first.x), toSY(first.y));
+      for (let i = 0.01; i <= 8; i += 0.01) {
+        let pos = getPositions(i, a)[target];
+        ctx.lineTo(toSX(pos.x), toSY(pos.y));
+      }
+      ctx.closePath();
+      ctx.fillStyle = color.replace('0.2', '0.04'); 
+      ctx.fill();
+      ctx.strokeStyle = color.replace('0.2', '0.25'); 
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    function drawActivePath(target, color, currentT) {
+      if (currentT <= 0) return;
+      ctx.beginPath();
+      let first = getPositions(0, a)[target];
+      ctx.moveTo(toSX(first.x), toSY(first.y));
+      for (let i = 0.01; i <= currentT; i += 0.01) {
+        let pos = getPositions(i, a)[target];
+        ctx.lineTo(toSX(pos.x), toSY(pos.y));
+      }
+      let currentPos = getPositions(currentT, a)[target];
+      ctx.lineTo(toSX(currentPos.x), toSY(currentPos.y));
+
+      ctx.strokeStyle = color.replace('0.2', '0.9'); 
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // 모눈종이 배경
+      ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+      for (let i = -2; i <= 3; i++) {
+        ctx.beginPath(); ctx.moveTo(toSX(-2.5), toSY(i)); ctx.lineTo(toSX(3.5), toSY(i)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(toSX(i), toSY(-2.5)); ctx.lineTo(toSX(i), toSY(3.5)); ctx.stroke();
+      }
+      
+      // 대칭 중심 보조선
+      if (document.getElementById('chk-guide').checked) {
+        ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.moveTo(toSX(-0.5), toSY(0.5)); ctx.lineTo(toSX(1.5), toSY(0.5)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(toSX(0.5), toSY(-0.5)); ctx.lineTo(toSX(0.5), toSY(1.5)); ctx.stroke();
+        ctx.setLineDash([]); 
+        
+        ctx.fillStyle = '#64748b';
+        ctx.beginPath(); ctx.arc(toSX(0.5), toSY(0.5), 3.5, 0, Math.PI*2); ctx.fill();
+        ctx.font = '11px sans-serif';
+        ctx.fillText('(0.5, 0.5)', toSX(0.5)+6, toSY(0.5)+15);
+      }
+
+      // 외곽 고정 정사각형 OABC
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = 2.5;
+      ctx.strokeRect(toSX(0), toSY(1), scale, scale);
+      
+      ctx.fillStyle = '#475569'; ctx.font = '13px font-mono, sans-serif';
+      ctx.fillText('O(0,0)', toSX(0)-45, toSY(0)+18);
+      ctx.fillText('C(1,0)', toSX(1)+8, toSY(0)+18);
+      ctx.fillText('A(0,1)', toSX(0)-45, toSY(1)-8);
+      ctx.fillText('B(1,1)', toSX(1)+8, toSY(1)-8);
+
+      // 1. 전체 자취 배경 가이드라인 선 그리기
+      if (document.getElementById('chk-r').checked) drawFullGuide('R', 'rgba(16, 185, 129, 0.2)'); 
+      if (document.getElementById('chk-s').checked) drawFullGuide('S', 'rgba(168, 85, 247, 0.2)'); 
+
+      // 2. 가이드를 따라 미끄러지는 현재 시간 t까지의 진행선 덧그리기
+      if (document.getElementById('chk-r').checked) drawActivePath('R', 'rgba(16, 185, 129, 0.2)', t);
+      if (document.getElementById('chk-s').checked) drawActivePath('S', 'rgba(168, 85, 247, 0.2)', t);
+
+      // 동적 정사각형 PQRS 좌표 계산 및 렌더링
+      const pos = getPositions(t, a);
+      
+      ctx.beginPath();
+      ctx.moveTo(toSX(pos.P.x), toSY(pos.P.y));
+      ctx.lineTo(toSX(pos.Q.x), toSY(pos.Q.y));
+      ctx.lineTo(toSX(pos.R.x), toSY(pos.R.y));
+      ctx.lineTo(toSX(pos.S.x), toSY(pos.S.y));
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+      ctx.fill();
+      ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 꼭짓점 마킹
+      ['P','Q','R','S'].forEach(pt => {
+        let color = pt==='R' ? '#10b981' : pt==='S' ? '#a855f7' : '#ef4444';
+        ctx.beginPath(); ctx.arc(toSX(pos[pt].x), toSY(pos[pt].y), 5.5, 0, Math.PI*2);
+        ctx.fillStyle = color; ctx.fill();
+        ctx.fillStyle = '#000'; ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(pt, toSX(pos[pt].x)+8, toSY(pos[pt].y)-8);
+        
+        document.getElementById(`pos-${pt.toLowerCase()}`).innerText = 
+          `${pt}: (${pos[pt].x.toFixed(2)}, ${pos[pt].y.toFixed(2)})`;
+      });
+
+      document.getElementById('a-value').innerText = a.toFixed(3);
+      document.getElementById('t-value').innerText = t.toFixed(2);
+
+      // 8개 전체 교점 탐지 시스템
+      const badge = document.getElementById('intersect-badge');
+      if (Math.abs(a - Math.SQRT1_2) < 0.005) {
+        badge.style.opacity = '1';
+        if (document.getElementById('chk-r').checked) {
+          ctx.fillStyle = '#f97316'; 
+          
+          const intersects = [
+            {x: 0.5, y: 1.0}, {x: Math.SQRT1_2, y: 1.0},   
+            {x: 1.0, y: 0.5}, {x: 1.0, y: 1.0 - Math.SQRT1_2}, 
+            {x: 0.5, y: 0.0}, {x: 1.0 - Math.SQRT1_2, y: 0.0}, 
+            {x: 0.0, y: 0.5}, {x: 0.0, y: Math.SQRT1_2}    
+          ];
+          
+          intersects.forEach(pt => {
+            ctx.beginPath(); ctx.arc(toSX(pt.x), toSY(pt.y), 5, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+          });
+        }
+      } else {
+        badge.style.opacity = '0';
+      }
+    }
+
+    // 리스너 동기화
+    document.getElementById('a-slider').addEventListener('input', e => { a = parseFloat(e.target.value); draw(); });
+    document.getElementById('t-slider').addEventListener('input', e => { t = parseFloat(e.target.value); draw(); });
+    document.getElementById('chk-r').addEventListener('change', draw);
+    document.getElementById('chk-s').addEventListener('change', draw);
+    document.getElementById('chk-guide').addEventListener('change', draw);
+    
+    document.getElementById('btn-a1').addEventListener('click', () => {
+      a = 1.0; document.getElementById('a-slider').value = a; draw();
+    });
+    document.getElementById('btn-a-root').addEventListener('click', () => {
+      a = Math.SQRT1_2; document.getElementById('a-slider').value = a; draw();
+    });
+
+    document.getElementById('play-btn').addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      if(isPlaying) {
+        if (t >= 8) t = 0; 
+        loop();
+      }
+      else cancelAnimationFrame(animId);
+    });
+
+    function loop() {
+      if(!isPlaying) return;
+      t += 0.03; 
+      if(t >= 8) {
+        t = 8;
+        document.getElementById('t-slider').value = t;
+        draw();
+        isPlaying = false; 
+        return;
+      }
+      document.getElementById('t-slider').value = t;
+      draw();
+      animId = requestAnimationFrame(loop);
+    }
+
+    draw();
+  </script>
+</body>
+</html>

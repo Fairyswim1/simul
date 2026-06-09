@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동전 뒤집기 시뮬레이터</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f4f7f6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .control-panel {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 20px;
+            align-items: center;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            width: 150px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #27ae60;
+        }
+        .result-panel {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        .chart-container {
+            position: relative;
+            height: 450px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="control-panel">
+        <div class="input-group">
+            <label for="n-value">카드 개수 (n)</label>
+            <input type="number" id="n-value" value="50" min="1" max="1000">
+        </div>
+        <div class="input-group">
+            <label for="sim-count">시뮬레이션 횟수</label>
+            <input type="number" id="sim-count" value="10000" min="100" max="1000000">
+        </div>
+        <button onclick="runSimulation()">시뮬레이션 실행</button>
+    </div>
+
+    <div class="result-panel" id="result-text">
+        값을 입력하고 버튼을 누르면 시뮬레이션이 시작됩니다.
+    </div>
+
+    <div class="chart-container">
+        <canvas id="convergenceChart"></canvas>
+    </div>
+</div>
+
+<script>
+    let chartInstance = null;
+
+    function runSimulation() {
+        const n = parseInt(document.getElementById('n-value').value);
+        const simCount = parseInt(document.getElementById('sim-count').value);
+        
+        if (n < 1 || simCount < 1) {
+            alert("올바른 값을 입력해주세요.");
+            return;
+        }
+
+        document.getElementById('result-text').innerHTML = "시뮬레이션 계산 중...";
+
+        setTimeout(() => {
+            calculateAndDraw(n, simCount);
+        }, 50);
+    }
+
+    function calculateAndDraw(n, simCount) {
+        // 정확하게 수정된 수식 적용
+        const correctEV = (n * (n + 1) / 4) * (1 - Math.pow(1 - 2/n, n)); 
+        const wrongEV = (n * (n + 1) / 4) * (1 - Math.pow(1 - 1/n, n)); 
+
+        let realTotalSum = 0;   
+        let intuitionTotalSum = 0; 
+
+        let chartLabels = [];
+        let realRunningAverages = [];
+        let intuitionRunningAverages = [];
+        let correctEVData = [];
+        let wrongEVData = [];
+        
+        const recordInterval = Math.max(1, Math.floor(simCount / 100));
+
+        for (let s = 1; s <= simCount; s++) {
+            let realCards = new Array(n + 1).fill(false);
+            let chosenCards = new Array(n + 1).fill(false);
+
+            for (let i = 0; i < n; i++) {
+                let randomCard = Math.floor(Math.random() * n) + 1;
+                realCards[randomCard] = !realCards[randomCard];
+                chosenCards[randomCard] = true;
+            }
+
+            let realSum = 0;
+            for (let i = 1; i <= n; i++) {
+                if (realCards[i]) realSum += i;
+            }
+            realTotalSum += realSum;
+
+            let intuitionSum = 0;
+            for (let i = 1; i <= n; i++) {
+                if (chosenCards[i]) {
+                    if (Math.random() < 0.5) {
+                        intuitionSum += i;
+                    }
+                }
+            }
+            intuitionTotalSum += intuitionSum;
+
+            if (s % recordInterval === 0 || s === simCount) {
+                chartLabels.push(s);
+                realRunningAverages.push(realTotalSum / s);
+                intuitionRunningAverages.push(intuitionTotalSum / s);
+                correctEVData.push(correctEV);
+                wrongEVData.push(wrongEV);
+            }
+        }
+
+        const finalRealAverage = realTotalSum / simCount;
+        const finalIntuitionAverage = intuitionTotalSum / simCount;
+        
+        document.getElementById('result-text').innerHTML = `
+            <strong>실제 규칙 시뮬레이션 최종 평균:</strong> ${finalRealAverage.toFixed(4)} (이론값: ${correctEV.toFixed(4)})<br>
+            <strong>1/2 근사 가설 시뮬레이션 최종 평균:</strong> ${finalIntuitionAverage.toFixed(4)} (근사값: ${wrongEV.toFixed(4)})
+        `;
+
+        drawChart(chartLabels, realRunningAverages, intuitionRunningAverages, correctEVData, wrongEVData);
+    }
+
+    function drawChart(labels, realData, intuitionData, correctData, wrongData) {
+        const ctx = document.getElementById('convergenceChart').getContext('2d');
+        if (chartInstance) chartInstance.destroy();
+
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '실제 규칙 시뮬레이션 데이터',
+                        data: realData,
+                        borderColor: '#3498db',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: '1/2 근사 가설 시뮬레이션 데이터',
+                        data: intuitionData,
+                        borderColor: '#f39c12',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: '실제 이론값 라인',
+                        data: correctData,
+                        borderColor: '#e74c3c',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: '1/2 근사 기댓값 라인',
+                        data: wrongData,
+                        borderColor: '#7f8c8d',
+                        borderWidth: 1.5,
+                        borderDash: [4, 4],
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: '시행 횟수' } },
+                    y: { title: { display: true, text: '보이는 숫자 합의 평균' } }
+                }
+            }
+        });
+    }
+
+    window.onload = function() { runSimulation(); };
+</script>
+
+</body>
+</html>

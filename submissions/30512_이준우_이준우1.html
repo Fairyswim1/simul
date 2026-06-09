@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>최종 시뮬레이터 - 합성함수의 극소 개수 분석</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; margin: 20px; background-color: #f9f9f9; color: #333; }
+        .container { display: flex; max-width: 1200px; margin: 0 auto; gap: 20px; }
+        .main-panel { flex: 2; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .side-panel { flex: 1; background: #eef7f4; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: left; }
+        .controls { margin: 20px 0; display: flex; align-items: center; justify-content: center; gap: 15px; }
+        input[type=range] { width: 50%; }
+        button { padding: 8px 15px; background-color: #2ecc71; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #27ae60; }
+        .local-min-list { list-style: none; padding: 0; }
+        .local-min-list li { padding: 6px 10px; margin-bottom: 5px; background: white; border-left: 4px solid #27ae60; border-radius: 3px; font-size: 0.9em; }
+        .highlight { font-weight: bold; color: #e74c3c; }
+    </style>
+</head>
+<body>
+
+    <h2>📊 합성함수 $g(x) = 3f(x) + 4\cos f(x)$ 극소점 탐색 시뮬레이터</h2>
+    <p style="color: #666;">$0 < x < 2$ 범위에서 함수 $g(x)$의 극소 조건과 부호 변화를 관찰합니다.</p>
+
+    <div class="container">
+        <div class="main-panel">
+            <canvas id="mainChart" height="180"></canvas>
+            <div class="controls">
+                <button id="playBtn">▶ 자동 재생</button>
+                <label><b>x 조절:</b> <input type="range" id="xSlider" min="0.01" max="1.99" step="0.005" value="0.1"></label>
+                <span id="xValue" class="highlight">0.100</span>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <h3>📍 극소점 분석 결과</h3>
+            <h4 style="margin: 5px 0; color: #27ae60;">발견된 극소점 개수: <span id="countSpan" style="font-size: 1.3em;">0</span> / 7 개</h4>
+            <hr>
+            <p><b>💡 탐색된 극소점 위치 리스트:</b></p>
+            <ul id="minPointsList" class="local-min-list">
+                </ul>
+            <div style="font-size: 0.85em; color: #555; background: #fff; padding: 10px; border-radius: 5px; margin-top: 15px;">
+                <b>인사이트:</b> $x=1$ 좌우 대칭성을 띠며, 도함수 $g'(x)$의 부호가 (-)에서 (+)로 바뀌는 완벽한 골짜기 지점들이 시각화되어 정답이 <b>7개</b>임을 증명합니다.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        
+        function f(x) { return 6 * Math.PI * Math.pow(x - 1, 2); }
+        function g(x) { return 3 * f(x) + 4 * Math.cos(f(x)); }
+        function gPrime(x) { 
+            let fp = 12 * Math.PI * (x - 1);
+            return fp * (3 - 4 * Math.sin(f(x)));
+        }
+
+        // 1. 차트 기본 그래프 데이터 생성 (배경에 깔릴 선)
+        const xValues = [];
+        const gValues = [];
+        const minPoints = []; // 실제 극소점 위치 미리 계산
+
+        // 수치적으로 극소점 찾기 (g'의 부호가 -에서 +로 바뀌는 점)
+        let prevGp = gPrime(0.001);
+        for(let x=0.002; x<2.0; x+=0.001) {
+            let currentGp = gPrime(x);
+            if(prevGp < 0 && currentGp >= 0) {
+                minPoints.push({ x: x, y: g(x) });
+            }
+            prevGp = currentGp;
+        }
+
+        for(let x=0; x<=2.001; x+=0.02) {
+            xValues.push(x);
+            gValues.push(g(x));
+        }
+
+        // Chart.js 초기화
+        const chart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'g(x) 그래프',
+                        data: xValues.map(x => ({x: x, y: g(x)})),
+                        borderColor: '#3498db',
+                        borderWidth: 2,
+                        showLine: true,
+                        pointRadius: 0,
+                        order: 2
+                    },
+                    {
+                        label: '발견된 극소점 (골짜기)',
+                        data: minPoints,
+                        backgroundColor: '#27ae60',
+                        borderColor: '#27ae60',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        order: 1
+                    },
+                    {
+                        label: '현재 탐색 위치',
+                        data: [],
+                        backgroundColor: '#e74c3c',
+                        borderColor: '#e74c3c',
+                        pointRadius: 8,
+                        order: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { type: 'linear', position: 'bottom', min: 0, max: 2, title: {display: true, text: 'x 축'} },
+                    y: { min: -5, max: 65, title: {display: true, text: 'g(x) 축'} }
+                }
+            }
+        });
+
+        // UI 컨트롤 요소
+        const slider = document.getElementById('xSlider');
+        const xValueSpan = document.getElementById('xValue');
+        const countSpan = document.getElementById('countSpan');
+        const minPointsList = document.getElementById('minPointsList');
+        const playBtn = document.getElementById('playBtn');
+
+        let isPlaying = false;
+        let playInterval;
+
+        function update() {
+            const currentX = parseFloat(slider.value);
+            xValueSpan.innerText = currentX.toFixed(3);
+
+            // 현재 위치 점 업데이트
+            chart.data.datasets[2].data = [{ x: currentX, y: g(currentX) }];
+            chart.update('none');
+
+            // 실시간 리스트 활성화 피드백 (현재 x보다 왼쪽에 있는 극소점 개수 카운트)
+            let foundCount = 0;
+            minPointsList.innerHTML = '';
+            
+            minPoints.forEach((pt, idx) => {
+                if(currentX >= pt.x) {
+                    foundCount++;
+                    const li = document.createElement('li');
+                    li.innerHTML = `<b>극소 ${foundCount}</b>: x = ${pt.x.toFixed(3)}, g(x) = ${pt.y.toFixed(2)}`;
+                    minPointsList.appendChild(li);
+                }
+            });
+            countSpan.innerText = foundCount;
+        }
+
+        slider.addEventListener('input', update);
+
+        // 자동 재생 기능
+        playBtn.addEventListener('click', () => {
+            if(isPlaying) {
+                clearInterval(playInterval);
+                playBtn.innerText = "▶ 자동 재생";
+                isPlaying = false;
+            } else {
+                slider.value = 0.01;
+                playBtn.innerText = "⏸ 일시 정지";
+                isPlaying = true;
+                playInterval = setInterval(() => {
+                    let val = parseFloat(slider.value) + 0.01;
+                    if(val >= 2.0) {
+                        clearInterval(playInterval);
+                        playBtn.innerText = "▶ 자동 재생";
+                        isPlaying = false;
+                        val = 1.99;
+                    }
+                    slider.value = val;
+                    update();
+                }, 30);
+            }
+        });
+
+        // 초기 실행
+        update();
+    </script>
+</body>
+</html>

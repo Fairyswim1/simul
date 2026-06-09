@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>지수함수 접선·법선·정사각형 시각화</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f6f8;
+      color: #1f2937;
+    }
+    header {
+      padding: 22px 28px 12px;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    header p { margin: 0; line-height: 1.55; color: #4b5563; }
+    main {
+      display: grid;
+      grid-template-columns: 300px minmax(520px, 1fr) 360px;
+      gap: 14px;
+      padding: 14px;
+      align-items: start;
+    }
+    .panel, .canvas-card, .result-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+    }
+    .panel { padding: 16px; position: sticky; top: 12px; }
+    .control { margin-bottom: 18px; }
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    label span { font-weight: 600; color: #2563eb; }
+    input[type="range"] { width: 100%; }
+    .hint {
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.5;
+      margin-top: 6px;
+    }
+    .formula {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 14px;
+      font-family: "Times New Roman", serif;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    .hint-card {
+      margin-top: 14px;
+      padding: 14px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 14px;
+      line-height: 1.45;
+    }
+    .hint-card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: #9a3412;
+      text-align: center;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .flow-step {
+      background: white;
+      border: 1px solid #fed7aa;
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 8px;
+      align-items: center;
+      text-align: left;
+      min-height: auto;
+    }
+    .flow-step h3 {
+      margin: 0 0 2px;
+      font-size: 14px;
+      color: #111827;
+    }
+    .flow-step p {
+      margin: 0;
+      font-size: 12.5px;
+      color: #4b5563;
+    }
+    .key-step {
+      border: 2px solid #fb923c;
+      background: #fffaf5;
+    }
+    .badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: #f97316;
+      color: white;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+    }
+    .arrow { display: none; }
+    .main-insight {
+      display: block;
+      background: #ffedd5;
+      border: 1px solid #fdba74;
+      border-radius: 12px;
+      padding: 11px;
+      margin: 10px 0;
+    }
+    .big-symbol {
+      display: inline-block;
+      background: #9a3412;
+      color: white;
+      font-weight: 900;
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+    .main-insight p {
+      margin: 3px 0;
+      font-size: 13px;
+    }
+    .conclusion-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .conclusion-card {
+      background: white;
+      border-radius: 12px;
+      padding: 10px;
+      border: 1px solid #e5e7eb;
+    }
+    .red-card { border-left: 6px solid #dc2626; }
+    .green-card { border-left: 6px solid #059669; }
+    .mini-title {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 800;
+      margin-bottom: 3px;
+    }
+    .formula-big {
+      font-size: 16px;
+      font-weight: 900;
+      color: #111827;
+      margin-bottom: 3px;
+    }
+    .result {
+      font-size: 13px;
+      color: #374151;
+      font-weight: 700;
+    }
+    .summary-strip {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .answer-chip {
+      border-radius: 12px;
+      padding: 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      text-align: center;
+    }
+    .answer-chip .label {
+      font-size: 12px;
+      color: #1d4ed8;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .answer-chip .ans {
+      font-size: 22px;
+      font-weight: 900;
+      color: #111827;
+    }
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: #111827;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:hover { background: #374151; }
+    .canvas-card { padding: 14px; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 640px;
+      border-radius: 12px;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+    }
+    .result-card {
+      padding: 16px;
+      position: sticky;
+      top: 12px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .stat {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .stat .name { color: #6b7280; font-size: 12px; margin-bottom: 3px; }
+    .stat .value { font-size: 18px; font-weight: 800; color: #111827; }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .box {
+      background: #fcfcfd;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      line-height: 1.55;
+    }
+    .box h3 { margin: 0 0 6px; font-size: 15px; }
+    .blue { color: #2563eb; font-weight: 800; }
+    .red { color: #dc2626; font-weight: 800; }
+    .green { color: #059669; font-weight: 800; }
+    .small { font-size: 13px; color: #6b7280; }
+    @media (max-width: 1100px) {
+      main { grid-template-columns: 1fr; }
+      .panel, .result-card { position: static; }
+      canvas { height: 520px; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .two-col { grid-template-columns: 1fr; }
+      .main-insight { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>문제 53 시각화: y = eˣ의 접선, 법선, 점 Q, 정사각형 PHRS</h1>
+    <p>슬라이더로 c와 r을 바꾸면, 조건 PH = r을 만족하는 Q(t, eᵗ)를 자동으로 찾아 도형을 그립니다. 그림은 계산이 잘 보이도록 P를 원점으로 둔 <b>접선-법선 좌표계</b>로 표시합니다.</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="control">
+        <label>c 값 <span id="cLabel"></span></label>
+        <input id="cSlider" type="range" min="0.2" max="8" step="0.05" value="2.0" />
+      </div>
+
+      <div class="control">
+        <label>r 값 <span id="rLabel"></span></label>
+        <input id="rSlider" type="range" min="0.2" max="5" step="0.05" value="2.0" />
+      </div>
+
+      <button id="limitBtn">c → ∞ 관찰</button>
+
+      <div class="formula">
+        <b>접선·법선 좌표</b><br>
+        u = (1, eᶜ) / √(1 + e²ᶜ)<br>
+        v = (−eᶜ, 1) / √(1 + e²ᶜ)<br><br>
+        PH = PQ · u = r<br>
+        QH = PQ · v
+      </div>
+    </section>
+
+    <section class="canvas-card">
+      <canvas id="plot"></canvas>
+    </section>
+
+    <section class="result-card">
+      <div class="summary-strip">
+        <div class="answer-chip">
+          <div class="label">1번 결론</div>
+          <div class="ans">0</div>
+        </div>
+        <div class="answer-chip">
+          <div class="label">2번 결론</div>
+          <div class="ans">r²</div>
+        </div>
+      </div>
+
+      <div class="hint-card">
+        <h2>풀이 구조</h2>
+        <div class="flow">
+          <div class="flow-step">
+            <div class="badge">1</div>
+            <div><h3>접선 방향으로 본다</h3><p>PH는 문제 조건에 의해 항상 r</p></div>
+          </div>
+          <div class="flow-step key-step">
+            <div class="badge">2</div>
+            <div><h3>핵심은 QH</h3><p>△PQH = ½ · r · QH</p></div>
+          </div>
+          <div class="flow-step">
+            <div class="badge">3</div>
+            <div><h3>c가 커지면 QH → 0</h3><p>Q가 P에 가까워져 곡선과 접선 차이가 사라짐</p></div>
+          </div>
+        </div>
+
+        <div class="main-insight">
+          <div class="big-symbol">c → ∞</div>
+          <p><b>기울기 eᶜ가 커짐 → Q가 P에 가까워짐 → QH가 0으로 감</b></p>
+        </div>
+
+        <div class="conclusion-row">
+          <div class="conclusion-card red-card">
+            <div class="mini-title">삼각형</div>
+            <div class="formula-big">△PQH = ½r·QH → 0</div>
+          </div>
+          <div class="conclusion-card green-card">
+            <div class="mini-title">도형 PQRS</div>
+            <div class="formula-big">A(c,r)=r²−△PQH → r²</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="stat"><div class="name">t</div><div class="value" id="tVal"></div></div>
+        <div class="stat"><div class="name">QH</div><div class="value" id="qhVal"></div></div>
+        <div class="stat"><div class="name">△PQH</div><div class="value" id="triVal"></div></div>
+        <div class="stat"><div class="name">A(c,r)</div><div class="value" id="areaVal"></div></div>
+      </div>
+
+      <p class="small">빨간 삼각형이 0으로 줄어들고, 파란 도형은 초록 정사각형 넓이 r²에 가까워지는지만 확인하면 됩니다.</p>
+    </section>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('plot');
+    const ctx = canvas.getContext('2d');
+    const cSlider = document.getElementById('cSlider');
+    const rSlider = document.getElementById('rSlider');
+    const cLabel = document.getElementById('cLabel');
+    const rLabel = document.getElementById('rLabel');
+    const tVal = document.getElementById('tVal');
+    const qhVal = document.getElementById('qhVal');
+    const triVal = document.getElementById('triVal');
+    const areaVal = document.getElementById('areaVal');
+    const limitBtn = document.getElementById('limitBtn');
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    }
+
+    function fmt(x, digits = 5) {
+      if (!Number.isFinite(x)) return '계산 불가';
+      if (Math.abs(x) < 1e-4 && x !== 0) return x.toExponential(3);
+      return x.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    // PH = [(t-c) + e^c(e^t-e^c)] / sqrt(1+e^(2c)) = r 를 수치적으로 풂
+    function solveT(c, r) {
+      const ec = Math.exp(c);
+      const denom = Math.sqrt(1 + ec * ec);
+      const f = (t) => ((t - c) + ec * (Math.exp(t) - ec)) / denom - r;
+
+      let lo = c;
+      let hi = c + 0.1;
+      while (f(hi) < 0 && hi < c + 20) hi += (hi - c + 0.1) * 1.4;
+
+      for (let i = 0; i < 80; i++) {
+        const mid = (lo + hi) / 2;
+        if (f(mid) < 0) lo = mid;
+        else hi = mid;
+      }
+      return (lo + hi) / 2;
+    }
+
+    function compute(c, r) {
+      const t = solveT(c, r);
+      const ec = Math.exp(c);
+      const et = Math.exp(t);
+      const denom = Math.sqrt(1 + ec * ec);
+      const d = t - c;
+      const ph = ((t - c) + ec * (et - ec)) / denom;
+      const qh = (-ec * d + (et - ec)) / denom;
+      const tri = 0.5 * ph * qh;
+      const area = r * r - tri;
+      return { c, r, t, d, ph, qh, tri, area };
+    }
+
+    function toLocalXY(c, x, y) {
+      const ec = Math.exp(c);
+      const px = c;
+      const py = ec;
+      const denom = Math.sqrt(1 + ec * ec);
+      const dx = x - px;
+      const dy = y - py;
+      return {
+        X: (dx + ec * dy) / denom,
+        Y: (-ec * dx + dy) / denom
+      };
+    }
+
+    function drawPoint(pt, label, color, radius = 5) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.font = '700 15px system-ui';
+      ctx.fillText(label, pt.x + 8, pt.y - 8);
+    }
+
+    function draw() {
+      const c = parseFloat(cSlider.value);
+      const r = parseFloat(rSlider.value);
+      const data = compute(c, r);
+
+      cLabel.textContent = fmt(c, 2);
+      rLabel.textContent = fmt(r, 2);
+      tVal.textContent = fmt(data.t, 6);
+      qhVal.textContent = fmt(data.qh, 7);
+      triVal.textContent = fmt(data.tri, 7);
+      areaVal.textContent = fmt(data.area, 7);
+
+      const W = canvas.getBoundingClientRect().width;
+      const H = canvas.getBoundingClientRect().height;
+      ctx.clearRect(0, 0, W, H);
+
+      const margin = 58;
+      const maxY = Math.max(r * 1.25, data.qh * 1.4, 1);
+      const maxX = r * 1.25;
+      const scale = Math.min((W - 2 * margin) / (maxX * 1.7), (H - 2 * margin) / (maxY * 1.7));
+      const ox = margin + 35;
+      const oy = H - margin - 35;
+      const map = (X, Y) => ({ x: ox + X * scale, y: oy - Y * scale });
+
+      const P = map(0, 0);
+      const Hpt = map(r, 0);
+      const Q = map(r, data.qh);
+      const R = map(r, r);
+      const S = map(0, r);
+
+      // axes: tangent and normal
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = '#d1d5db';
+      ctx.beginPath();
+      ctx.moveTo(map(-0.18 * r, 0).x, map(-0.18 * r, 0).y);
+      ctx.lineTo(map(1.35 * r, 0).x, map(1.35 * r, 0).y);
+      ctx.moveTo(map(0, -0.12 * r).x, map(0, -0.12 * r).y);
+      ctx.lineTo(map(0, 1.35 * r).x, map(0, 1.35 * r).y);
+      ctx.stroke();
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '14px system-ui';
+      ctx.fillText('접선 Tᶜ 방향', map(1.06 * r, 0).x, map(1.06 * r, 0).y + 20);
+      ctx.fillText('법선 Nᶜ 방향', map(0, 1.08 * r).x + 8, map(0, 1.08 * r).y);
+
+      // square PHRS
+      ctx.beginPath();
+      ctx.moveTo(P.x, P.y);
+      ctx.lineTo(Hpt.x, Hpt.y);
+      ctx.lineTo(R.x, R.y);
+      ctx.lineTo(S.x, S.y);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.10)';
+      ctx.fill();
+      ctx.strokeStyle = '#059669';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      // triangle PQH
+      ctx.beginPath();
+      ctx.moveTo(P.x, P.y);
+      ctx.lineTo(Hpt.x, Hpt.y);
+      ctx.lineTo(Q.x, Q.y);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.14)';
+      ctx.fill();
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // polygon PQRS
+      ctx.beginPath();
+      ctx.moveTo(P.x, P.y);
+      ctx.lineTo(Q.x, Q.y);
+      ctx.lineTo(R.x, R.y);
+      ctx.lineTo(S.x, S.y);
+      ctx.closePath();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // curve y=e^x in local coordinates around P, mapped to tangent-normal frame
+      ctx.beginPath();
+      let first = true;
+      const minD = -Math.min(2.2, c + 1.5);
+      const maxD = Math.max(data.d * 5, 1.2);
+      for (let i = 0; i <= 240; i++) {
+        const d = minD + (maxD - minD) * i / 240;
+        const x = c + d;
+        const y = Math.exp(x);
+        const loc = toLocalXY(c, x, y);
+        const pt = map(loc.X, loc.Y);
+        if (pt.x < -100 || pt.x > W + 100 || pt.y < -100 || pt.y > H + 100) continue;
+        if (first) { ctx.moveTo(pt.x, pt.y); first = false; }
+        else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      // segment labels
+      ctx.strokeStyle = '#111827';
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(Q.x, Q.y);
+      ctx.lineTo(Hpt.x, Hpt.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      drawPoint(P, 'P', '#111827');
+      drawPoint(Hpt, 'H', '#111827');
+      drawPoint(Q, 'Q', '#7c3aed');
+      drawPoint(R, 'R', '#059669');
+      drawPoint(S, 'S', '#059669');
+
+      ctx.fillStyle = '#111827';
+      ctx.font = '700 14px system-ui';
+      ctx.fillText('PH = r', (P.x + Hpt.x) / 2 - 20, P.y + 24);
+      ctx.fillText('QH', Q.x + 10, (Q.y + Hpt.y) / 2);
+      ctx.fillStyle = '#7c3aed';
+      ctx.fillText('y = eˣ', map(Math.min(r * 0.75, r), Math.max(data.qh, 0.12 * r)).x + 10, map(Math.min(r * 0.75, r), Math.max(data.qh, 0.12 * r)).y - 10);
+
+      // small right-angle mark at H
+      const s = 12;
+      ctx.strokeStyle = '#111827';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(Hpt.x - s, Hpt.y);
+      ctx.lineTo(Hpt.x - s, Hpt.y - s);
+      ctx.lineTo(Hpt.x, Hpt.y - s);
+      ctx.stroke();
+    }
+
+    cSlider.addEventListener('input', draw);
+    rSlider.addEventListener('input', draw);
+    window.addEventListener('resize', resizeCanvas);
+
+    let animating = false;
+    limitBtn.addEventListener('click', () => {
+      if (animating) return;
+      animating = true;
+      const start = parseFloat(cSlider.value);
+      const end = 8;
+      const duration = 2200;
+      const t0 = performance.now();
+      function step(now) {
+        const p = Math.min((now - t0) / duration, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        cSlider.value = start + (end - start) * eased;
+        draw();
+        if (p < 1) requestAnimationFrame(step);
+        else animating = false;
+      }
+      requestAnimationFrame(step);
+    });
+
+    resizeCanvas();
+  </script>
+</body>
+</html>

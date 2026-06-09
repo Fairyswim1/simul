@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>함수 f(x) 심화 시뮬레이터 (슬로우 모션 + 미세 조정 추가)</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 950px; margin: 0 auto; padding: 20px; background-color: #f8f9fa; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .controls { display: flex; flex-direction: column; gap: 15px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 10px; }
+        button { padding: 8px 16px; cursor: pointer; border: 1px solid #007bff; background: white; color: #007bff; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        button.active { background: #007bff; color: white; }
+        button:hover { background: #e9ecef; color: #0056b3; }
+        button.active:hover { background: #0056b3; color: white; }
+        .slider-container { display: flex; align-items: center; gap: 10px; }
+        input[type="range"] { flex-grow: 1; margin: 0 10px; }
+        .fine-tune { padding: 4px 10px; font-size: 14px; background: #e9ecef; color: #333; border: 1px solid #ced4da; }
+        .fine-tune:hover { background: #ced4da; color: #000; }
+        #plot { width: 100%; height: 550px; }
+        .info-panel { padding: 15px; background: #e9ecef; border-radius: 4px; font-size: 15px; line-height: 1.5; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 13px; font-weight: bold; color: white; margin-right: 5px; }
+        .badge.intercept { background: #6c757d; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>함수 f(x) = (x² + 3x + a)(x + 1)² 심화 시뮬레이터</h2>
+    
+    <div class="tabs">
+        <button id="btn1" class="active" onclick="setMode(1)">문제 1: 최솟값 범위</button>
+        <button id="btn2" onclick="setMode(2)">문제 2: a < 2 극솟값 비교</button>
+        <button id="btn3" onclick="setMode(3)">문제 3: 단조감소 및 최솟값 b</button>
+    </div>
+
+    <div class="controls">
+        <div class="slider-container">
+            <label for="a-slider"><strong>a 값:</strong></label>
+            <button class="fine-tune" onclick="adjustA(-0.002)" title="0.002 감소">◀</button>
+            <input type="range" id="a-slider" min="-5" max="5" step="0.001" value="0">
+            <button class="fine-tune" onclick="adjustA(0.002)" title="0.002 증가">▶</button>
+            <span id="a-val" style="width: 70px; font-weight: bold; text-align: center;">0</span>
+            <button id="play-btn" onclick="togglePlay()">▶ 자동 재생</button>
+        </div>
+        <div id="info" class="info-panel">여기에 상태 정보가 표시됩니다.</div>
+    </div>
+</div>
+
+<div class="card">
+    <div id="plot"></div>
+    <p style="text-align: center; font-size: 13px; color: #666; margin-top: 10px;">
+        💡 마우스 휠 스크롤: <strong>확대/축소</strong> | 클릭 후 드래그: <strong>이동</strong> | ◀, ▶ 버튼: <strong>미세 조정</strong>
+    </p>
+</div>
+
+<script>
+    let mode = 1;
+    let aValue = 0;
+    let playInterval = null;
+    let isPlaying = false;
+    let isPausedTemporarily = false;
+
+    const CRITICAL_POINTS = {
+        2: "2",
+        2.25: "9/4",
+        2.28125: "73/32"
+    };
+
+    function formatA(a) {
+        for (let cp in CRITICAL_POINTS) {
+            if (Math.abs(a - parseFloat(cp)) < 0.0001) return CRITICAL_POINTS[cp];
+        }
+        return a.toFixed(3);
+    }
+
+    function f(x, a) {
+        return (x * x + 3 * x + a) * Math.pow(x + 1, 2);
+    }
+
+    function getExtremaX(a) {
+        let pts = [-1]; 
+        const D = 73 - 32 * a;
+        if (D > 0) {
+            pts.push((-11 - Math.sqrt(D)) / 8);
+            pts.push((-11 + Math.sqrt(D)) / 8);
+        } else if (D === 0) {
+            pts.push(-11 / 8);
+        }
+        return [...new Set(pts.map(x => Number(x.toFixed(5))))].sort((a, b) => a - b);
+    }
+
+    function getXIntercepts(a) {
+        let pts = [-1]; 
+        const D = 9 - 4 * a;
+        if (D > 0) {
+            pts.push((-3 - Math.sqrt(D)) / 2);
+            pts.push((-3 + Math.sqrt(D)) / 2);
+        } else if (D === 0) {
+            pts.push(-1.5);
+        }
+        return [...new Set(pts.map(x => Number(x.toFixed(5))))].sort((a, b) => a - b);
+    }
+
+    function setMode(newMode) {
+        mode = newMode;
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn' + mode).classList.add('active');
+
+        const slider = document.getElementById('a-slider');
+        if (mode === 2) {
+            slider.max = "1.99";
+            if (aValue >= 2) aValue = 0; 
+        } else {
+            slider.max = "5";
+        }
+        slider.value = aValue;
+        updatePlot();
+    }
+
+    // 미세 조정 버튼용 함수 (강제 스냅을 무시하고 정확히 이동)
+    function adjustA(delta) {
+        let slider = document.getElementById('a-slider');
+        let nextA = aValue + delta;
+        nextA = Math.max(parseFloat(slider.min), Math.min(parseFloat(slider.max), nextA));
+        aValue = nextA;
+        slider.value = aValue;
+        updatePlot();
+    }
+
+    function togglePlay() {
+        const btn = document.getElementById('play-btn');
+        if (isPlaying) {
+            clearInterval(playInterval);
+            btn.innerText = "▶ 자동 재생";
+            isPlaying = false;
+        } else {
+            btn.innerText = "⏸ 정지";
+            isPlaying = true;
+            playInterval = setInterval(autoPlayStep, 30);
+        }
+    }
+
+    function autoPlayStep() {
+        if (isPausedTemporarily) return;
+
+        const slider = document.getElementById('a-slider');
+        let step = 0.02; // 기본 이동 속도
+        
+        // [핵심 수정] 3번 모드일 때 2.24 ~ 2.30 구간(임계점 사이)에서는 속도를 20배 늦춤!
+        if (mode === 3 && aValue >= 2.24 && aValue <= 2.30) {
+            step = 0.001; 
+        }
+
+        let nextA = aValue + step;
+        
+        if (nextA > parseFloat(slider.max)) nextA = parseFloat(slider.min);
+
+        let snapTargets = mode === 1 ? [2.25] : mode === 3 ? [2.25, 2.28125] : [];
+        let hitTarget = null;
+        
+        for (let target of snapTargets) {
+            if (aValue < target && nextA >= target) {
+                nextA = target;
+                hitTarget = target;
+                break;
+            }
+        }
+
+        aValue = nextA;
+        slider.value = aValue;
+        updatePlot();
+
+        // 임계점에 도달하면 잠시 멈춰서 관찰할 시간을 줌
+        if (hitTarget !== null) {
+            isPausedTemporarily = true;
+            setTimeout(() => { isPausedTemporarily = false; }, 2000); 
+        }
+    }
+
+    document.getElementById('a-slider').addEventListener('input', function(e) {
+        let val = parseFloat(e.target.value);
+        
+        // [핵심 수정] 3번 모드일 때는 두 임계점 사이가 너무 좁으므로 스냅 반경을 대폭 축소
+        let snapThreshold = mode === 3 ? 0.002 : 0.05; 
+        let snapTargets = mode === 1 ? [2.25] : mode === 3 ? [2.25, 2.28125] : [];
+        
+        for (let target of snapTargets) {
+            if (Math.abs(val - target) < snapThreshold) {
+                val = target;
+                this.value = val;
+                break;
+            }
+        }
+        aValue = val;
+        updatePlot();
+    });
+
+    function updatePlot() {
+        document.getElementById('a-val').innerText = formatA(aValue);
+        
+        const xData = [];
+        const yData = [];
+        for (let x = -5; x <= 3; x += 0.01) {
+            xData.push(x);
+            yData.push(f(x, aValue));
+        }
+
+        const traces = [{
+            x: xData,
+            y: yData,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'f(x)',
+            line: { color: '#007bff', width: 2.5 },
+            hoverinfo: 'none'
+        }];
+
+        const xInts = getXIntercepts(aValue);
+        const extrema = getExtremaX(aValue);
+        
+        traces.push({
+            x: [0], y: [aValue],
+            mode: 'markers', marker: { color: '#6c757d', size: 6, symbol: 'diamond' },
+            name: 'y절편', hovertemplate: 'y절편: (0, %{y:.2f})<extra></extra>'
+        });
+        traces.push({
+            x: xInts, y: xInts.map(() => 0),
+            mode: 'markers', marker: { color: '#6c757d', size: 6 },
+            name: 'x절편', hovertemplate: 'x절편: (%{x:.2f}, 0)<extra></extra>'
+        });
+        traces.push({
+            x: extrema, y: extrema.map(x => f(x, aValue)),
+            mode: 'markers', marker: { color: '#343a40', size: 8, symbol: 'square' },
+            name: '극값', hovertemplate: '극점: (%{x:.2f}, %{y:.2f})<extra></extra>'
+        });
+
+        let infoText = `<span class="badge intercept">기본 표시</span> 회색 원: x절편 / 마름모: y절편 / 사각형: 극점<br><hr style="border-top:1px solid #ccc; margin: 10px 0;">`;
+        
+        const layout = {
+            margin: { t: 30, b: 40, l: 50, r: 20 },
+            xaxis: { title: 'x', zeroline: true, zerolinecolor: '#999', gridcolor: '#eee', range: [-4, 2] },
+            yaxis: { title: 'f(x)', zeroline: true, zerolinecolor: '#999', gridcolor: '#eee', range: [-10, 15] },
+            showlegend: false,
+            shapes: [],
+            uirevision: mode 
+        };
+
+        if (mode === 1) {
+            let minY = Math.min(...extrema.map(x => f(x, aValue)));
+            let minX = extrema.find(x => Math.abs(f(x, aValue) - minY) < 0.0001);
+            
+            traces.push({
+                x: [minX], y: [minY],
+                mode: 'markers+text',
+                marker: { color: '#dc3545', size: 12, line: {color: 'white', width: 2} },
+                text: ['최솟값'], textposition: 'bottom center',
+                textfont: { color: '#dc3545', size: 14, weight: 'bold' }
+            });
+            
+            infoText += `<strong>[문제 1] 최솟값 범위 구하기</strong><br>`;
+            if (aValue === 2.25) {
+                infoText += `<span style="color:#d35400; font-weight:bold; font-size:16px;">▶ 임계점 도달! a = 9/4</span><br>최솟값이 정확히 0이 됩니다.`;
+            } else if (aValue < 2.25) {
+                infoText += `현재 최솟값: <strong>${minY.toFixed(3)}</strong> (x = ${minX.toFixed(3)})<br><span style="color:#28a745; font-weight:bold;">✔ 최솟값이 음수입니다! (정답 조건 a < 9/4 만족)</span>`;
+            } else {
+                infoText += `현재 최솟값: ${minY.toFixed(3)} (x = ${minX.toFixed(3)})<br><span style="color:#dc3545;">✘ 최솟값이 0보다 큽니다.</span>`;
+            }
+        } 
+        else if (mode === 2) {
+            if (aValue < 2 && extrema.length >= 2) {
+                let localMins = extrema.filter(x => f(x-0.01, aValue) > f(x, aValue) && f(x+0.01, aValue) > f(x, aValue));
+                
+                if(localMins.length === 2) {
+                    const a1 = localMins[0];
+                    const a2 = localMins[1];
+                    const fa1 = f(a1, aValue);
+                    const fa2 = f(a2, aValue);
+
+                    layout.shapes.push({
+                        type: 'line', xref: 'paper', yref: 'y',
+                        x0: 0, x1: 1, y0: fa1, y1: fa1,
+                        line: { color: '#9c27b0', dash: 'dash', width: 1.5 }
+                    });
+                    layout.shapes.push({
+                        type: 'line', xref: 'paper', yref: 'y',
+                        x0: 0, x1: 1, y0: fa2, y1: fa2,
+                        line: { color: '#e91e63', dash: 'dash', width: 1.5 }
+                    });
+
+                    traces.push({
+                        x: [a1, a2], y: [fa1, fa2],
+                        mode: 'markers+text',
+                        marker: { color: ['#9c27b0', '#e91e63'], size: 12, line: {color: 'white', width: 2} },
+                        text: ['극소 a₁', '극소 a₂'], textposition: 'bottom center',
+                        textfont: { size: 13, weight: 'bold' }
+                    });
+                    infoText += `<strong>[문제 2] 두 극솟값 비교</strong><br>
+                                 a₁ = ${a1.toFixed(3)}, f(a₁) = <strong>${fa1.toFixed(3)}</strong><br>
+                                 a₂ = ${a2.toFixed(3)}, f(a₂) = <strong>${fa2.toFixed(3)}</strong><br>
+                                 <span style="color:#28a745; font-weight:bold;">▶ 항상 f(a₁) < f(a₂) 가 성립함을 점선(높이)을 통해 확인할 수 있습니다.</span>`;
+                }
+            }
+        } 
+        else if (mode === 3) {
+            infoText += `<strong>[문제 3] x < b에서 단조감소 & x=b에서 최솟값</strong><br>`;
+            
+            let isSatisfied = false;
+            let b = null;
+            
+            if (aValue <= 2.25001) { 
+                b = extrema[0]; 
+                isSatisfied = true;
+                if (Math.abs(aValue - 2.25) < 0.001) {
+                    infoText += `<span style="color:#d35400; font-weight:bold; font-size:15px;">▶ 임계점 도달! a = 9/4 (2.25)</span><br>`;
+                }
+            } else if (aValue >= 2.28124) { 
+                b = -1;
+                isSatisfied = true;
+                if (Math.abs(aValue - 2.28125) < 0.001) {
+                    infoText += `<span style="color:#d35400; font-weight:bold; font-size:15px;">▶ 임계점 도달! a = 73/32 (2.28125)</span><br>`;
+                }
+            }
+
+            if (isSatisfied && b !== null) {
+                traces.push({
+                    x: [b], y: [f(b, aValue)],
+                    mode: 'markers+text',
+                    marker: { color: '#ff851b', size: 14, line: {color: 'black', width: 2} },
+                    text: ['b (최솟값 위치)'], textposition: 'top center', textfont: {color: '#ff851b', weight: 'bold'}
+                });
+                
+                layout.shapes.push({
+                    type: 'rect', xref: 'x', yref: 'paper',
+                    x0: -5, y0: 0, x1: b, y1: 1,
+                    fillcolor: 'rgba(255, 133, 27, 0.15)', line: { width: 0 }
+                });
+                infoText += `<span style="color:#28a745; font-weight:bold;">✔ 조건 만족!</span> 왼쪽 극점 b(x = ${b.toFixed(3)})가 전체 최솟값이며, 색칠된 구간(x < b)에서 단조감소합니다.<br><strong>(정답: a ≤ 9/4 또는 a ≥ 73/32)</strong>`;
+            } else {
+                infoText += `<span style="color:#dc3545; font-weight:bold; font-size:15px;">✘ 조건 불만족. (2.25 < a < 2.28125)</span><br>최솟값은 x = -1이지만, 그 이전 구간에서 그래프가 오르락내리락하여 단조감소 조건에 위배됩니다.`;
+            }
+        }
+
+        document.getElementById('info').innerHTML = infoText;
+        
+        const config = { 
+            responsive: true, 
+            scrollZoom: true, 
+            displayModeBar: true,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d'] 
+        };
+        
+        Plotly.react('plot', traces, layout, config);
+    }
+
+    updatePlot();
+</script>
+
+</body>
+</html>
