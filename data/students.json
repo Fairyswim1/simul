@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T07:40:27.330Z",
+  "generatedAt": "2026-06-09T07:43:00.882Z",
   "classes": [
     "301",
     "302",
@@ -474,22 +474,6 @@
     },
     {
       "studentId": "30214",
-      "studentName": "이준아",
-      "classId": "302",
-      "report": null,
-      "simulations": [
-        {
-          "title": "이준아1",
-          "path": "submissions/30214_이준아_이준아1.html"
-        },
-        {
-          "title": "이준아2",
-          "path": "submissions/30214_이준아_이준아2.html"
-        }
-      ]
-    },
-    {
-      "studentId": "30214",
       "studentName": "장지환",
       "classId": "302",
       "report": "submissions/30214_장지환_수학 시뮬레이터 제작 보고서 장지환.pdf",
@@ -685,7 +669,16 @@
       "studentName": "이준아",
       "classId": "303",
       "report": "submissions/30310_이준아_수학 시뮬레이터 제작 보고서(30310이준아).pdf",
-      "simulations": []
+      "simulations": [
+        {
+          "title": "이준아1",
+          "path": "submissions/30310_이준아_이준아1.html"
+        },
+        {
+          "title": "이준아2",
+          "path": "submissions/30310_이준아_이준아2.html"
+        }
+      ]
     },
     {
       "studentId": "30311",
