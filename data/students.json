@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-11T00:57:48.060Z",
+  "generatedAt": "2026-06-11T01:00:17.913Z",
   "classes": [
     "301",
     "302",
@@ -1100,7 +1100,7 @@
       "studentId": "30506",
       "studentName": "김범석",
       "classId": "305",
-      "report": null,
+      "report": "submissions/30506_김범석_수학 시뮬레이터 제작 보고서.pdf",
       "simulations": [
         {
           "title": "김범석1",
