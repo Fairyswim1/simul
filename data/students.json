@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T07:43:00.882Z",
+  "generatedAt": "2026-06-11T00:57:48.060Z",
   "classes": [
     "301",
     "302",
@@ -684,7 +684,7 @@
       "studentId": "30311",
       "studentName": "장현성",
       "classId": "303",
-      "report": null,
+      "report": "submissions/30311_장현성_수학 시뮬레이터 제작 보고서(30311장현성).pdf",
       "simulations": [
         {
           "title": "장현성1",
@@ -796,7 +796,7 @@
       "studentId": "30403",
       "studentName": "구건율",
       "classId": "304",
-      "report": null,
+      "report": "submissions/30403_구건율_수학 시뮬레이터 제작 보고서_30403_pdf.pdf",
       "simulations": [
         {
           "title": "구건율1",
@@ -812,7 +812,7 @@
       "studentId": "30404",
       "studentName": "김동윤",
       "classId": "304",
-      "report": null,
+      "report": "submissions/30404_김동윤_수학 시뮬레이터 제작 보고서_30404_김동윤.pdf",
       "simulations": [
         {
           "title": "김동윤1",
@@ -828,7 +828,7 @@
       "studentId": "30405",
       "studentName": "김상연",
       "classId": "304",
-      "report": null,
+      "report": "submissions/30405_김상연_수학 시뮬레이터 제작 보고서(30405 김상연).pdf",
       "simulations": [
         {
           "title": "김상연1",
@@ -956,7 +956,7 @@
       "studentId": "30413",
       "studentName": "이민혁",
       "classId": "304",
-      "report": null,
+      "report": "submissions/30413_이민혁_moat02i91r9hs8eup_수학 시뮬레이터 제작 보고서(30413_이민혁).pdf",
       "simulations": [
         {
           "title": "이민혁1",
@@ -1004,7 +1004,7 @@
       "studentId": "30416",
       "studentName": "조연우",
       "classId": "304",
-      "report": null,
+      "report": "submissions/30416_조연우_수학 시뮬레이터 제작 보고서(30416조연우).pdf",
       "simulations": [
         {
           "title": "조연우1",
